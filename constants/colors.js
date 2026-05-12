@@ -48,4 +48,19 @@ export const COLORS = {
   // Overlays
   overlayDark: 'rgba(0,0,0,0.22)',
   progressTrack: 'rgba(255,255,255,0.20)',
+
+  // Tools Übersicht - Premium Look
+  toolsBg: '#050403',
+  toolsCard: '#0C0910',
+  toolsCardSoft: '#100C14',
+  toolsCardBorder: 'rgba(255,255,255,0.10)',
+  toolsCardBorderActive: 'rgba(231,201,138,0.24)',
+  toolsCardBorderPressed: 'rgba(231,201,138,0.32)',
+
+  toolsText: '#FFF1D2',
+  toolsTextMuted: '#A99A83',
+  toolsTextDim: '#7A7180',
+
+  toolsGold: '#E7C98A',
+  toolsSoftGold: '#BFA36B',
 };

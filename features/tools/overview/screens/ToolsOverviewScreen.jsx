@@ -42,12 +42,17 @@ function formatSteps(count) {
 }
  
 function renderToolIcon(tool) {
+  const iconColor = tool.disabled ? COLORS.toolsTextDim : COLORS.toolsGold;
+
   if (tool.type === 'Ionicons')
-    return <Ionicons name={tool.name} size={s(20)} color={tool.color} />;
+    return <Ionicons name={tool.name} size={s(20)} color={iconColor} />;
+
   if (tool.type === 'MaterialCommunityIcons')
-    return <MaterialCommunityIcons name={tool.name} size={s(20)} color={tool.color} />;
+    return <MaterialCommunityIcons name={tool.name} size={s(20)} color={iconColor} />;
+
   if (tool.type === 'Feather')
-    return <Feather name={tool.name} size={s(20)} color={tool.color} />;
+    return <Feather name={tool.name} size={s(20)} color={iconColor} />;
+
   return null;
 }
  
@@ -173,7 +178,7 @@ export default function ToolsScreen() {
         <View style={styles.mentorCard}>
           <View style={styles.mentorLeft}>
             <View style={styles.mentorIconWrap}>
-              <Ionicons name="sparkles-outline" size={s(28)} color={COLORS.softGold} />
+              <Ionicons name="sparkles-outline" size={s(28)} color={COLORS.toolsGold} />
             </View>
             <View style={styles.mentorTextBox}>
               <Text style={styles.mentorTitle}>KI Mentor</Text>
@@ -182,9 +187,12 @@ export default function ToolsScreen() {
               </Text>
             </View>
           </View>
-          <View style={styles.mentorButton}>
-            <Text style={styles.mentorButtonText}>In Bearbeitung</Text>
-          </View>
+          <Pressable 
+            style={styles.mentorButton}
+            onPress={() => router.push('/mentor')}
+          >
+            <Text style={styles.mentorButtonText}>Erfahre mehr!</Text>
+          </Pressable>
         </View>
  
         {/* Tracker */}

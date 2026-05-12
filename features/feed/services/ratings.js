@@ -1,5 +1,5 @@
 import { supabase } from '../../../services/supabaseClient';
- 
+
 export async function fetchRating(userId, videoId) {
   const { data, error } = await supabase
     .from('video_ratings')
@@ -7,18 +7,35 @@ export async function fetchRating(userId, videoId) {
     .eq('user_id', userId)
     .eq('video_id', videoId)
     .maybeSingle();
- 
+
   if (error) throw error;
+
   return data?.rating ?? null;
 }
- 
+
 export async function upsertRating(userId, videoId, rating) {
   const { error } = await supabase
     .from('video_ratings')
     .upsert(
-      { user_id: userId, video_id: videoId, rating },
-      { onConflict: 'user_id,video_id' }
+      {
+        user_id: userId,
+        video_id: videoId,
+        rating,
+      },
+      {
+        onConflict: 'user_id,video_id',
+      }
     );
- 
+
+  if (error) throw error;
+}
+
+export async function deleteRating(userId, videoId) {
+  const { error } = await supabase
+    .from('video_ratings')
+    .delete()
+    .eq('user_id', userId)
+    .eq('video_id', videoId);
+
   if (error) throw error;
 }

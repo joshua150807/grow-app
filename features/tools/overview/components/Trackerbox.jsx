@@ -10,30 +10,34 @@ export default function TrackerBox({ value, label }) {
     </View>
   );
 }
- 
+
 const styles = StyleSheet.create({
   box: {
     flex: 1,
-    backgroundColor: COLORS.darkCard,
-    borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    borderRadius: s(14),
+    backgroundColor: '#08060B',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.075)',
+    borderRadius: s(8),
     minHeight: sv(52),
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: s(6),
     paddingVertical: sv(8),
   },
+
   value: {
-    color: COLORS.softGold,
-    fontSize: sf(16),
-    fontWeight: '700',
+    color: '#FFF1D2',
+    fontSize: sf(15.2),
+    fontWeight: '500',
     marginBottom: sv(4),
+    letterSpacing: 0.15,
   },
+
   label: {
-    color: COLORS.mutedGold,
-    fontSize: sf(10),
+    color: 'rgba(255,241,210,0.50)',
+    fontSize: sf(9.2),
+    fontWeight: '400',
     textAlign: 'center',
-    lineHeight: sf(13),
+    lineHeight: sf(12.5),
   },
 });

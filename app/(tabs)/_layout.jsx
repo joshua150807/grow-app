@@ -98,8 +98,14 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="mentor"
         options={{
+            href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="tools"
+        options={{
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="chatbubble-ellipses-outline" color={color} size={s(18)} focused={focused} />
+            <TabIcon name="grid-outline" color={color} size={s(26)} focused={focused} />
           ),
         }}
       />
@@ -108,14 +114,6 @@ export default function TabsLayout() {
         options={{
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="leaf-outline" color={color} size={s(26)} focused={focused} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="tools"
-        options={{
-          tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="grid-outline" color={color} size={s(26)} focused={focused} />
           ),
         }}
       />
