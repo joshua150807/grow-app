@@ -7,7 +7,13 @@ import { s, sv, sf } from '../../../../constants/layout';
 const ITEM_H = sv(48);
 const VISIBLE = 5;
 
-export function PickerColumn({ data, initialIndex, onChange }) {
+export function PickerColumn({
+  data,
+  initialIndex,
+  onChange,
+  onInteractionStart,
+  onInteractionEnd,
+}) {
   const ref = useRef(null);
   const [activeIndex, setActiveIndex] = useState(initialIndex);
 
@@ -15,10 +21,15 @@ export function PickerColumn({ data, initialIndex, onChange }) {
     const t = setTimeout(() => {
       ref.current?.scrollTo({ y: initialIndex * ITEM_H, animated: false });
     }, 50);
-    return () => clearTimeout(t);
-  }, []);
 
-  const onScrollEnd = useCallback((e) => {
+    return () => clearTimeout(t);
+  }, [initialIndex]);
+
+  const finishInteraction = useCallback(() => {
+    onInteractionEnd?.();
+  }, [onInteractionEnd]);
+
+  const handleScrollEnd = useCallback((e) => {
     const idx = Math.max(
       0,
       Math.min(
@@ -29,23 +40,30 @@ export function PickerColumn({ data, initialIndex, onChange }) {
 
     setActiveIndex(idx);
     onChange(idx);
-  }, [data.length, onChange]);
+    finishInteraction();
+  }, [data.length, onChange, finishInteraction]);
 
   const centerOffset = Math.floor(VISIBLE / 2) * ITEM_H;
 
   return (
-    <View style={styles.wrap}>
+    <View
+      style={styles.wrap}
+      onTouchStart={onInteractionStart}
+      onTouchEnd={finishInteraction}
+      onTouchCancel={finishInteraction}
+    >
       <View pointerEvents="none" style={[styles.line, { top: centerOffset }]} />
       <View pointerEvents="none" style={[styles.line, { top: centerOffset + ITEM_H }]} />
 
       <ScrollView
         ref={ref}
+        nestedScrollEnabled
+        scrollEventThrottle={16}
         snapToInterval={ITEM_H}
         decelerationRate="fast"
         showsVerticalScrollIndicator={false}
-        onMomentumScrollEnd={onScrollEnd}
-        onScrollEndDrag={onScrollEnd}
-        nestedScrollEnabled
+        onMomentumScrollEnd={handleScrollEnd}
+        onScrollEndDrag={handleScrollEnd}
         contentContainerStyle={{ paddingVertical: centerOffset }}
         style={styles.scroll}
       >
@@ -53,11 +71,8 @@ export function PickerColumn({ data, initialIndex, onChange }) {
           const isActive = i === activeIndex;
 
           return (
-            <View key={i} style={styles.item}>
-              <Text style={[
-                styles.text,
-                isActive && styles.textActive,
-              ]}>
+            <View key={`${val}-${i}`} style={styles.item}>
+              <Text style={[styles.text, isActive && styles.textActive]}>
                 {val}
               </Text>
             </View>
@@ -74,31 +89,38 @@ export function PickerColumn({ data, initialIndex, onChange }) {
 const styles = StyleSheet.create({
   wrap: {
     position: 'relative',
+    width: s(76),
   },
+
   scroll: {
     height: ITEM_H * VISIBLE,
   },
+
   item: {
     height: ITEM_H,
     alignItems: 'center',
     justifyContent: 'center',
   },
+
   text: {
     color: COLORS.textSecondary,
     fontSize: sf(16),
     fontWeight: '700',
   },
+
   textActive: {
     color: COLORS.white,
     fontSize: sf(18),
   },
+
   line: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    left: s(8),
+    right: s(8),
     height: 1,
     backgroundColor: COLORS.goldBorder,
   },
+
   fadeTop: {
     position: 'absolute',
     top: 0,
@@ -107,6 +129,7 @@ const styles = StyleSheet.create({
     height: ITEM_H,
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
+
   fadeBottom: {
     position: 'absolute',
     bottom: 0,

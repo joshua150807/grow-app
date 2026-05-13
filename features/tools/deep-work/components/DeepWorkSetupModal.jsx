@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Modal,
   View,
@@ -34,6 +35,11 @@ export default function DeepWorkSetupModal({
   canStart,
   startSession,
 }) {
+  const [sheetScrollEnabled, setSheetScrollEnabled] = useState(true);
+
+  const disableSheetScroll = () => setSheetScrollEnabled(false);
+  const enableSheetScroll = () => setSheetScrollEnabled(true);
+
   return (
     <Modal
       visible={visible}
@@ -50,6 +56,7 @@ export default function DeepWorkSetupModal({
 
         <View style={styles.sheet}>
           <ScrollView
+            scrollEnabled={sheetScrollEnabled}
             contentContainerStyle={styles.sheetScrollContent}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
@@ -73,12 +80,16 @@ export default function DeepWorkSetupModal({
                 data={HOURS}
                 initialIndex={0}
                 onChange={setSelHours}
+                onInteractionStart={disableSheetScroll}
+                onInteractionEnd={enableSheetScroll}
               />
               <Text style={styles.pickerSeparator}>h</Text>
               <PickerColumn
                 data={MINUTES}
                 initialIndex={DEFAULT_SESSION_MINUTES}
                 onChange={setSelMinutes}
+                onInteractionStart={disableSheetScroll}
+                onInteractionEnd={enableSheetScroll}
               />
               <Text style={styles.pickerSeparator}>min</Text>
             </View>

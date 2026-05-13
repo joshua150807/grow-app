@@ -146,6 +146,9 @@ export const styles = StyleSheet.create({
   pickerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    width: '100%',
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.2)',
     borderRadius: s(16),
@@ -158,7 +161,7 @@ export const styles = StyleSheet.create({
     color: COLORS.textMuted,
     fontSize: sf(16),
     fontWeight: '600',
-    marginHorizontal: s(6),
+    marginHorizontal: s(4),
   },
   chipRow: {
     flexDirection: 'row',
