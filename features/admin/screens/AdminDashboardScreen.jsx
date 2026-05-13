@@ -158,18 +158,21 @@ export default function AdminDashboardScreen() {
             icon="play-circle-outline"
             label="Views"
             value={formatNumber(stats.totalViews)}
+            onPress={() => router.push('/admin-video-analytics')}
           />
 
           <StatCard
             icon="bookmark-outline"
             label="Saves"
             value={formatNumber(stats.totalSaves)}
+            onPress={() => router.push('/admin-video-analytics')}
           />
 
           <StatCard
             icon="flame-outline"
             label="Ratings"
             value={formatNumber(stats.totalRatings)}
+            onPress={() => router.push('/admin-video-analytics')}
           />
 
           <StatCard
