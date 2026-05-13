@@ -15,6 +15,7 @@ import { getHabitStreak, getTodayHabitProgress } from '../../habits/services/hab
 import { getDeepWorkTimeLeft } from '../../deep-work/services/deepWorkStore'
 import { useSteps } from '../../../steps/hooks/useSteps'
 import { useProfile } from '../.././../profile/hooks/useProfile'
+import { supabase } from '../../../../services/supabaseClient';
 
 // eigene components
 import ToolCard from '../components/ToolCard';
@@ -57,7 +58,7 @@ function renderToolIcon(tool) {
 }
  
 export default function ToolsScreen() {
-  const { username, growPoints } = useProfile();
+  const { username, growPoints, isCeo } = useProfile();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const [streak, setStreak] = useState(0);
@@ -135,19 +136,31 @@ export default function ToolsScreen() {
  
             {menuOpen && (
               <Pressable style={styles.dropdown} onPress={(e) => e.stopPropagation()}>
+
                 <Pressable onPress={() => router.push('/tools/saved-videos')}>
                   <Text style={styles.menuItem}>Gespeicherte Videos</Text>
                 </Pressable>
+
                 <Pressable onPress={() => router.push('/tools/privacy')}>
                   <Text style={styles.menuItem}>Datenschutz</Text>
                 </Pressable>
+
                 <Pressable onPress={() => router.push('/tools/imprint')}>
                   <Text style={styles.menuItem}>Impressum</Text>
                 </Pressable>
+
+                {isCeo && (
+                  <Pressable onPress={() => router.push('/admin-dashboard')}>
+                    <Text style={styles.menuItem}>CEO Dashboard</Text>
+                  </Pressable>
+                )}
+
                 <View style={styles.line} />
+
                 <Pressable onPress={handleLogout}>
                   <Text style={styles.logoutItem}>Logout</Text>
                 </Pressable>
+                
               </Pressable>
             )}
           </View>
