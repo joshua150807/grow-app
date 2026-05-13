@@ -5,6 +5,7 @@ import { COLORS } from '../../../constants/colors';
 const PROGRESS_AREA_SIDE = 18;
 const PROGRESS_AREA_BOTTOM = 65;
 const THUMB_SIZE = 10;
+const TOUCH_ZONE_HEIGHT = 36;
 
 export default function FeedProgressBar({
   safeProgress,
@@ -14,7 +15,7 @@ export default function FeedProgressBar({
   panHandlers,
 }) {
   return (
-    <View style={styles.progressArea}>
+    <View style={styles.progressArea} pointerEvents="box-none">
       <View
         style={styles.progressTouchZone}
         onLayout={onTrackLayout}
@@ -31,6 +32,7 @@ export default function FeedProgressBar({
 
         {canScrub && (
           <View
+            pointerEvents="none"
             style={[
               styles.progressThumb,
               { left: thumbLeft },
@@ -53,7 +55,7 @@ const styles = StyleSheet.create({
 
   progressTouchZone: {
     justifyContent: 'center',
-    height: 24,
+    height: TOUCH_ZONE_HEIGHT,
   },
 
   progressTrack: {
@@ -72,7 +74,7 @@ const styles = StyleSheet.create({
 
   progressThumb: {
     position: 'absolute',
-    top: 7,
+    top: (TOUCH_ZONE_HEIGHT - THUMB_SIZE) / 2,
     width: THUMB_SIZE,
     height: THUMB_SIZE,
     borderRadius: 999,

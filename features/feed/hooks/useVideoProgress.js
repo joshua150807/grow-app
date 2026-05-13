@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder } from 'react-native';
 
 const PROGRESS_UPDATE_INTERVAL = 150;
 const THUMB_SIZE = 10;
+
+const clamp = (value, min, max) => {
+  return Math.max(min, Math.min(value, max));
+};
 
 export function useVideoProgress({
   player,
@@ -15,6 +19,9 @@ export function useVideoProgress({
   const [duration, setDuration] = useState(0);
   const [trackWidth, setTrackWidth] = useState(0);
 
+  const dragStartXRef = useRef(0);
+  const latestDurationRef = useRef(0);
+
   useEffect(() => {
     let intervalId;
 
@@ -23,11 +30,12 @@ export function useVideoProgress({
         const current = player.currentTime ?? 0;
         const total = player.duration ?? 0;
 
+        latestDurationRef.current = total;
         setDuration(total);
 
         if (total > 0) {
           const nextProgress = current / total;
-          setProgress(Math.max(0, Math.min(nextProgress, 1)));
+          setProgress(clamp(nextProgress, 0, 1));
         } else {
           setProgress(0);
         }
@@ -43,55 +51,95 @@ export function useVideoProgress({
 
   const canScrub = duration > 0 && trackWidth > 0;
 
-  const updateSeekFromX = useCallback(
+  const setProgressFromX = useCallback(
     (x) => {
-      if (!canScrub) return;
+      if (!canScrub) return null;
 
-      const clampedX = Math.max(0, Math.min(x, trackWidth));
+      const clampedX = clamp(x, 0, trackWidth);
       const ratio = clampedX / trackWidth;
-      const newTime = ratio * duration;
 
-      player.currentTime = newTime;
       setProgress(ratio);
+      return ratio;
     },
-    [canScrub, duration, trackWidth, player]
+    [canScrub, trackWidth]
+  );
+
+  const seekToProgress = useCallback(
+    (ratio) => {
+      const total = latestDurationRef.current || duration;
+
+      if (!player || !total || typeof ratio !== 'number') return;
+
+      player.currentTime = clamp(ratio, 0, 1) * total;
+    },
+    [duration, player]
   );
 
   const progressPanResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => canScrub,
-        onMoveShouldSetPanResponder: () => canScrub,
+        onStartShouldSetPanResponderCapture: () => false,
+
+        onMoveShouldSetPanResponder: (event, gestureState) => {
+          if (!canScrub) return false;
+
+          const isHorizontalMove =
+            Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+
+          const isIntentionalMove = Math.abs(gestureState.dx) > 2;
+
+          return isHorizontalMove && isIntentionalMove;
+        },
+
+        onMoveShouldSetPanResponderCapture: () => false,
 
         onPanResponderGrant: (event) => {
           setIsScrubbing(true);
-          updateSeekFromX(event.nativeEvent.locationX);
+
+          const startX = event.nativeEvent.locationX;
+          dragStartXRef.current = startX;
+
+          const ratio = setProgressFromX(startX);
+          seekToProgress(ratio);
         },
 
-        onPanResponderMove: (event) => {
-          updateSeekFromX(event.nativeEvent.locationX);
+        onPanResponderMove: (event, gestureState) => {
+          if (!canScrub) return;
+
+          const nextX = dragStartXRef.current + gestureState.dx;
+          setProgressFromX(nextX);
         },
 
-        onPanResponderRelease: (event) => {
-          updateSeekFromX(event.nativeEvent.locationX);
-          setIsScrubbing(false);
+        onPanResponderRelease: (event, gestureState) => {
+          if (!canScrub) {
+            setIsScrubbing(false);
+            return;
+          }
+
+          const nextX = dragStartXRef.current + gestureState.dx;
+          const ratio = setProgressFromX(nextX);
+
+          seekToProgress(ratio);
+
+          setTimeout(() => {
+            setIsScrubbing(false);
+          }, 120);
         },
 
         onPanResponderTerminate: () => {
           setIsScrubbing(false);
         },
       }),
-    [canScrub, updateSeekFromX, setIsScrubbing]
+    [canScrub, seekToProgress, setIsScrubbing, setProgressFromX]
   );
 
-  const safeProgress = Math.max(0, Math.min(progress, 1));
+  const safeProgress = clamp(progress, 0, 1);
 
-  const thumbLeft = Math.max(
+  const thumbLeft = clamp(
+    safeProgress * trackWidth - THUMB_SIZE / 2,
     0,
-    Math.min(
-      safeProgress * trackWidth - THUMB_SIZE / 2,
-      Math.max(trackWidth - THUMB_SIZE, 0)
-    )
+    Math.max(trackWidth - THUMB_SIZE, 0)
   );
 
   return {
