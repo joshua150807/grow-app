@@ -145,6 +145,7 @@ export default function AdminDashboardScreen() {
             icon="people-outline"
             label="User"
             value={formatNumber(stats.totalUsers)}
+            onPress={() => router.push('/admin-users')}
           />
 
           <StatCard
