@@ -183,6 +183,7 @@ export default function AdminDashboardScreen() {
               stats.totalBetaCodes
             )}`}
             subLabel={`${formatNumber(stats.openBetaCodes)} offen`}
+            onPress={() => router.push('/admin-beta-codes')}
           />
         </View>
 
