@@ -1,5 +1,7 @@
 import { COLORS } from '../constants/colors';
 
+const trainingsplanIcon = require('../assets/tool-icons/trainingsplan.png')
+
 export const tools = [
   {
     id: 'todo',
@@ -14,9 +16,7 @@ export const tools = [
     id: 'training-plan',
     title: 'Trainingsplan',
     description: 'Erstelle Trainingstage.',
-    type: 'MaterialCommunityIcons',
-    name: 'dumbbell',
-    color: COLORS.softGold,
+    image: trainingsplanIcon,
     route: '/tools/training-plan',
   },
   {

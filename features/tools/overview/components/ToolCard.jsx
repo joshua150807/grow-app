@@ -1,50 +1,93 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import { COLORS } from '../../../../constants/colors';
 import { s, sv, sf, SCREEN } from '../../../../constants/layout';
 
-const compact    = SCREEN.height < 900;
+const compact = SCREEN.height < 900;
 const veryCompact = SCREEN.height < 700;
- 
-export default function ToolCard({ icon, title, description, onPress, disabled = false, badgeText }) {
+
+export default function ToolCard({
+  icon,
+  image,
+  title,
+  description,
+  onPress,
+  disabled = false,
+  badgeText,
+}) {
   return (
     <Pressable
       style={({ pressed }) => [
         styles.card,
+        image && styles.imageCard,
         disabled && styles.cardDisabled,
         pressed && !disabled && styles.cardPressed,
       ]}
       onPress={onPress}
       disabled={disabled}
     >
-      {badgeText ? (
-        <View style={styles.badge}>
-          <Text style={styles.badgeText}>{badgeText}</Text>
-        </View>
-      ) : null}
- 
-      <View style={[styles.iconWrapper, disabled && styles.iconWrapperDisabled]}>
-        {typeof icon === 'string' ? (
-          <Text style={[styles.icon, disabled && styles.iconDisabled]}>{icon}</Text>
-        ) : (
-          icon
-        )}
-      </View>
- 
-      <Text style={[styles.title, disabled && styles.titleDisabled]} numberOfLines={2}>
-        {title}
-      </Text>
-      {!!description && (
-        <Text style={[styles.description, disabled && styles.descriptionDisabled]} numberOfLines={2}>
-          {description}
-        </Text>
+      {image ? (
+        <ImageBackground
+          source={image}
+          style={styles.imageBackground}
+          imageStyle={styles.imageStyle}
+          resizeMode="cover"
+        >
+          {badgeText ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{badgeText}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.imageTextBox}>
+            <Text style={[styles.imageTitle, disabled && styles.titleDisabled]} numberOfLines={1}>
+              {title}
+            </Text>
+
+            {!!description && (
+              <Text style={styles.imageDescription} numberOfLines={2}>
+                {description}
+              </Text>
+            )}
+          </View>
+        </ImageBackground>
+      ) : (
+        <>
+          {badgeText ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{badgeText}</Text>
+            </View>
+          ) : null}
+
+          <View style={[styles.iconWrapper, disabled && styles.iconWrapperDisabled]}>
+            {typeof icon === 'string' ? (
+              <Text style={[styles.icon, disabled && styles.iconDisabled]}>{icon}</Text>
+            ) : (
+              icon
+            )}
+          </View>
+
+          <Text style={[styles.title, disabled && styles.titleDisabled]} numberOfLines={2}>
+            {title}
+          </Text>
+
+          {!!description && (
+            <Text
+              style={[styles.description, disabled && styles.descriptionDisabled]}
+              numberOfLines={2}
+            >
+              {description}
+            </Text>
+          )}
+        </>
       )}
     </Pressable>
   );
 }
- 
+
 const styles = StyleSheet.create({
   card: {
     width: '31.5%',
+    aspectRatio: 1,
     backgroundColor: '#08060B',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(51, 51, 51, 0.99)',
@@ -52,10 +95,17 @@ const styles = StyleSheet.create({
     paddingVertical: sv(8),
     paddingHorizontal: s(6),
     marginBottom: sv(8),
-    minHeight: veryCompact ? sv(95) : compact ? sv(105) : sv(118),
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
+    overflow: 'hidden',
+  },
+
+  imageCard: {
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
   },
 
   cardDisabled: {
@@ -67,8 +117,51 @@ const styles = StyleSheet.create({
   cardPressed: {
     transform: [{ scale: 0.985 }],
     opacity: 0.9,
-    backgroundColor: '#0C0910',
-    borderColor: 'rgba(231,201,138,0.18)',
+  },
+
+  imageBackground: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+
+  imageStyle: {
+    borderRadius: s(8),
+  },
+
+  imageTextBox: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: '54%',
+    paddingHorizontal: s(6),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  imageTitle: {
+    color: '#FFF1D2',
+    fontSize: veryCompact ? sf(8.2) : compact ? sf(9.2) : sf(10.2),
+    fontWeight: '800',
+    textAlign: 'center',
+    textTransform: 'none',
+    letterSpacing: 0.05,
+    textShadowColor: 'rgba(0, 0, 0, 0.95)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+
+  imageDescription: {
+    marginTop: sv(3),
+    color: 'rgba(255,241,210,0.62)',
+    fontSize: veryCompact ? sf(5.8) : compact ? sf(6.3) : sf(6.8),
+    fontWeight: '500',
+    textAlign: 'center',
+    lineHeight: sf(8),
+    textShadowColor: 'rgba(0, 0, 0, 0.9)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
 
   badge: {

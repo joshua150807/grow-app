@@ -178,7 +178,8 @@ export default function ToolsScreen() {
           {tools.map((tool) => (
             <ToolCard
               key={tool.id}
-              icon={renderToolIcon(tool)}
+              icon={tool.image ? undefined : renderToolIcon(tool)}
+              image={tool.image}
               onPress={tool.disabled ? undefined : () => router.push(tool.route)}
               title={tool.title}
               description={tool.description}
