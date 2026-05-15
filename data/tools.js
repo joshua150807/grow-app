@@ -1,12 +1,13 @@
 import { COLORS } from '../constants/colors';
 
 const trainingsplanIcon = require('../assets/tool-icons/trainingsplan.png')
+const goalsIcon = require('../assets/tool-icons/goals-icon.png')
 
 export const tools = [
   {
     id: 'todo',
     title: 'To-Do',
-    description: 'Plane deinen Tag.',
+    description: 'Setze dir klare Aufgaben.',
     type: 'Ionicons',
     name: 'checkmark-outline',
     color: COLORS.softGold,
@@ -15,17 +16,15 @@ export const tools = [
   {
     id: 'training-plan',
     title: 'Trainingsplan',
-    description: 'Erstelle Trainingstage.',
+    description: 'Trainiere mit Struktur',
     image: trainingsplanIcon,
     route: '/tools/training-plan',
   },
   {
     id: 'goals',
     title: 'Ziele',
-    description: 'Setze große Ziele.',
-    type: 'Feather',
-    name: 'target',
-    color: COLORS.softGold,
+    description: 'Definiere deine Zukunft',
+    image: goalsIcon,
     route: '/tools/goals',
   },
   {
@@ -40,7 +39,7 @@ export const tools = [
   {
     id: 'deep-work',
     title: 'Deep Work',
-    description: 'Fokus ohne Ablenkungen',
+    description: 'Arbeite im Fokus',
     type: 'Feather',
     name: 'clock',
     color: COLORS.softGold,

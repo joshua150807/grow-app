@@ -141,27 +141,28 @@ const styles = StyleSheet.create({
   },
 
   imageTitle: {
-    color: '#FFF1D2',
-    fontSize: veryCompact ? sf(8.2) : compact ? sf(9.2) : sf(10.2),
+    color: '#FFD978',
+    fontSize: veryCompact ? sf(8.6) : compact ? sf(9.6) : sf(10.6),
     fontWeight: '800',
     textAlign: 'center',
     textTransform: 'none',
-    letterSpacing: 0.05,
-    textShadowColor: 'rgba(0, 0, 0, 0.95)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    letterSpacing: 0.1,
+    textShadowColor: 'rgba(255, 217, 120, 0.75)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 6,
   },
 
   imageDescription: {
     marginTop: sv(3),
-    color: 'rgba(255,241,210,0.62)',
-    fontSize: veryCompact ? sf(5.8) : compact ? sf(6.3) : sf(6.8),
-    fontWeight: '500',
+    color: 'rgba(255, 217, 120, 0.82)',
+    fontSize: veryCompact ? sf(6) : compact ? sf(6.6) : sf(7.2),
+    fontWeight: '600',
     textAlign: 'center',
-    lineHeight: sf(8),
-    textShadowColor: 'rgba(0, 0, 0, 0.9)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    lineHeight: veryCompact ? sf(7.8) : compact ? sf(8.5) : sf(9.2),
+
+    textShadowColor: 'rgba(255, 217, 120, 0.45)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
   },
 
   badge: {
