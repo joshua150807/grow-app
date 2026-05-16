@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ScrollView, Pressable } from 'react-native';
+import { View, Text, ImageBackground, Pressable } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
@@ -28,6 +28,8 @@ import { styles } from '../styles/toolsOverviewStyles';
 // < 700pt (iPhone SE 667pt): sehr kompakte Abstände
 const compact = SCREEN.height < 900;
 const veryCompact = SCREEN.height < 700;
+
+const mentorBg = require('../../../../assets/tool-icons/mentor-bg.jpg')
  
 function formatDeepWork(seconds) {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -189,25 +191,30 @@ export default function ToolsScreen() {
         </View>
  
         {/* KI Mentor Card */}
-        <View style={styles.mentorCard}>
-          <View style={styles.mentorLeft}>
-            <View style={styles.mentorIconWrap}>
-              <Ionicons name="sparkles-outline" size={s(28)} color={COLORS.toolsGold} />
+        <ImageBackground
+          source={mentorBg}
+          style={styles.mentorCard}
+          imageStyle={styles.mentorCardImage}
+          resizeMode="stretch"
+        >
+          <View style={styles.mentorOverlay}>
+            <View style={styles.mentorLeft}>
+              <View style={styles.mentorTextBox}>
+                <Text style={styles.mentorTitle}>KI Mentor</Text>
+                <Text style={styles.mentorDescription}>
+                  Dein persönlicher Mentor. Klare Tipps & Motivation.
+                </Text>
+              </View>
             </View>
-            <View style={styles.mentorTextBox}>
-              <Text style={styles.mentorTitle}>KI Mentor</Text>
-              <Text style={styles.mentorDescription}>
-                Dein persönlicher Mentor. Klare Tipps & Motivation.
-              </Text>
-            </View>
+
+            <Pressable 
+              style={styles.mentorButton}
+              onPress={() => router.push('/mentor')}
+            >
+              <Text style={styles.mentorButtonText}>Erfahre mehr!</Text>
+            </Pressable>
           </View>
-          <Pressable 
-            style={styles.mentorButton}
-            onPress={() => router.push('/mentor')}
-          >
-            <Text style={styles.mentorButtonText}>Erfahre mehr!</Text>
-          </Pressable>
-        </View>
+        </ImageBackground>
  
         {/* Tracker */}
         <View style={styles.trackerSection}>

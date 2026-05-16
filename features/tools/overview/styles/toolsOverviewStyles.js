@@ -200,39 +200,30 @@ export const styles = StyleSheet.create({
     marginTop: compact ? 0 : sv(4),
     marginBottom: veryCompact ? sv(2) : compact ? sv(4) : sv(10),
     borderRadius: s(10),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: COLORS.toolsCardBorder,
+    overflow: 'hidden',
+    minHeight: sv(90),
     backgroundColor: COLORS.toolsCard,
-    paddingVertical: sv(8),
-    paddingHorizontal: s(12),
+  },
+
+  mentorCardImage: {
+    borderRadius: s(10),
+  },
+
+  mentorOverlay: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    minHeight: sv(82),
+    paddingVertical: sv(8),
+    paddingLeft: '34%',
+    paddingRight: s(12),
+    backgroundColor: 'rgba(0,0,0,0.16)',
   },
 
   mentorLeft: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-  },
-
-  mentorIconWrap: {
-    width: s(42),
-    height: s(42),
-    borderRadius: s(14),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(231,201,138,0.42)',
-    backgroundColor: 'rgba(231,201,138,0.055)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: s(10),
-
-    shadowColor: COLORS.toolsGold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.38,
-    shadowRadius: 10,
-    elevation: 4,
   },
 
   mentorTextBox: {
