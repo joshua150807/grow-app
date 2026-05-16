@@ -880,4 +880,126 @@ export const styles = StyleSheet.create({
     marginTop: sv(6),
     lineHeight: sf(18),
   },
+  trainingSessionCard: {
+    minHeight: sv(78),
+    borderRadius: s(18),
+    backgroundColor: COLORS.darkCard2,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    padding: s(16),
+    marginBottom: sv(12),
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  trainingSessionCardIcon: {
+    width: s(44),
+    height: s(44),
+    borderRadius: s(22),
+    backgroundColor: COLORS.darkCard,
+    borderWidth: 1,
+    borderColor: COLORS.goldBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: s(14),
+  },
+
+  trainingSessionCardContent: {
+    flex: 1,
+  },
+
+  trainingSessionCardTitle: {
+    color: COLORS.paleGold,
+    fontSize: sf(17),
+    fontWeight: '800',
+  },
+
+  trainingSessionCardMeta: {
+    color: COLORS.textDim,
+    fontSize: sf(13),
+    marginTop: sv(4),
+  },
+  trainingSessionCard: {
+    minHeight: sv(78),
+    borderRadius: s(18),
+    backgroundColor: COLORS.darkCard2,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    padding: s(16),
+    marginBottom: sv(12),
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  trainingSessionCardIcon: {
+    width: s(44),
+    height: s(44),
+    borderRadius: s(22),
+    backgroundColor: COLORS.darkCard,
+    borderWidth: 1,
+    borderColor: COLORS.goldBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: s(14),
+  },
+
+  trainingSessionCardContent: {
+    flex: 1,
+  },
+
+  trainingSessionCardTitle: {
+    color: COLORS.paleGold,
+    fontSize: sf(17),
+    fontWeight: '800',
+  },
+
+  trainingSessionCardMeta: {
+    color: COLORS.textDim,
+    fontSize: sf(13),
+    marginTop: sv(4),
+  },
+
+  trainingSessionCardNote: {
+    color: COLORS.textSecondary,
+    fontSize: sf(13),
+    marginTop: sv(8),
+    lineHeight: sf(18),
+  },
+  trainingSessionDetailNoteBox: {
+    borderRadius: s(16),
+    backgroundColor: COLORS.darkCard2,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    padding: s(16),
+    marginBottom: sv(20),
+  },
+
+  trainingSessionDetailNoteTitle: {
+    color: COLORS.paleGold,
+    fontSize: sf(14),
+    fontWeight: '800',
+    marginBottom: sv(6),
+  },
+
+  trainingSessionDetailNoteText: {
+    color: COLORS.textSecondary,
+    fontSize: sf(13),
+    lineHeight: sf(18),
+  },
+
+  trainingSessionExerciseCard: {
+    borderRadius: s(18),
+    backgroundColor: COLORS.darkCard2,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    padding: s(16),
+    marginBottom: sv(12),
+  },
+
+  trainingSessionExerciseNote: {
+    color: COLORS.textSecondary,
+    fontSize: sf(13),
+    lineHeight: sf(18),
+    marginTop: sv(8),
+  },
 });

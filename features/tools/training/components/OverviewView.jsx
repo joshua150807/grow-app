@@ -59,7 +59,7 @@ export function OverviewView({ plan }) {
 
         <Pressable
             style={styles.startTrainingBanner}
-            onPress={() => router.push('/tools/training-sessions')}
+            onPress={() => router.push('/tools/training-session')}
         >
             <View style={styles.startTrainingIconWrap}>
                 <Ionicons name="play-outline" size={s(26)} color={COLORS.black} />

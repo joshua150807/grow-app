@@ -97,3 +97,36 @@ export async function fetchLatestTrainingSessions(limit = 5) {
     note: session.note,
   }));
 }
+export async function fetchTrainingSessionDetail(sessionId) {
+  const { data, error } = await supabase
+    .from('training_sessions')
+    .select(`
+      id,
+      performed_at,
+      note,
+      training_days (
+        id,
+        name
+      ),
+      training_session_exercises (
+        id,
+        exercise_name,
+        weight,
+        sets,
+        reps,
+        note
+      )
+    `)
+    .eq('id', sessionId)
+    .single();
+
+  if (error) throw error;
+
+  return {
+    id: data.id,
+    performedAt: data.performed_at,
+    note: data.note,
+    dayName: data.training_days?.name || 'Training',
+    exercises: data.training_session_exercises || [],
+  };
+}
