@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { View, Text, ImageBackground, Pressable } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { Asset } from 'expo-asset';
 
 // data
 import { tools } from '../../../../data/tools'
@@ -29,7 +30,7 @@ import { styles } from '../styles/toolsOverviewStyles';
 const compact = SCREEN.height < 900;
 const veryCompact = SCREEN.height < 700;
 
-const mentorBg = require('../../../../assets/tool-icons/mentor-bg.jpg')
+import { MENTOR_BG } from '../../../../constants/toolAssets';
  
 function formatDeepWork(seconds) {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -192,7 +193,7 @@ export default function ToolsScreen() {
  
         {/* KI Mentor Card */}
         <ImageBackground
-          source={mentorBg}
+          source={MENTOR_BG}
           style={styles.mentorCard}
           imageStyle={styles.mentorCardImage}
           resizeMode="stretch"

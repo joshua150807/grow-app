@@ -13,6 +13,20 @@ async function getCurrentUserId() {
   return user?.id ?? null;
 }
 
+function shuffleArray(array) {
+  const shuffled = [...array];
+
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const randomIndex = Math.floor(Math.random() * (i + 1));
+
+    const temp = shuffled[i];
+    shuffled[i] = shuffled[randomIndex];
+    shuffled[randomIndex] = temp;
+  }
+
+  return shuffled;
+}
+
 export async function getActiveVideos() {
   const userId = await getCurrentUserId();
 
@@ -40,13 +54,15 @@ export async function getActiveVideos() {
     bookmarkedVideoIds = bookmarks.map((bookmark) => bookmark.video_id);
   }
 
-  return videos.map((video) => ({
+  const mappedVideos = videos.map((video) => ({
     id: video.id,
     title: video.title,
     source: video.video_url,
     thumbnail: video.thumbnail_url,
     saved: bookmarkedVideoIds.includes(video.id),
   }));
+
+  return shuffleArray(mappedVideos);
 }
 
 export async function getSavedVideos() {
@@ -76,8 +92,16 @@ export async function getSavedVideos() {
     throw error;
   }
 
-  return data
-    .filter((bookmark) => bookmark.videos?.is_active)
+  return (data ?? [])
+    .filter((bookmark) => {
+      const video = bookmark.videos;
+
+      return (
+        video &&
+        video.is_active &&
+        video.video_url
+      );
+    })
     .map((bookmark) => ({
       id: bookmark.videos.id,
       title: bookmark.videos.title,
@@ -85,7 +109,7 @@ export async function getSavedVideos() {
       thumbnail: bookmark.videos.thumbnail_url,
       saved: true,
       savedAt: bookmark.created_at,
-    }));
+  }));
 }
 
 export async function getSavedVideoIds() {

@@ -20,6 +20,18 @@ const GAP = 3;
 const HORIZONTAL_PADDING = 18;
 const ITEM_WIDTH = (width - HORIZONTAL_PADDING * 2 - GAP * 2) / 3;
 const ITEM_HEIGHT = ITEM_WIDTH * 1.55;
+const SAVED_VIDEOS_TIMEOUT_MS = 10000;
+
+function withTimeout(promise, timeoutMs, errorMessage) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(errorMessage));
+      }, timeoutMs);
+    }),
+  ]);
+}
  
 export default function SavedVideosScreen() {
   const [savedVideos, setSavedVideos] = useState([]);
@@ -31,7 +43,11 @@ export default function SavedVideosScreen() {
       setErrorText(null);
       setIsLoading(true);
  
-      const videos = await getSavedVideos();
+      const videos = await withTimeout(
+        getSavedVideos(),
+        SAVED_VIDEOS_TIMEOUT_MS,
+        'Timeout beim Laden gespeicherter Videos'
+      );
  
       setSavedVideos(videos);
     } catch (error) {

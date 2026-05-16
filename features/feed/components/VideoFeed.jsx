@@ -22,6 +22,7 @@ import {
 
 const { height } = Dimensions.get('window');
 const FLICK_THRESHOLD = 28;
+const VIDEO_READY_TIMEOUT_MS = 6500;
 
 export default function VideoFeed({
   loadVideos,
@@ -47,9 +48,35 @@ export default function VideoFeed({
   const currentIndexRef = useRef(initialIndex);
   const dragStartOffsetY = useRef(0);
   const isFirstFocus = useRef(true);
+  const videoReadyFallbackTimerRef = useRef(null);
+
+  const clearVideoReadyFallbackTimer = useCallback(() => {
+    if (videoReadyFallbackTimerRef.current) {
+      clearTimeout(videoReadyFallbackTimerRef.current);
+      videoReadyFallbackTimerRef.current = null;
+    }
+  }, []);
+
+  const startVideoReadyFallbackTimer = useCallback(() => {
+    clearVideoReadyFallbackTimer();
+
+    videoReadyFallbackTimerRef.current = setTimeout(() => {
+      console.log('Video ready fallback: Loading wurde automatisch beendet.');
+      setIsInitialLoading(false);
+      videoReadyFallbackTimerRef.current = null;
+    }, VIDEO_READY_TIMEOUT_MS);
+  }, [clearVideoReadyFallbackTimer]);
+
+  useEffect(() => {
+    return () => {
+      clearVideoReadyFallbackTimer();
+    };
+  }, [clearVideoReadyFallbackTimer]);
 
   const loadFeedVideos = useCallback(async () => {
     try {
+      clearVideoReadyFallbackTimer();
+
       setFeedError(null);
       setHasNoVideos(false);
       setIsInitialLoading(true);
@@ -73,6 +100,8 @@ export default function VideoFeed({
       setActiveVideoId(videos[safeInitialIndex].id);
       currentIndexRef.current = safeInitialIndex;
 
+      startVideoReadyFallbackTimer
+
       requestAnimationFrame(() => {
         flatListRef.current?.scrollToOffset({
           offset: safeInitialIndex * height,
@@ -81,12 +110,19 @@ export default function VideoFeed({
       });
     } catch (error) {
       console.log('Fehler beim Laden des Feeds:', error);
+      clearVideoReadyFallbackTimer();
       setFeedData([]);
       setActiveVideoId(null);
       setFeedError(errorMessage);
       setIsInitialLoading(false);
     }
-  }, [errorMessage, initialIndex, loadVideos]);
+  }, [
+    errorMessage, 
+    initialIndex, 
+    loadVideos,
+    clearVideoReadyFallbackTimer,
+    startVideoReadyFallbackTimer
+  ]);
 
   useEffect(() => {
     if (!reloadOnFocus) {
@@ -135,8 +171,9 @@ export default function VideoFeed({
   );
 
   const handleInitialVideoReady = useCallback(() => {
+    clearVideoReadyFallbackTimer();
     setIsInitialLoading(false);
-  }, []);
+  }, [clearVideoReadyFallbackTimer]);
 
   const handleToggleSaved = useCallback(
     async (id) => {
