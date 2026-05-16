@@ -84,16 +84,21 @@ function PresetSelector({ onSave, onBack }) {
 
   const handleSelectPreset = useCallback(
     async (preset) => {
+      if (saving) return;
+
       setSaving(true);
       setSaveError(null);
+
       try {
         await onSave(preset.name, preset.days);
-      } catch {
-        setSaveError('Plan konnte nicht geladen werden. Bitte versuche es erneut.');
+      } catch (e) {
+        console.error('[Training Setup] Preset save failed:', e);
+        setSaveError('Plan konnte nicht ausgewählt werden. Bitte versuche es erneut.');
+      } finally {
         setSaving(false);
       }
     },
-    [onSave]
+    [onSave, saving]
   );
 
   return (
@@ -208,9 +213,12 @@ function CustomForm({ onSave, onBack }) {
         name: d.name.trim(),
         exercises: d.exercises.filter(ex => ex.name.trim()),
       }));
+
       await onSave(planName.trim(), daysData);
-    } catch {
+    } catch (e) {
+      console.error('[Training Setup] Custom plan save failed:', e);
       setSaveError('Trainingsplan konnte nicht gespeichert werden. Bitte versuche es erneut.');
+    } finally {
       setSaving(false);
     }
   }, [canSave, saving, planName, days, onSave]);

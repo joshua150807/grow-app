@@ -37,8 +37,23 @@ export function useTrainingPlan() {
   }, [loadPlan]);
 
   const savePlan = useCallback(async (planName, daysData) => {
-    await createTrainingPlan(planName, daysData);
-    await loadPlan();
+    const createdPlan = await createTrainingPlan(planName, daysData);
+
+    try {
+      await loadPlan();
+    } catch (e) {
+      console.error('[Training Hook] Reload after save failed:', e);
+
+      // Fallback, damit SetupView nicht fälschlich einen Fehler zeigt.
+      setPlan({
+        ...createdPlan,
+        days: daysData.map((day, index) => ({
+          id: `temp-day-${index}`,
+          name: day.name,
+          exercises: day.exercises || [],
+        })),
+      });
+    }
   }, [loadPlan]);
 
   const addExercise = useCallback(async (dayId, exerciseData) => {
@@ -58,7 +73,9 @@ export function useTrainingPlan() {
 
   const removePlan = useCallback(async () => {
     const currentPlan = planRef.current;
-    if (!currentPlan) return;
+
+    if (!currentPlan?.id) return;
+
     await deleteTrainingPlanService(currentPlan.id);
     setPlan(null);
   }, []);

@@ -2,26 +2,22 @@ import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 
 import { COLORS } from '../../../../constants/colors';
 import { useTrainingPlan } from '../hooks/useTrainingPlan';
-import { SetupView } from '../components/SetupView';
-import { OverviewView } from '../components/OverviewView';
+import { TrainingPlanEditorView } from '../components/TrainingPlanEditorView';
 import { styles } from '../styles/trainingStyles';
-import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
 
-export default function TrainingOverviewScreen() {
+export default function TrainingPlanEditorScreen() {
   const {
     plan,
     loading,
     error,
     loadPlan,
-    savePlan,
+    addExercise,
+    updateExercise,
+    removeExercise,
+    removePlan,
+    renameDay,
+    addDay,
   } = useTrainingPlan();
-
-  useFocusEffect(
-    useCallback(() => {
-      loadPlan();
-    }, [loadPlan])
-  );
 
   if (loading) {
     return (
@@ -44,8 +40,22 @@ export default function TrainingOverviewScreen() {
   }
 
   if (!plan) {
-    return <SetupView onSave={savePlan} />;
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.emptyText}>Noch kein Trainingsplan vorhanden.</Text>
+      </View>
+    );
   }
 
-  return <OverviewView plan={plan} />;
+  return (
+    <TrainingPlanEditorView
+      plan={plan}
+      onAddExercise={addExercise}
+      onUpdateExercise={updateExercise}
+      onDeleteExercise={removeExercise}
+      onDeletePlan={removePlan}
+      onRenameDay={renameDay}
+      onAddDay={addDay}
+    />
+  );
 }

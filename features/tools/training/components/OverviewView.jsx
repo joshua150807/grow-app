@@ -1,148 +1,161 @@
-import { useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   Pressable,
-  Alert,
+  ActivityIndicator
 } from 'react-native';
-import { router } from 'expo-router';
+import { useCallback } from 'react';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
-import { s, sf, sv } from '../../../../constants/layout';
+import { s } from '../../../../constants/layout';
 import { styles } from '../styles/trainingStyles';
-import { TrainingDayCard } from './TrainingDayCard';
-import { EditExerciseModal } from './EditExerciseModal';
-import { AddExerciseModal } from './AddExerciseModal';
-import { AddDayModal } from './AddDayModal';
+import { useLatestTrainingSessions } from '../hooks/useLatestTrainingSessions';
+import { formatTrainingSessionDate } from '../utils/trainingDateUtils';
 
-export function OverviewView({
-  plan,
-  onAddExercise,
-  onUpdateExercise,
-  onDeleteExercise,
-  onDeletePlan,
-  onRenameDay,
-  onAddDay,
-}) {
-  const [editingExercise, setEditingExercise] = useState(null);
-  const [addingToDayId, setAddingToDayId] = useState(null);
-  const [addingDay, setAddingDay] = useState(false);
+const MUSCLE_GROUPS = [
+  { id: 'chest', label: 'Brust', icon: 'body-outline' },
+  { id: 'back', label: 'Rücken', icon: 'accessibility-outline' },
+  { id: 'legs', label: 'Beine', icon: 'walk-outline' },
+  { id: 'shoulders', label: 'Schulter', icon: 'fitness-outline' },
+  { id: 'arms', label: 'Arme', icon: 'barbell-outline' },
+  { id: 'core', label: 'Bauch', icon: 'ellipse-outline' },
+];
 
-  const handleDeletePlan = () => {
-    Alert.alert(
-      'Plan löschen',
-      `Möchtest du „${plan.name}" wirklich löschen? Alle Trainingstage und Übungen werden entfernt.`,
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        {
-          text: 'Löschen',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await onDeletePlan();
-            } catch {
-              Alert.alert('Fehler', 'Plan konnte nicht gelöscht werden.');
-            }
-          },
-        },
-      ]
-    );
-  };
+export function OverviewView({ plan }) {
+    const {
+        sessions,
+        loadingSessions,
+        sessionsError,
+        loadSessions,
+    } = useLatestTrainingSessions();
 
-  const handleSaveExercise = async (data) => {
-    await onUpdateExercise(editingExercise.id, data);
-    setEditingExercise(null);
-  };
-
-  const handleDeleteExercise = async () => {
-    await onDeleteExercise(editingExercise.id);
-    setEditingExercise(null);
-  };
-
-  const handleAddExercise = async (data) => {
-    await onAddExercise(addingToDayId, data);
-    setAddingToDayId(null);
-  };
-
-  return (
+    useFocusEffect(
+        useCallback(() => {
+            loadSessions();
+        }, [loadSessions])
+    )
+    return(
     <View style={styles.screen}>
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Tools</Text>
         </Pressable>
-        <Pressable onPress={handleDeletePlan} style={styles.deletePlanBtn} hitSlop={s(8)}>
-          <Ionicons name="trash-outline" size={s(20)} color={COLORS.error} />
-        </Pressable>
       </View>
 
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
           <View style={styles.iconCircle}>
             <Ionicons name="barbell-outline" size={s(36)} color={COLORS.gold} />
           </View>
-          <Text style={styles.title}>{plan.name.toUpperCase()}</Text>
-          <Text style={styles.subtitle}>
-            {plan.days.length} {plan.days.length === 1 ? 'Trainingstag' : 'Trainingstage'}
-          </Text>
+          <Text style={styles.title}>Trainingsplan</Text>
         </View>
 
-        {plan.days.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="barbell-outline" size={s(40)} color={COLORS.textDim} />
-            <Text style={styles.emptyText}>Keine Trainingstage vorhanden.</Text>
-          </View>
-        ) : (
-          <View style={styles.daysList}>
-            {plan.days.map(day => (
-              <TrainingDayCard
-                key={day.id}
-                day={day}
-                onExercisePress={setEditingExercise}
-                onAddExercise={() => setAddingToDayId(day.id)}
-                onRenameDay={onRenameDay}
-              />
-            ))}
-          </View>
-        )}
+        <Pressable
+            style={styles.startTrainingBanner}
+            onPress={() => router.push('/tools/training-sessions')}
+        >
+            <View style={styles.startTrainingIconWrap}>
+                <Ionicons name="play-outline" size={s(26)} color={COLORS.black} />
+            </View>
+
+            <View style={styles.startTrainingContent}>
+                <Text style={styles.startTrainingTitle}>Training starten</Text>
+                <Text style={styles.startTrainingSubtitle}>
+                    Wähle deinen Trainingstag und beginne deine Einheit
+                </Text>
+            </View>
+
+            <Ionicons name="chevron-forward" size={s(24)} color={COLORS.gold} />
+        </Pressable>
 
         <Pressable
-          style={styles.addDayBtn}
-          onPress={() => setAddingDay(true)}
+          style={styles.trainingMainBanner}
+          onPress={() => router.push('/tools/training-plan-editor')}
         >
-          <Ionicons name="add-circle-outline" size={s(20)} color={COLORS.gold} />
-          <Text style={styles.addDayBtnText}>Tag hinzufügen</Text>
+          <View>
+            <Text style={styles.trainingMainBannerTitle}>Mein Trainingsplan ansehen und bearbeiten</Text>
+            <Text style={styles.trainingMainBannerSubtitle}>
+              {plan.days.length} {plan.days.length === 1 ? 'Trainingstag' : 'Trainingstage'} ansehen und bearbeiten
+            </Text>
+          </View>
+
+          <Ionicons name="chevron-forward" size={s(24)} color={COLORS.gold} />
         </Pressable>
+
+        <View style={styles.muscleGroupSection}>
+          <Text style={styles.sectionLabel}>MUSKELGRUPPEN</Text>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.muscleGroupRow}
+          >
+            {MUSCLE_GROUPS.map(group => (
+              <View key={group.id} style={styles.muscleGroupItem}>
+                <View style={styles.muscleGroupImagePlaceholder}>
+                  <Ionicons name={group.icon} size={s(24)} color={COLORS.gold} />
+                </View>
+                <Text style={styles.muscleGroupLabel}>{group.label}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+
+        <Pressable 
+            style={styles.lastSessionsBanner}
+            onPress={() => router.push('/tools/training-sessions')}
+        >
+            <View style={styles.lastSessionsHeader}>
+                <View>
+                <Text style={styles.lastSessionsTitle}>Letzte Trainingseinheiten</Text>
+                <Text style={styles.lastSessionsSubtitle}>
+                    Deine neuesten 5 gespeicherten Trainings
+                </Text>
+                </View>
+
+                {loadingSessions ? (
+                <ActivityIndicator color={COLORS.gold} />
+                ) : (
+                <Ionicons name="time-outline" size={s(24)} color={COLORS.textDim} />
+                )}
+            </View>
+
+            {sessionsError ? (
+                <Text style={styles.lastSessionsError}>{sessionsError}</Text>
+            ) : null}
+
+            {!loadingSessions && !sessionsError && sessions.length === 0 ? (
+                <Text style={styles.lastSessionsEmpty}>
+                Noch keine Trainingseinheit gespeichert.
+                </Text>
+            ) : null}
+
+            {!loadingSessions && !sessionsError && sessions.length > 0 ? (
+                <View style={styles.lastSessionsList}>
+                {sessions.map(session => (
+                    <View key={session.id} style={styles.lastSessionItem}>
+                    <View style={styles.lastSessionDot} />
+
+                    <View style={styles.lastSessionContent}>
+                        <Text style={styles.lastSessionTitle}>{session.dayName}</Text>
+                        <Text style={styles.lastSessionMeta}>
+                        {formatTrainingSessionDate(session.performedAt)} · {session.exerciseCount}{' '}
+                        {session.exerciseCount === 1 ? 'Übung' : 'Übungen'}
+                        </Text>
+                    </View>
+                    </View>
+                ))}
+                </View>
+            ) : null}
+            </Pressable>
       </ScrollView>
-
-      <EditExerciseModal
-        visible={editingExercise !== null}
-        exercise={editingExercise}
-        onClose={() => setEditingExercise(null)}
-        onSave={handleSaveExercise}
-        onDelete={handleDeleteExercise}
-      />
-
-      <AddExerciseModal
-        visible={addingToDayId !== null}
-        onClose={() => setAddingToDayId(null)}
-        onSave={handleAddExercise}
-      />
-
-      <AddDayModal
-        visible={addingDay}
-        onClose={() => setAddingDay(false)}
-        onSave={async (name) => {
-          await onAddDay(name);
-          setAddingDay(false);
-        }}
-      />
     </View>
   );
 }
