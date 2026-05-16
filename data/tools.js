@@ -2,15 +2,17 @@ import { COLORS } from '../constants/colors';
 
 const trainingsplanIcon = require('../assets/tool-icons/trainingsplan.png')
 const goalsIcon = require('../assets/tool-icons/goals-icon.png')
+const habitsIcon = require('../assets/tool-icons/habits-icon.png')
+const plannerIcon = require('../assets/tool-icons/plannerIcon.png')
+const todoIcon = require('../assets/tool-icons/todoIcon.png')
+const deepworkIcon = require('../assets/tool-icons/deepworkIcon.png')
 
 export const tools = [
   {
     id: 'todo',
     title: 'To-Do',
     description: 'Setze dir klare Aufgaben.',
-    type: 'Ionicons',
-    name: 'checkmark-outline',
-    color: COLORS.softGold,
+    image: todoIcon,
     route: '/tools/todo',
   },
   {
@@ -31,27 +33,21 @@ export const tools = [
     id: 'habits',
     title: 'Gewohnheiten',
     description: 'Baue Streaks auf.',
-    type: 'Ionicons',
-    name: 'flame-outline',
-    color: COLORS.softGold,
+    image: habitsIcon,
     route: '/tools/habits',
   },
   {
     id: 'deep-work',
     title: 'Deep Work',
     description: 'Arbeite im Fokus',
-    type: 'Feather',
-    name: 'clock',
-    color: COLORS.softGold,
+    image: deepworkIcon,
     route: '/tools/deep-work',
   },
   {
     id: 'daily-planner',
     title: 'Tagesplaner',
     description: 'Strukturiere deinen Tag.',
-    type: 'Ionicons',
-    name: 'calendar-outline',
-    color: COLORS.softGold,
+    image: plannerIcon,
     route: '/tools/daily-planner',
   },
   {
