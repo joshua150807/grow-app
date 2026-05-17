@@ -14,8 +14,12 @@ import { Feather } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout';
 import { loadAdminVideoAnalytics } from '../services/adminVideoAnalytics';
+
 import AdminVideoAnalyticsCard from '../components/AdminVideoAnalyticsCard';
 import AdminLoadingState from '../components/AdminLoadingState';
+import AdminEmptyState from '../components/AdminEmptyState';
+import AdminSummaryBox from '../components/AdminSummaryBox';
+import AdminFilterChip from '../components/AdminFilterChip';
 
 export default function AdminVideoAnalyticsScreen() {
   const [videos, setVideos] = useState([]);
@@ -99,7 +103,7 @@ export default function AdminVideoAnalyticsScreen() {
   }, [videos]);
 
   if (isLoading) {
-    return <AdminLoadingState text="CEO Dashboard wird geladen..." />
+    return <AdminLoadingState text="Video Analytics werden geladen..." />
   }
 
   return (
@@ -130,10 +134,10 @@ export default function AdminVideoAnalyticsScreen() {
         </View>
 
         <View style={styles.summaryGrid}>
-          <SummaryBox label="Videos" value={videos.length} />
-          <SummaryBox label="Views" value={summary.views} />
-          <SummaryBox label="Saves" value={summary.saves} />
-          <SummaryBox label="Ratings" value={summary.ratings} />
+          <AdminSummaryBox label="Videos" value={videos.length} />
+          <AdminSummaryBox label="Views" value={summary.views} />
+          <AdminSummaryBox label="Saves" value={summary.saves} />
+          <AdminSummaryBox label="Ratings" value={summary.ratings} />
         </View>
 
         <View style={styles.sortSection}>
@@ -141,27 +145,27 @@ export default function AdminVideoAnalyticsScreen() {
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.sortRow}>
-              <SortChip
+              <AdminFilterChip
                 label="Views"
                 active={sortMode === 'views'}
                 onPress={() => setSortMode('views')}
               />
-              <SortChip
+              <AdminFilterChip
                 label="Saves"
                 active={sortMode === 'saves'}
                 onPress={() => setSortMode('saves')}
               />
-              <SortChip
+              <AdminFilterChip
                 label="Ratings"
                 active={sortMode === 'ratings'}
                 onPress={() => setSortMode('ratings')}
               />
-              <SortChip
+              <AdminFilterChip
                 label="Score"
                 active={sortMode === 'score'}
                 onPress={() => setSortMode('score')}
               />
-              <SortChip
+              <AdminFilterChip
                 label="Meiste 👎"
                 active={sortMode === 'bad'}
                 onPress={() => setSortMode('bad')}
@@ -181,14 +185,13 @@ export default function AdminVideoAnalyticsScreen() {
         )}
 
         {!errorText && sortedVideos.length === 0 && (
-          <View style={styles.emptyBox}>
-            <Feather name="video" size={s(28)} color={COLORS.softGold} />
-            <Text style={styles.emptyTitle}>Noch keine Video-Daten</Text>
-            <Text style={styles.emptyText}>
-              Sobald Videos Views, Saves oder Ratings haben, erscheinen sie hier.
-            </Text>
-          </View>
+          <AdminEmptyState
+            icon="inbox"
+            title="Noch keine Videos"
+            text="Sobald Videos Views, Saves oder Ratings haben, erscheinen sie hier."
+          />
         )}
+
 
         {!errorText &&
           sortedVideos.map((video) => (
@@ -197,32 +200,6 @@ export default function AdminVideoAnalyticsScreen() {
       </ScrollView>
     </View>
   );
-}
-
-function SummaryBox({ label, value }) {
-  return (
-    <View style={styles.summaryBox}>
-      <Text style={styles.summaryValue}>{formatNumber(value)}</Text>
-      <Text style={styles.summaryLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function SortChip({ label, active, onPress }) {
-  return (
-    <Pressable
-      style={[styles.sortChip, active && styles.sortChipActive]}
-      onPress={onPress}
-    >
-      <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-function formatNumber(value) {
-  return Number(value ?? 0).toLocaleString('de-DE');
 }
 
 const styles = StyleSheet.create({
@@ -234,18 +211,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: s(20),
     paddingTop: sv(56),
     paddingBottom: sv(34),
-  },
-  centerScreen: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: s(28),
-  },
-  loadingText: {
-    marginTop: sv(14),
-    color: COLORS.textSecondary,
-    fontSize: sf(14),
   },
   header: {
     flexDirection: 'row',
@@ -290,25 +255,6 @@ const styles = StyleSheet.create({
     gap: s(10),
     marginBottom: sv(22),
   },
-  summaryBox: {
-    width: '48%',
-    borderRadius: s(18),
-    backgroundColor: 'rgba(255,255,255,0.045)',
-    borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    padding: s(15),
-  },
-  summaryValue: {
-    color: COLORS.white,
-    fontSize: sf(25),
-    fontWeight: '900',
-  },
-  summaryLabel: {
-    color: COLORS.textSecondary,
-    fontSize: sf(12),
-    fontWeight: '800',
-    marginTop: sv(3),
-  },
   sortSection: {
     marginBottom: sv(18),
   },
@@ -322,26 +268,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: s(8),
     paddingRight: s(18),
-  },
-  sortChip: {
-    borderRadius: s(999),
-    borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    paddingHorizontal: s(13),
-    paddingVertical: sv(8),
-    backgroundColor: 'rgba(255,255,255,0.035)',
-  },
-  sortChipActive: {
-    backgroundColor: COLORS.gold,
-    borderColor: COLORS.gold,
-  },
-  sortChipText: {
-    color: COLORS.textSecondary,
-    fontSize: sf(13),
-    fontWeight: '800',
-  },
-  sortChipTextActive: {
-    color: COLORS.black,
   },
   errorBox: {
     borderRadius: s(16),
@@ -360,26 +286,5 @@ const styles = StyleSheet.create({
     color: COLORS.softGold,
     fontSize: sf(14),
     fontWeight: '800',
-  },
-  emptyBox: {
-    alignItems: 'center',
-    borderRadius: s(20),
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    padding: s(24),
-  },
-  emptyTitle: {
-    color: COLORS.white,
-    fontSize: sf(18),
-    fontWeight: '800',
-    marginTop: sv(12),
-  },
-  emptyText: {
-    color: COLORS.textSecondary,
-    fontSize: sf(14),
-    textAlign: 'center',
-    lineHeight: sf(21),
-    marginTop: sv(6),
   },
 });

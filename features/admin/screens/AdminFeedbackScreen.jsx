@@ -15,8 +15,10 @@ import { Feather } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout';
 import { loadAdminFeedbackList, deleteAdminFeedback } from '../services/adminFeedback';
+
 import AdminFeedbackCard from '../components/AdminFeedbackCard';
 import AdminLoadingState from '../components/AdminLoadingState';
+import AdminEmptyState from '../components/AdminEmptyState';
 
 export default function AdminFeedbackScreen() {
   const [feedbacks, setFeedbacks] = useState([]);
@@ -90,7 +92,7 @@ export default function AdminFeedbackScreen() {
   );
 
   if (isLoading) {
-    return <AdminLoadingState text="CEO Dashboard wird geladen..." />
+    return <AdminLoadingState text="Feedbacks werden geladen..." />
   }
 
   return (
@@ -136,13 +138,11 @@ export default function AdminFeedbackScreen() {
         )}
 
         {!errorText && feedbacks.length === 0 && (
-          <View style={styles.emptyBox}>
-            <Feather name="inbox" size={s(28)} color={COLORS.softGold} />
-            <Text style={styles.emptyTitle}>Noch keine Feedbacks</Text>
-            <Text style={styles.emptyText}>
-              Sobald Nutzer Feedback senden, erscheint es hier.
-            </Text>
-          </View>
+          <AdminEmptyState
+            icon="inbox"
+            title="Noch keine Feedbacks"
+            text="Sobald Nutzer Feedback senden, erscheint es hier."
+          />
         )}
 
         {!errorText &&
@@ -163,18 +163,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: s(20),
     paddingTop: sv(56),
     paddingBottom: sv(34),
-  },
-  centerScreen: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: s(28),
-  },
-  loadingText: {
-    marginTop: sv(14),
-    color: COLORS.textSecondary,
-    fontSize: sf(14),
   },
   header: {
     flexDirection: 'row',
@@ -249,26 +237,5 @@ const styles = StyleSheet.create({
     color: COLORS.softGold,
     fontSize: sf(14),
     fontWeight: '800',
-  },
-  emptyBox: {
-    alignItems: 'center',
-    borderRadius: s(20),
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    padding: s(24),
-  },
-  emptyTitle: {
-    color: COLORS.white,
-    fontSize: sf(18),
-    fontWeight: '800',
-    marginTop: sv(12),
-  },
-  emptyText: {
-    color: COLORS.textSecondary,
-    fontSize: sf(14),
-    textAlign: 'center',
-    lineHeight: sf(21),
-    marginTop: sv(6),
   },
 });

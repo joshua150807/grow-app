@@ -14,8 +14,12 @@ import { Feather } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout';
 import { loadAdminUsersOverview } from '../services/adminUsers';
+
 import AdminUserCard from '../components/AdminUserCard';
 import AdminLoadingState from '../components/AdminLoadingState';
+import AdminEmptyState from '../components/AdminEmptyState';
+import AdminSummaryBox from '../components/AdminSummaryBox';
+import AdminFilterChip from '../components/AdminFilterChip';
 
 export default function AdminUsersScreen() {
   const [users, setUsers] = useState([]);
@@ -114,7 +118,7 @@ export default function AdminUsersScreen() {
   }, [users]);
 
   if (isLoading) {
-    return <AdminLoadingState text="CEO Dashboard wird geladen..." />
+    return <AdminLoadingState text="User Analytics werden geladen..." />
   }
 
   return (
@@ -145,10 +149,10 @@ export default function AdminUsersScreen() {
         </View>
 
         <View style={styles.summaryGrid}>
-          <SummaryBox label="User" value={users.length} />
-          <SummaryBox label="Aktive User" value={summary.activeUsers} />
-          <SummaryBox label="Views" value={summary.views} />
-          <SummaryBox label="Feedbacks" value={summary.feedbacks} />
+          <AdminSummaryBox label="User" value={users.length} />
+          <AdminSummaryBox label="Aktive User" value={summary.activeUsers} />
+          <AdminSummaryBox label="Views" value={summary.views} />
+          <AdminSummaryBox label="Feedbacks" value={summary.feedbacks} />
         </View>
 
         <View style={styles.sortSection}>
@@ -156,27 +160,27 @@ export default function AdminUsersScreen() {
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.sortRow}>
-              <SortChip
+              <AdminFilterChip
                 label="Aktivität"
                 active={sortMode === 'activity'}
                 onPress={() => setSortMode('activity')}
               />
-              <SortChip
+              <AdminFilterChip
                 label="Grow Points"
                 active={sortMode === 'points'}
                 onPress={() => setSortMode('points')}
               />
-              <SortChip
+              <AdminFilterChip
                 label="Views"
                 active={sortMode === 'views'}
                 onPress={() => setSortMode('views')}
               />
-              <SortChip
+              <AdminFilterChip
                 label="Feedbacks"
                 active={sortMode === 'feedbacks'}
                 onPress={() => setSortMode('feedbacks')}
               />
-              <SortChip
+              <AdminFilterChip
                 label="Neueste"
                 active={sortMode === 'newest'}
                 onPress={() => setSortMode('newest')}
@@ -196,13 +200,11 @@ export default function AdminUsersScreen() {
         )}
 
         {!errorText && sortedUsers.length === 0 && (
-          <View style={styles.emptyBox}>
-            <Feather name="users" size={s(28)} color={COLORS.softGold} />
-            <Text style={styles.emptyTitle}>Noch keine User</Text>
-            <Text style={styles.emptyText}>
-              Sobald sich Nutzer registrieren, erscheinen sie hier.
-            </Text>
-          </View>
+          <AdminEmptyState
+            icon="inbox"
+            title="Noch keine User"
+            text="Sobald Nutzer vorhanden sind, erscheinen sie hier."
+          />
         )}
 
         {!errorText &&
@@ -214,32 +216,6 @@ export default function AdminUsersScreen() {
   );
 }
 
-function SummaryBox({ label, value }) {
-  return (
-    <View style={styles.summaryBox}>
-      <Text style={styles.summaryValue}>{formatNumber(value)}</Text>
-      <Text style={styles.summaryLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function SortChip({ label, active, onPress }) {
-  return (
-    <Pressable
-      style={[styles.sortChip, active && styles.sortChipActive]}
-      onPress={onPress}
-    >
-      <Text style={[styles.sortChipText, active && styles.sortChipTextActive]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-function formatNumber(value) {
-  return Number(value ?? 0).toLocaleString('de-DE');
-}
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -249,18 +225,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: s(20),
     paddingTop: sv(56),
     paddingBottom: sv(34),
-  },
-  centerScreen: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: s(28),
-  },
-  loadingText: {
-    marginTop: sv(14),
-    color: COLORS.textSecondary,
-    fontSize: sf(14),
   },
   header: {
     flexDirection: 'row',
@@ -305,25 +269,6 @@ const styles = StyleSheet.create({
     gap: s(10),
     marginBottom: sv(22),
   },
-  summaryBox: {
-    width: '48%',
-    borderRadius: s(18),
-    backgroundColor: 'rgba(255,255,255,0.045)',
-    borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    padding: s(15),
-  },
-  summaryValue: {
-    color: COLORS.white,
-    fontSize: sf(25),
-    fontWeight: '900',
-  },
-  summaryLabel: {
-    color: COLORS.textSecondary,
-    fontSize: sf(12),
-    fontWeight: '800',
-    marginTop: sv(3),
-  },
   sortSection: {
     marginBottom: sv(18),
   },
@@ -337,26 +282,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: s(8),
     paddingRight: s(18),
-  },
-  sortChip: {
-    borderRadius: s(999),
-    borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    paddingHorizontal: s(13),
-    paddingVertical: sv(8),
-    backgroundColor: 'rgba(255,255,255,0.035)',
-  },
-  sortChipActive: {
-    backgroundColor: COLORS.gold,
-    borderColor: COLORS.gold,
-  },
-  sortChipText: {
-    color: COLORS.textSecondary,
-    fontSize: sf(13),
-    fontWeight: '800',
-  },
-  sortChipTextActive: {
-    color: COLORS.black,
   },
   errorBox: {
     borderRadius: s(16),
@@ -375,26 +300,5 @@ const styles = StyleSheet.create({
     color: COLORS.softGold,
     fontSize: sf(14),
     fontWeight: '800',
-  },
-  emptyBox: {
-    alignItems: 'center',
-    borderRadius: s(20),
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    padding: s(24),
-  },
-  emptyTitle: {
-    color: COLORS.white,
-    fontSize: sf(18),
-    fontWeight: '800',
-    marginTop: sv(12),
-  },
-  emptyText: {
-    color: COLORS.textSecondary,
-    fontSize: sf(14),
-    textAlign: 'center',
-    lineHeight: sf(21),
-    marginTop: sv(6),
   },
 });

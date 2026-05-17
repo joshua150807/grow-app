@@ -207,18 +207,6 @@ const styles = StyleSheet.create({
     paddingTop: sv(56),
     paddingBottom: sv(32),
   },
-  centerScreen: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: s(28),
-  },
-  loadingText: {
-    marginTop: sv(14),
-    color: COLORS.textSecondary,
-    fontSize: sf(14),
-  },
   header: {
     flexDirection: 'row',
     gap: s(14),

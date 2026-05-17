@@ -123,4 +123,42 @@ export const trainingBaseStyles = {
     color: COLORS.textPrimary,
     fontSize: sf(15),
   },
+
+  // ── Save Button ───────────────────────────────────────────────────────────
+  saveBtn: {
+    height: sv(52),
+    borderRadius: s(14),
+    backgroundColor: COLORS.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: sv(8),
+  },
+  saveBtnDisabled: {
+    opacity: 0.35,
+  },
+  saveBtnText: {
+    color: COLORS.black,
+    fontSize: sf(16),
+    fontWeight: '800',
+  },
+
+  // ── Save Error ────────────────────────────────────────────────────────────
+  saveErrorText: {
+    color: COLORS.error,
+    fontSize: sf(13),
+    textAlign: 'center',
+    marginTop: sv(10),
+  },
+
+  // ── Empty State ───────────────────────────────────────────────────────────
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: sv(48),
+    gap: sv(8),
+  },
+  emptyText: {
+    color: COLORS.textSecondary,
+    fontSize: sf(15),
+    fontWeight: '600',
+  },
 };

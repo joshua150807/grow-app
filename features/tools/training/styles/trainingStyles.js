@@ -1,7 +1,5 @@
 import { StyleSheet } from 'react-native';
 
-import { COLORS } from '../../../../constants/colors';
-import { s, sv, sf } from '../../../../constants/layout';
 import { trainingBaseStyles } from './trainingBaseStyles';
 import { trainingSetupStyles } from './trainingSetupStyles';
 import { trainingOverviewStyles } from './trainingOverviewStyles';

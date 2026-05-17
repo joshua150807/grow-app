@@ -14,8 +14,12 @@ import { Feather } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout';
 import { loadAdminBetaCodes } from '../services/adminBetaCodes';
+
 import AdminBetaCodeCard from '../components/AdminBetaCodeCard';
 import AdminLoadingState from '../components/AdminLoadingState';
+import AdminEmptyState from '../components/AdminEmptyState';
+import AdminSummaryBox from '../components/AdminSummaryBox';
+import AdminFilterChip from '../components/AdminFilterChip';
 
 export default function AdminBetaCodesScreen() {
   const [codes, setCodes] = useState([]);
@@ -92,7 +96,7 @@ export default function AdminBetaCodesScreen() {
   }, [codes, filterMode]);
 
   if (isLoading) {
-    return <AdminLoadingState text="CEO Dashboard wird geladen..." />
+    return <AdminLoadingState text="Beta Codes werden geladen..." />
   }
 
   return (
@@ -123,10 +127,10 @@ export default function AdminBetaCodesScreen() {
         </View>
 
         <View style={styles.summaryGrid}>
-          <SummaryBox label="Codes" value={summary.total} />
-          <SummaryBox label="Benutzt" value={summary.used} />
-          <SummaryBox label="Offen" value={summary.open} />
-          <SummaryBox
+          <AdminSummaryBox label="Codes" value={summary.total} />
+          <AdminSummaryBox label="Benutzt" value={summary.used} />
+          <AdminSummaryBox label="Offen" value={summary.open} />
+          <AdminSummaryBox
             label="Quote"
             value={
               summary.total > 0
@@ -140,17 +144,17 @@ export default function AdminBetaCodesScreen() {
           <Text style={styles.filterTitle}>Filter</Text>
 
           <View style={styles.filterRow}>
-            <FilterChip
+            <AdminFilterChip
               label="Alle"
               active={filterMode === 'all'}
               onPress={() => setFilterMode('all')}
             />
-            <FilterChip
+            <AdminFilterChip
               label="Benutzt"
               active={filterMode === 'used'}
               onPress={() => setFilterMode('used')}
             />
-            <FilterChip
+            <AdminFilterChip
               label="Offen"
               active={filterMode === 'open'}
               onPress={() => setFilterMode('open')}
@@ -169,13 +173,11 @@ export default function AdminBetaCodesScreen() {
         )}
 
         {!errorText && visibleCodes.length === 0 && (
-          <View style={styles.emptyBox}>
-            <Feather name="key" size={s(28)} color={COLORS.softGold} />
-            <Text style={styles.emptyTitle}>Keine Codes gefunden</Text>
-            <Text style={styles.emptyText}>
-              Für diesen Filter gibt es aktuell keine Beta Codes.
-            </Text>
-          </View>
+          <AdminEmptyState 
+            icon="inbox"
+            title="Noch keine Beta Codes"
+            text="Sobald Codes erstellt wurden, erscheinen sie hier."
+          />
         )}
 
         {!errorText &&
@@ -187,36 +189,6 @@ export default function AdminBetaCodesScreen() {
   );
 }
 
-function SummaryBox({ label, value }) {
-  return (
-    <View style={styles.summaryBox}>
-      <Text style={styles.summaryValue}>{formatValue(value)}</Text>
-      <Text style={styles.summaryLabel}>{label}</Text>
-    </View>
-  );
-}
-
-function FilterChip({ label, active, onPress }) {
-  return (
-    <Pressable
-      style={[styles.filterChip, active && styles.filterChipActive]}
-      onPress={onPress}
-    >
-      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-function formatValue(value) {
-  if (typeof value === 'number') {
-    return value.toLocaleString('de-DE');
-  }
-
-  return value;
-}
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -226,18 +198,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: s(20),
     paddingTop: sv(56),
     paddingBottom: sv(34),
-  },
-  centerScreen: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: s(28),
-  },
-  loadingText: {
-    marginTop: sv(14),
-    color: COLORS.textSecondary,
-    fontSize: sf(14),
   },
   header: {
     flexDirection: 'row',
@@ -282,25 +242,6 @@ const styles = StyleSheet.create({
     gap: s(10),
     marginBottom: sv(22),
   },
-  summaryBox: {
-    width: '48%',
-    borderRadius: s(18),
-    backgroundColor: 'rgba(255,255,255,0.045)',
-    borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    padding: s(15),
-  },
-  summaryValue: {
-    color: COLORS.white,
-    fontSize: sf(25),
-    fontWeight: '900',
-  },
-  summaryLabel: {
-    color: COLORS.textSecondary,
-    fontSize: sf(12),
-    fontWeight: '800',
-    marginTop: sv(3),
-  },
   filterSection: {
     marginBottom: sv(18),
   },
@@ -313,26 +254,6 @@ const styles = StyleSheet.create({
   filterRow: {
     flexDirection: 'row',
     gap: s(8),
-  },
-  filterChip: {
-    borderRadius: s(999),
-    borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    paddingHorizontal: s(13),
-    paddingVertical: sv(8),
-    backgroundColor: 'rgba(255,255,255,0.035)',
-  },
-  filterChipActive: {
-    backgroundColor: COLORS.gold,
-    borderColor: COLORS.gold,
-  },
-  filterChipText: {
-    color: COLORS.textSecondary,
-    fontSize: sf(13),
-    fontWeight: '800',
-  },
-  filterChipTextActive: {
-    color: COLORS.black,
   },
   errorBox: {
     borderRadius: s(16),
@@ -351,26 +272,5 @@ const styles = StyleSheet.create({
     color: COLORS.softGold,
     fontSize: sf(14),
     fontWeight: '800',
-  },
-  emptyBox: {
-    alignItems: 'center',
-    borderRadius: s(20),
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    padding: s(24),
-  },
-  emptyTitle: {
-    color: COLORS.white,
-    fontSize: sf(18),
-    fontWeight: '800',
-    marginTop: sv(12),
-  },
-  emptyText: {
-    color: COLORS.textSecondary,
-    fontSize: sf(14),
-    textAlign: 'center',
-    lineHeight: sf(21),
-    marginTop: sv(6),
   },
 });
