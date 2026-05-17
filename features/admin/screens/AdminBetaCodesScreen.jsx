@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState, useEffect } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,6 +15,7 @@ import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout';
 import { loadAdminBetaCodes } from '../services/adminBetaCodes';
 import AdminBetaCodeCard from '../components/AdminBetaCodeCard';
+import AdminLoadingState from '../components/AdminLoadingState';
 
 export default function AdminBetaCodesScreen() {
   const [codes, setCodes] = useState([]);
@@ -92,12 +92,7 @@ export default function AdminBetaCodesScreen() {
   }, [codes, filterMode]);
 
   if (isLoading) {
-    return (
-      <View style={styles.centerScreen}>
-        <ActivityIndicator color={COLORS.softGold} />
-        <Text style={styles.loadingText}>Beta Codes werden geladen...</Text>
-      </View>
-    );
+    return <AdminLoadingState text="CEO Dashboard wird geladen..." />
   }
 
   return (

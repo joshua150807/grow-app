@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,6 +15,7 @@ import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout';
 import { loadAdminUsersOverview } from '../services/adminUsers';
 import AdminUserCard from '../components/AdminUserCard';
+import AdminLoadingState from '../components/AdminLoadingState';
 
 export default function AdminUsersScreen() {
   const [users, setUsers] = useState([]);
@@ -114,12 +114,7 @@ export default function AdminUsersScreen() {
   }, [users]);
 
   if (isLoading) {
-    return (
-      <View style={styles.centerScreen}>
-        <ActivityIndicator color={COLORS.softGold} />
-        <Text style={styles.loadingText}>User Analytics werden geladen...</Text>
-      </View>
-    );
+    return <AdminLoadingState text="CEO Dashboard wird geladen..." />
   }
 
   return (

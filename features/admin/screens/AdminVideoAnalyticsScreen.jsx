@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,6 +15,7 @@ import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout';
 import { loadAdminVideoAnalytics } from '../services/adminVideoAnalytics';
 import AdminVideoAnalyticsCard from '../components/AdminVideoAnalyticsCard';
+import AdminLoadingState from '../components/AdminLoadingState';
 
 export default function AdminVideoAnalyticsScreen() {
   const [videos, setVideos] = useState([]);
@@ -99,12 +99,7 @@ export default function AdminVideoAnalyticsScreen() {
   }, [videos]);
 
   if (isLoading) {
-    return (
-      <View style={styles.centerScreen}>
-        <ActivityIndicator color={COLORS.softGold} />
-        <Text style={styles.loadingText}>Video Analytics werden geladen...</Text>
-      </View>
-    );
+    return <AdminLoadingState text="CEO Dashboard wird geladen..." />
   }
 
   return (

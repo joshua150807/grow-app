@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -17,6 +16,7 @@ import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout';
 import { loadAdminFeedbackList, deleteAdminFeedback } from '../services/adminFeedback';
 import AdminFeedbackCard from '../components/AdminFeedbackCard';
+import AdminLoadingState from '../components/AdminLoadingState';
 
 export default function AdminFeedbackScreen() {
   const [feedbacks, setFeedbacks] = useState([]);
@@ -90,12 +90,7 @@ export default function AdminFeedbackScreen() {
   );
 
   if (isLoading) {
-    return (
-      <View style={styles.centerScreen}>
-        <ActivityIndicator color={COLORS.softGold} />
-        <Text style={styles.loadingText}>Feedbacks werden geladen...</Text>
-      </View>
-    );
+    return <AdminLoadingState text="CEO Dashboard wird geladen..." />
   }
 
   return (
