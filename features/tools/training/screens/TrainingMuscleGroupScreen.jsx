@@ -17,16 +17,31 @@ export default function TrainingMuscleGroupScreen() {
 
   const group = MUSCLE_GROUP_EXERCISES[groupId];
 
+  const handleGoBack = () => {
+    router.back();
+  };
+
+  const handleOpenExerciseDetail = (exerciseId) => {
+    router.push({
+      pathname: '/tools/training-exercise-detail',
+      params: { exerciseId },
+    });
+  };
+
   if (!group) {
     return (
       <View style={styles.screen}>
         <View style={styles.topBar}>
           <Pressable
-            onPress={() => router.back()}
+            onPress={handleGoBack}
             style={styles.backButton}
             hitSlop={8}
           >
-            <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
+            <Ionicons
+              name="chevron-back"
+              size={s(24)}
+              color={COLORS.softGold}
+            />
             <Text style={styles.backText}>Zurück</Text>
           </Pressable>
         </View>
@@ -44,11 +59,15 @@ export default function TrainingMuscleGroupScreen() {
     <View style={styles.screen}>
       <View style={styles.topBar}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={handleGoBack}
           style={styles.backButton}
           hitSlop={8}
         >
-          <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
+          <Ionicons
+            name="chevron-back"
+            size={s(24)}
+            color={COLORS.softGold}
+          />
           <Text style={styles.backText}>Trainingsplan</Text>
         </Pressable>
       </View>
@@ -59,7 +78,11 @@ export default function TrainingMuscleGroupScreen() {
       >
         <View style={styles.muscleExerciseHeader}>
           <View style={styles.iconCircle}>
-            <Ionicons name="barbell-outline" size={s(34)} color={COLORS.gold} />
+            <Ionicons
+              name="barbell-outline"
+              size={s(34)}
+              color={COLORS.gold}
+            />
           </View>
 
           <Text style={styles.title}>{group.label}</Text>
@@ -74,10 +97,16 @@ export default function TrainingMuscleGroupScreen() {
             <Pressable
               key={exercise.id}
               style={styles.exerciseDirectoryItem}
+              onPress={() => handleOpenExerciseDetail(exercise.id)}
               hitSlop={4}
+              android_ripple={{ color: 'rgba(212,175,55,0.10)' }}
             >
               <View style={styles.exerciseDirectoryIcon}>
-                <Ionicons name="fitness-outline" size={s(24)} color={COLORS.gold} />
+                <Ionicons
+                  name="fitness-outline"
+                  size={s(24)}
+                  color={COLORS.gold}
+                />
               </View>
 
               <View style={styles.exerciseDirectoryContent}>

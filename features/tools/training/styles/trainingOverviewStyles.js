@@ -158,4 +158,87 @@ export const trainingOverviewStyles = {
     fontSize: sf(14),
     fontWeight: '700',
   },
+    // ── Exercise Detail ───────────────────────────────────────────────────────
+  exerciseDetailHeader: {
+    alignItems: 'center',
+    marginBottom: sv(24),
+  },
+
+  exerciseDetailCategory: {
+    color: COLORS.textDim,
+    fontSize: sf(15),
+    fontWeight: '700',
+    marginTop: sv(6),
+  },
+
+  exerciseDetailCard: {
+    backgroundColor: COLORS.darkCard,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: s(20),
+    padding: s(16),
+    marginBottom: sv(14),
+  },
+
+  exerciseDetailSectionTitle: {
+    color: COLORS.gold,
+    fontSize: sf(15),
+    fontWeight: '800',
+    marginBottom: sv(10),
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+
+  exerciseDetailText: {
+    color: COLORS.textPrimary,
+    fontSize: sf(15),
+    lineHeight: sf(22),
+    fontWeight: '500',
+  },
+
+  exerciseDetailBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: s(12),
+    marginBottom: sv(12),
+  },
+
+  exerciseDetailBullet: {
+    width: s(26),
+    height: s(26),
+    borderRadius: s(13),
+    backgroundColor: COLORS.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: sv(1),
+  },
+
+  exerciseDetailBulletNumber: {
+    color: COLORS.black,
+    fontSize: sf(13),
+    fontWeight: '900',
+  },
+
+  exerciseDetailBulletText: {
+    flex: 1,
+    color: COLORS.textPrimary,
+    fontSize: sf(15),
+    lineHeight: sf(22),
+    fontWeight: '500',
+  },
+
+  exerciseDetailTipRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: s(10),
+    marginBottom: sv(10),
+  },
+
+  exerciseDetailTipText: {
+    flex: 1,
+    color: COLORS.textPrimary,
+    fontSize: sf(15),
+    lineHeight: sf(21),
+    fontWeight: '500',
+  },
 };
