@@ -3,7 +3,7 @@
     "scheme": "growapp",
     "name": "Grow",
     "slug": "Grow",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
@@ -12,7 +12,7 @@
       "icon": "./assets/images/icon.png",
       "supportsTablet": false,
       "bundleIdentifier": "app.joingrow.grow",
-      "buildNumber": "10",
+      "buildNumber": "25",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "Grow benötigt Zugriff auf deine Fotos, damit du Feedback-Bilder anhängen kannst.",
         "NSMotionUsageDescription": "Grow nutzt Bewegungsdaten, um deine Schritte im Active Tracker anzuzeigen.",

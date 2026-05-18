@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ImageBackground, Pressable } from 'react-native';
+import { View, Text, ImageBackground, Pressable, useWindowDimensions } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Asset } from 'expo-asset';
@@ -61,6 +61,41 @@ function renderToolIcon(tool) {
 }
  
 export default function ToolsScreen() {
+
+  const { height, width } = useWindowDimensions();
+
+  const horizontalPadding = s(14) * 2;
+  const gridWidth = width - horizontalPadding;
+  const cardWidth = gridWidth * 0.315;
+
+  // ungefähre feste Höhenbereiche außerhalb der Coming-Soon-Reihe
+  const mentorBannerHeight = Math.max(
+    sv(92),
+    Math.min(height * 0.105, sv(112))
+  );
+
+  const trackerReserveHeight = Math.max(
+    sv(118),
+    Math.min(height * 0.135, sv(138))
+  );
+
+  const fixedContentHeight =
+    sv(54) + // top padding
+    sv(58) + // bottom / tab area reserve
+    sv(78) + // header
+    sv(54) + // tools title + subtitle
+    cardWidth * 2 + // zwei aktive Toolcard-Reihen
+    sv(12) + // grid gaps
+    mentorBannerHeight +
+    trackerReserveHeight;
+
+  const availableComingSoonHeight = height - fixedContentHeight;
+
+  const comingSoonCardHeight = Math.max(
+    sv(86),
+    Math.min(availableComingSoonHeight, cardWidth)
+  );
+
   const { username, growPoints, isCeo } = useProfile();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -187,6 +222,7 @@ export default function ToolsScreen() {
               title={tool.title}
               description={tool.description}
               disabled={tool.disabled}
+              cardStyle={tool.disabled ? { height: comingSoonCardHeight } : undefined}
             />
           ))}
         </View>
@@ -194,7 +230,7 @@ export default function ToolsScreen() {
         {/* KI Mentor Card */}
         <ImageBackground
           source={MENTOR_BG}
-          style={styles.mentorCard}
+          style={[styles.mentorCard, { height: mentorBannerHeight }]}
           imageStyle={styles.mentorCardImage}
           resizeMode="stretch"
         >

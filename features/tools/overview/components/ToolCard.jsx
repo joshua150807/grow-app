@@ -3,7 +3,7 @@ import { COLORS } from '../../../../constants/colors';
 import { s, sv, sf, SCREEN } from '../../../../constants/layout';
 
 const compact = SCREEN.height < 900;
-const veryCompact = SCREEN.height < 700;
+const veryCompact = SCREEN.height < 760;
 
 export default function ToolCard({
   icon,
@@ -13,6 +13,7 @@ export default function ToolCard({
   onPress,
   disabled = false,
   badgeText,
+  cardStyle,
 }) {
   return (
     <Pressable
@@ -20,6 +21,7 @@ export default function ToolCard({
         styles.card,
         image && styles.imageCard,
         disabled && styles.cardDisabled,
+        cardStyle,
         pressed && !disabled && styles.cardPressed,
       ]}
       onPress={onPress}
@@ -39,12 +41,18 @@ export default function ToolCard({
           ) : null}
 
           <View style={styles.imageTextBox}>
-            <Text style={[styles.imageTitle, disabled && styles.titleDisabled]} numberOfLines={1}>
+            <Text
+              style={[styles.imageTitle, disabled && styles.titleDisabled]}
+              numberOfLines={1}
+            >
               {title}
             </Text>
 
             {!!description && (
-              <Text style={styles.imageDescription} numberOfLines={2}>
+              <Text
+                style={styles.imageDescription}
+                numberOfLines={compact ? 1 : 2}
+              >
                 {description}
               </Text>
             )}
@@ -66,14 +74,25 @@ export default function ToolCard({
             )}
           </View>
 
-          <Text style={[styles.title, disabled && styles.titleDisabled]} numberOfLines={2}>
+          <Text
+            style={[
+              styles.title,
+              disabled && styles.titleDisabled,
+              disabled && styles.disabledTitle,
+            ]}
+            numberOfLines={disabled ? 1 : 2}
+          >
             {title}
           </Text>
 
           {!!description && (
             <Text
-              style={[styles.description, disabled && styles.descriptionDisabled]}
-              numberOfLines={2}
+              style={[
+                styles.description,
+                disabled && styles.descriptionDisabled,
+                disabled && styles.disabledDescription,
+              ]}
+              numberOfLines={disabled ? 1 : 2}
             >
               {description}
             </Text>
@@ -92,9 +111,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(51, 51, 51, 0.99)',
     borderRadius: s(8),
-    paddingVertical: sv(8),
+    paddingVertical: compact ? sv(6) : sv(8),
     paddingHorizontal: s(6),
-    marginBottom: sv(8),
+    marginBottom: compact ? sv(6) : sv(8),
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -112,6 +131,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgb(39, 39, 39)',
     backgroundColor: '#07050A',
     opacity: 0.78,
+    paddingVertical: veryCompact ? sv(3) : compact ? sv(4) : sv(6),
   },
 
   cardPressed: {
@@ -159,7 +179,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     lineHeight: veryCompact ? sf(7.8) : compact ? sf(8.5) : sf(9.2),
-
     textShadowColor: 'rgba(255, 217, 120, 0.45)',
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 4,
@@ -184,14 +203,14 @@ const styles = StyleSheet.create({
   },
 
   iconWrapper: {
-    width: s(38),
-    height: s(38),
-    borderRadius: s(19),
+    width: compact ? s(34) : s(38),
+    height: compact ? s(34) : s(38),
+    borderRadius: compact ? s(17) : s(19),
     borderWidth: 0,
     borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: sv(6),
+    marginBottom: compact ? sv(4) : sv(6),
     backgroundColor: 'transparent',
 
     shadowColor: COLORS.toolsGold,
@@ -202,6 +221,10 @@ const styles = StyleSheet.create({
   },
 
   iconWrapperDisabled: {
+    width: veryCompact ? s(25) : compact ? s(28) : s(32),
+    height: veryCompact ? s(25) : compact ? s(28) : s(32),
+    borderRadius: veryCompact ? s(12.5) : compact ? s(14) : s(16),
+    marginBottom: veryCompact ? sv(1) : compact ? sv(2) : sv(4),
     borderColor: 'transparent',
     backgroundColor: 'transparent',
     shadowOpacity: 0,
@@ -215,7 +238,7 @@ const styles = StyleSheet.create({
 
   icon: {
     color: COLORS.toolsGold,
-    fontSize: sf(18),
+    fontSize: compact ? sf(17) : sf(18),
     textShadowColor: 'rgba(231,201,138,0.35)',
     textShadowRadius: 6,
     textShadowOffset: { width: 0, height: 0 },
@@ -227,11 +250,16 @@ const styles = StyleSheet.create({
 
   title: {
     color: '#FFF1D2',
-    fontSize: sf(10.8),
+    fontSize: compact ? sf(10.2) : sf(10.8),
     fontWeight: '500',
-    marginBottom: sv(3),
+    marginBottom: compact ? sv(2) : sv(3),
     textAlign: 'center',
     letterSpacing: 0.15,
+  },
+
+  disabledTitle: {
+    fontSize: veryCompact ? sf(8.8) : compact ? sf(9.4) : sf(10),
+    marginBottom: veryCompact ? sv(1) : sv(2),
   },
 
   titleDisabled: {
@@ -241,10 +269,15 @@ const styles = StyleSheet.create({
 
   description: {
     color: 'rgba(255,241,210,0.50)',
-    fontSize: sf(8.4),
+    fontSize: compact ? sf(7.8) : sf(8.4),
     fontWeight: '400',
-    lineHeight: sf(11),
+    lineHeight: compact ? sf(10) : sf(11),
     textAlign: 'center',
+  },
+
+  disabledDescription: {
+    fontSize: veryCompact ? sf(6.8) : compact ? sf(7.2) : sf(7.8),
+    lineHeight: veryCompact ? sf(8.2) : compact ? sf(9) : sf(10),
   },
 
   descriptionDisabled: {

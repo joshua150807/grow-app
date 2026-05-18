@@ -3,7 +3,7 @@ import { COLORS } from '../../../../constants/colors';
 import { s, sv, sf, SCREEN } from '../../../../constants/layout';
 
 const veryCompact = SCREEN.height < 760;
-const compact = SCREEN.height < 820;
+const compact = SCREEN.height < 900;
 
 export const styles = StyleSheet.create({
   screen: {
@@ -13,9 +13,9 @@ export const styles = StyleSheet.create({
 
   content: {
     flex: 1,
-    paddingTop: sv(66),
+    paddingTop: veryCompact ? sv(48) : compact ? sv(54) : sv(66),
     paddingHorizontal: s(14),
-    paddingBottom: sv(72),
+    paddingBottom: veryCompact ? sv(52) : compact ? sv(58) : sv(72),
   },
 
   header: {
@@ -33,15 +33,15 @@ export const styles = StyleSheet.create({
   },
 
   avatar: {
-    width: s(56),
-    height: s(56),
-    borderRadius: s(20),
+    width: veryCompact ? s(48) : compact ? s(52) : s(56),
+    height: veryCompact ? s(48) : compact ? s(52) : s(56),
+    borderRadius: veryCompact ? s(17) : compact ? s(18) : s(20),
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(231,201,138,0.35)',
     backgroundColor: 'rgba(231,201,138,0.045)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: s(12),
+    marginRight: compact ? s(10) : s(12),
 
     shadowColor: COLORS.toolsGold,
     shadowOffset: { width: 0, height: 0 },
@@ -51,7 +51,7 @@ export const styles = StyleSheet.create({
   },
 
   avatarText: {
-    fontSize: sf(20),
+    fontSize: veryCompact ? sf(17) : compact ? sf(18) : sf(20),
   },
 
   headerTextBox: {
@@ -60,7 +60,7 @@ export const styles = StyleSheet.create({
 
   topLabel: {
     color: 'rgba(255,241,210,0.48)',
-    fontSize: sf(9.5),
+    fontSize: compact ? sf(8.8) : sf(9.5),
     fontWeight: '400',
     letterSpacing: 2.2,
     marginBottom: sv(2),
@@ -68,7 +68,7 @@ export const styles = StyleSheet.create({
 
   accountName: {
     color: COLORS.toolsText,
-    fontSize: sf(19),
+    fontSize: veryCompact ? sf(16.5) : compact ? sf(17.5) : sf(19),
     fontWeight: '500',
     letterSpacing: 0.2,
   },
@@ -81,7 +81,7 @@ export const styles = StyleSheet.create({
   pointsBox: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: s(12),
+    marginRight: compact ? s(8) : s(12),
   },
 
   pointsRow: {
@@ -91,9 +91,9 @@ export const styles = StyleSheet.create({
   },
 
   coinPlaceholder: {
-    width: s(24),
-    height: s(24),
-    borderRadius: s(12),
+    width: compact ? s(21) : s(24),
+    height: compact ? s(21) : s(24),
+    borderRadius: compact ? s(10.5) : s(12),
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(231,201,138,0.42)',
     backgroundColor: 'rgba(231,201,138,0.055)',
@@ -110,7 +110,7 @@ export const styles = StyleSheet.create({
 
   coinStar: {
     color: COLORS.toolsGold,
-    fontSize: sf(11),
+    fontSize: compact ? sf(10) : sf(11),
     fontWeight: '500',
     textShadowColor: 'rgba(231,201,138,0.45)',
     textShadowRadius: 7,
@@ -119,20 +119,20 @@ export const styles = StyleSheet.create({
 
   pointsValue: {
     color: COLORS.toolsText,
-    fontSize: sf(18),
+    fontSize: veryCompact ? sf(15.5) : compact ? sf(16.5) : sf(18),
     fontWeight: '500',
     letterSpacing: 0.2,
   },
 
   pointsLabel: {
     color: 'rgba(255,241,210,0.48)',
-    fontSize: sf(9),
+    fontSize: compact ? sf(8.2) : sf(9),
     fontWeight: '400',
     textAlign: 'center',
   },
 
   menuButton: {
-    marginLeft: s(10),
+    marginLeft: compact ? s(6) : s(10),
     padding: s(4),
   },
 
@@ -177,32 +177,23 @@ export const styles = StyleSheet.create({
 
   sectionTitle: {
     color: COLORS.toolsText,
-    fontSize: sf(21),
+    fontSize: veryCompact ? sf(18.5) : compact ? sf(19.5) : sf(21),
     fontWeight: '500',
-    marginBottom: sv(4),
+    marginBottom: compact ? sv(2) : sv(4),
     letterSpacing: 1.3,
   },
 
   sectionSubtitle: {
     color: 'rgba(255,241,210,0.50)',
-    fontSize: sf(12),
+    fontSize: compact ? sf(11) : sf(12),
     fontWeight: '400',
-    lineHeight: sf(17),
+    lineHeight: compact ? sf(15) : sf(17),
   },
 
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-  },
-
-  mentorCard: {
-    marginTop: compact ? 0 : sv(4),
-    marginBottom: veryCompact ? sv(2) : compact ? sv(4) : sv(10),
-    borderRadius: s(10),
-    overflow: 'hidden',
-    minHeight: sv(90),
-    backgroundColor: COLORS.toolsCard,
   },
 
   mentorCardImage: {
@@ -214,9 +205,9 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: sv(8),
+    paddingVertical: compact ? sv(6) : sv(8),
     paddingLeft: '34%',
-    paddingRight: s(12),
+    paddingRight: compact ? s(10) : s(12),
     backgroundColor: 'rgba(0,0,0,0.16)',
   },
 
@@ -232,54 +223,54 @@ export const styles = StyleSheet.create({
 
   mentorTitle: {
     color: COLORS.toolsText,
-    fontSize: sf(13.2),
+    fontSize: veryCompact ? sf(11.5) : compact ? sf(12.2) : sf(13.2),
     fontWeight: '500',
-    marginBottom: sv(2),
+    marginBottom: compact ? sv(1) : sv(2),
     letterSpacing: 0.1,
   },
 
   mentorDescription: {
     color: 'rgba(255,241,210,0.55)',
-    fontSize: sf(9.3),
+    fontSize: veryCompact ? sf(8.2) : compact ? sf(8.7) : sf(9.3),
     fontWeight: '400',
-    lineHeight: sf(12.4),
+    lineHeight: veryCompact ? sf(10.5) : compact ? sf(11.2) : sf(12.4),
   },
 
   mentorButton: {
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(231,201,138,0.32)',
     borderRadius: 999,
-    paddingVertical: sv(6),
-    paddingHorizontal: s(10),
+    paddingVertical: compact ? sv(5) : sv(6),
+    paddingHorizontal: compact ? s(8) : s(10),
     backgroundColor: 'rgba(255,255,255,0.025)',
   },
 
   mentorButtonText: {
     color: 'rgba(255,241,210,0.82)',
-    fontSize: sf(9.2),
+    fontSize: compact ? sf(8.6) : sf(9.2),
     fontWeight: '500',
     letterSpacing: 0.1,
   },
 
   trackerSection: {
     flex: 1,
-    marginTop: sv(4),
+    marginTop: veryCompact ? sv(2) : compact ? sv(3) : sv(4),
     paddingHorizontal: s(2),
   },
 
   trackerTitle: {
     color: COLORS.toolsText,
-    fontSize: sf(14.5),
+    fontSize: veryCompact ? sf(12.5) : compact ? sf(13.2) : sf(14.5),
     fontWeight: '500',
-    marginBottom: sv(2),
+    marginBottom: compact ? sv(1) : sv(2),
     letterSpacing: 1,
   },
 
   trackerSubtitle: {
     color: 'rgba(255,241,210,0.48)',
-    fontSize: sf(10.5),
+    fontSize: veryCompact ? sf(9.2) : compact ? sf(9.8) : sf(10.5),
     fontWeight: '400',
-    marginBottom: sv(4),
+    marginBottom: compact ? sv(3) : sv(4),
   },
 
   trackerRow: {
@@ -287,6 +278,6 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: s(8),
-    maxHeight: sv(110),
+    maxHeight: veryCompact ? sv(82) : compact ? sv(92) : sv(110),
   },
 });

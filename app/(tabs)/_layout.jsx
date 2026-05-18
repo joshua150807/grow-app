@@ -102,10 +102,10 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="tools"
+        name="feedback"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="grid-outline" color={color} size={s(26)} focused={focused} />
+            <TabIcon name="mail-outline" color={color} size={s(18)} focused={focused} />
           ),
         }}
       />
@@ -118,10 +118,10 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="feedback"
+        name="tools"
         options={{
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="mail-outline" color={color} size={s(18)} focused={focused} />
+            <TabIcon name="grid-outline" color={color} size={s(26)} focused={focused} />
           ),
         }}
       />
