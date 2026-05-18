@@ -18,9 +18,13 @@ export function useTrainingPlan() {
   const planRef = useRef(plan);
   planRef.current = plan;
 
-  const loadPlan = useCallback(async () => {
-    setLoading(true);
+  const loadPlan = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
+
     setError(null);
+
     try {
       const data = await fetchTrainingPlan();
       setPlan(data);
@@ -28,7 +32,9 @@ export function useTrainingPlan() {
       console.error('[Training Hook] Load error:', e);
       setError('Trainingsplan konnte nicht geladen werden.');
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 

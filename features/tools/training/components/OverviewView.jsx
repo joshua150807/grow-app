@@ -3,7 +3,7 @@ import {
   Text,
   ScrollView,
   Pressable,
-  ActivityIndicator
+  ActivityIndicator,
 } from 'react-native';
 import { useCallback } from 'react';
 import { router, useFocusEffect } from 'expo-router';
@@ -25,22 +25,50 @@ const MUSCLE_GROUPS = [
 ];
 
 export function OverviewView({ plan }) {
-    const {
-        sessions,
-        loadingSessions,
-        sessionsError,
-        loadSessions,
-    } = useLatestTrainingSessions();
+  const {
+    sessions,
+    loadingSessions,
+    sessionsError,
+    loadSessions,
+  } = useLatestTrainingSessions();
 
-    useFocusEffect(
-        useCallback(() => {
-            loadSessions();
-        }, [loadSessions])
-    )
-    return(
+  useFocusEffect(
+    useCallback(() => {
+      loadSessions({ silent: true });
+    }, [loadSessions])
+  );
+
+  const handleGoBack = useCallback(() => {
+    router.back();
+  }, []);
+
+  const handleOpenTrainingSession = useCallback(() => {
+    router.push('/tools/training-session');
+  }, []);
+
+  const handleOpenPlanEditor = useCallback(() => {
+    router.push('/tools/training-plan-editor');
+  }, []);
+
+  const handleOpenTrainingSessions = useCallback(() => {
+    router.push('/tools/training-sessions');
+  }, []);
+
+  const handleOpenMuscleGroup = useCallback((groupId) => {
+    router.push({
+      pathname: '/tools/training-muscle-group',
+      params: { groupId },
+    });
+  }, []);
+
+  return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable
+          onPress={handleGoBack}
+          style={styles.backButton}
+          hitSlop={8}
+        >
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Tools</Text>
         </Pressable>
@@ -54,35 +82,44 @@ export function OverviewView({ plan }) {
           <View style={styles.iconCircle}>
             <Ionicons name="barbell-outline" size={s(36)} color={COLORS.gold} />
           </View>
+
           <Text style={styles.title}>Trainingsplan</Text>
         </View>
 
         <Pressable
-            style={styles.startTrainingBanner}
-            onPress={() => router.push('/tools/training-session')}
+          style={styles.startTrainingBanner}
+          onPress={handleOpenTrainingSession}
+          hitSlop={8}
+          android_ripple={{ color: 'rgba(212,175,55,0.12)' }}
         >
-            <View style={styles.startTrainingIconWrap}>
-                <Ionicons name="play-outline" size={s(26)} color={COLORS.black} />
-            </View>
+          <View style={styles.startTrainingIconWrap}>
+            <Ionicons name="play-outline" size={s(26)} color={COLORS.black} />
+          </View>
 
-            <View style={styles.startTrainingContent}>
-                <Text style={styles.startTrainingTitle}>Training starten</Text>
-                <Text style={styles.startTrainingSubtitle}>
-                    Wähle deinen Trainingstag und beginne deine Einheit
-                </Text>
-            </View>
+          <View style={styles.startTrainingContent}>
+            <Text style={styles.startTrainingTitle}>Training starten</Text>
+            <Text style={styles.startTrainingSubtitle}>
+              Wähle deinen Trainingstag und beginne deine Einheit
+            </Text>
+          </View>
 
-            <Ionicons name="chevron-forward" size={s(24)} color={COLORS.gold} />
+          <Ionicons name="chevron-forward" size={s(24)} color={COLORS.gold} />
         </Pressable>
 
         <Pressable
           style={styles.trainingMainBanner}
-          onPress={() => router.push('/tools/training-plan-editor')}
+          onPress={handleOpenPlanEditor}
+          hitSlop={8}
+          android_ripple={{ color: 'rgba(212,175,55,0.12)' }}
         >
           <View>
-            <Text style={styles.trainingMainBannerTitle}>Mein Trainingsplan ansehen und bearbeiten</Text>
+            <Text style={styles.trainingMainBannerTitle}>
+              Mein Trainingsplan ansehen und bearbeiten
+            </Text>
+
             <Text style={styles.trainingMainBannerSubtitle}>
-              {plan.days.length} {plan.days.length === 1 ? 'Trainingstag' : 'Trainingstage'} ansehen und bearbeiten
+              {plan.days.length}{' '}
+              {plan.days.length === 1 ? 'Trainingstag' : 'Trainingstage'} ansehen und bearbeiten
             </Text>
           </View>
 
@@ -97,64 +134,79 @@ export function OverviewView({ plan }) {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.muscleGroupRow}
           >
-            {MUSCLE_GROUPS.map(group => (
-              <View key={group.id} style={styles.muscleGroupItem}>
+            {MUSCLE_GROUPS.map((group) => (
+              <Pressable
+                key={group.id}
+                style={styles.muscleGroupItem}
+                onPress={() => handleOpenMuscleGroup(group.id)}
+                hitslop={8}
+              >
                 <View style={styles.muscleGroupImagePlaceholder}>
                   <Ionicons name={group.icon} size={s(24)} color={COLORS.gold} />
                 </View>
+
                 <Text style={styles.muscleGroupLabel}>{group.label}</Text>
-              </View>
+              </Pressable>  
             ))}
           </ScrollView>
         </View>
 
-        <Pressable 
-            style={styles.lastSessionsBanner}
-            onPress={() => router.push('/tools/training-sessions')}
+        <Pressable
+          style={styles.lastSessionsBanner}
+          onPress={handleOpenTrainingSessions}
+          hitSlop={8}
+          android_ripple={{ color: 'rgba(212,175,55,0.12)' }}
         >
-            <View style={styles.lastSessionsHeader}>
-                <View>
-                <Text style={styles.lastSessionsTitle}>Letzte Trainingseinheiten</Text>
-                <Text style={styles.lastSessionsSubtitle}>
-                    Deine neuesten 5 gespeicherten Trainings
-                </Text>
-                </View>
+          <View style={styles.lastSessionsHeader}>
+            <View>
+              <Text style={styles.lastSessionsTitle}>
+                Letzte Trainingseinheiten
+              </Text>
 
-                {loadingSessions ? (
-                <ActivityIndicator color={COLORS.gold} />
-                ) : (
-                <Ionicons name="time-outline" size={s(24)} color={COLORS.textDim} />
-                )}
+              <Text style={styles.lastSessionsSubtitle}>
+                Deine neuesten 5 gespeicherten Trainings
+              </Text>
             </View>
 
-            {sessionsError ? (
-                <Text style={styles.lastSessionsError}>{sessionsError}</Text>
-            ) : null}
+            {loadingSessions ? (
+              <ActivityIndicator color={COLORS.gold} />
+            ) : (
+              <Ionicons name="time-outline" size={s(24)} color={COLORS.textDim} />
+            )}
+          </View>
 
-            {!loadingSessions && !sessionsError && sessions.length === 0 ? (
-                <Text style={styles.lastSessionsEmpty}>
-                Noch keine Trainingseinheit gespeichert.
-                </Text>
-            ) : null}
+          {sessionsError ? (
+            <Text style={styles.lastSessionsError}>{sessionsError}</Text>
+          ) : null}
 
-            {!loadingSessions && !sessionsError && sessions.length > 0 ? (
-                <View style={styles.lastSessionsList}>
-                {sessions.map(session => (
-                    <View key={session.id} style={styles.lastSessionItem}>
-                    <View style={styles.lastSessionDot} />
+          {!loadingSessions && !sessionsError && sessions.length === 0 ? (
+            <Text style={styles.lastSessionsEmpty}>
+              Noch keine Trainingseinheit gespeichert.
+            </Text>
+          ) : null}
 
-                    <View style={styles.lastSessionContent}>
-                        <Text style={styles.lastSessionTitle}>{session.dayName}</Text>
-                        <Text style={styles.lastSessionMeta}>
-                        {formatTrainingSessionDate(session.performedAt)} · {session.exerciseCount}{' '}
-                        {session.exerciseCount === 1 ? 'Übung' : 'Übungen'}
-                        </Text>
-                    </View>
-                    </View>
-                ))}
+          {!loadingSessions && !sessionsError && sessions.length > 0 ? (
+            <View style={styles.lastSessionsList}>
+              {sessions.map((session) => (
+                <View key={session.id} style={styles.lastSessionItem}>
+                  <View style={styles.lastSessionDot} />
+
+                  <View style={styles.lastSessionContent}>
+                    <Text style={styles.lastSessionTitle}>
+                      {session.dayName}
+                    </Text>
+
+                    <Text style={styles.lastSessionMeta}>
+                      {formatTrainingSessionDate(session.performedAt)} ·{' '}
+                      {session.exerciseCount}{' '}
+                      {session.exerciseCount === 1 ? 'Übung' : 'Übungen'}
+                    </Text>
+                  </View>
                 </View>
-            ) : null}
-            </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </Pressable>
       </ScrollView>
     </View>
   );

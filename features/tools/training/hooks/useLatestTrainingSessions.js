@@ -7,8 +7,11 @@ export function useLatestTrainingSessions() {
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [sessionsError, setSessionsError] = useState(null);
 
-  const loadSessions = useCallback(async () => {
-    setLoadingSessions(true);
+  const loadSessions = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoadingSessions(true);
+    }
+
     setSessionsError(null);
 
     try {
@@ -18,7 +21,9 @@ export function useLatestTrainingSessions() {
       console.error('[Training Sessions] Load latest failed:', e);
       setSessionsError('Letzte Trainingseinheiten konnten nicht geladen werden.');
     } finally {
-      setLoadingSessions(false);
+      if (!silent) {
+        setLoadingSessions(false);
+      }
     }
   }, []);
 

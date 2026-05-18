@@ -19,8 +19,10 @@ export default function TrainingOverviewScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      loadPlan();
-    }, [loadPlan])
+      if (plan) {
+        loadPlan({ silent: true })
+      }
+    }, [plan, loadPlan])
   );
 
   if (loading) {

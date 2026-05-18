@@ -100,4 +100,62 @@ export const trainingOverviewStyles = {
     fontSize: sf(12),
     fontWeight: '600',
   },
+    // ── Muscle Group Exercise Directory ───────────────────────────────────────
+  muscleExerciseHeader: {
+    alignItems: 'center',
+    marginBottom: sv(24),
+  },
+
+  muscleExerciseSubtitle: {
+    color: COLORS.textDim,
+    fontSize: sf(13),
+    textAlign: 'center',
+    marginTop: sv(8),
+    lineHeight: sf(19),
+    paddingHorizontal: s(8),
+  },
+
+  exerciseDirectoryList: {
+    gap: sv(0),
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderSubtle,
+  },
+
+  exerciseDirectoryItem: {
+    minHeight: sv(86),
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: sv(14),
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.borderSubtle,
+    gap: s(14),
+  },
+
+  exerciseDirectoryIcon: {
+    width: s(56),
+    height: s(56),
+    borderRadius: s(16),
+    backgroundColor: COLORS.darkCard2,
+    borderWidth: 1,
+    borderColor: COLORS.borderDeep,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  exerciseDirectoryContent: {
+    flex: 1,
+    gap: sv(4),
+  },
+
+  exerciseDirectoryName: {
+    color: COLORS.textPrimary,
+    fontSize: sf(18),
+    fontWeight: '800',
+  },
+
+  exerciseDirectoryCategory: {
+    color: COLORS.textMuted,
+    fontSize: sf(14),
+    fontWeight: '700',
+  },
 };
