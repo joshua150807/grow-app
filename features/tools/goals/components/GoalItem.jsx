@@ -4,11 +4,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../../constants/colors';
 import { s, sv, sf } from '../../../../constants/layout';
 
-export function GoalItem({ goal, onToggle, onDelete }) {
+export function GoalItem({ goal, onToggle, onDelete, onEdit }) {
   return (
     <Pressable
       style={[styles.goalCard, goal.completed && styles.goalCardDone]}
       onPress={() => onToggle(goal.id, goal.completed)}
+      onLongPress={() => onEdit?.(goal)}
+      delayLongPress={280}
+      pressRetentionOffset={{
+        top: s(28),
+        bottom: s(28),
+        left: s(28),
+        right: s(28),
+      }}
     >
       <View style={styles.goalLeft}>
         <View style={[styles.checkbox, goal.completed && styles.checkboxDone]}>

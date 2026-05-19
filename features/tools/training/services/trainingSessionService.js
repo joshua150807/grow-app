@@ -1,38 +1,5 @@
 import { supabase } from "../../../../services/supabaseClient";
 
-const MAX_STORED_SESSIONS = 5;
-
-async function deleteOlderTrainingSessions(userId) {
-  const { data: sessions, error: fetchError } = await supabase
-    .from('training_sessions')
-    .select('id, performed_at, created_at')
-    .eq('user_id', userId)
-    .order('performed_at', { ascending: false })
-    .order('created_at', { ascending: false });
-
-  if (fetchError) throw fetchError;
-
-  if (!sessions || sessions.length <= MAX_STORED_SESSIONS) {
-    return;
-  }
-
-  const oldSessionIds = sessions
-    .slice(MAX_STORED_SESSIONS)
-    .map(session => session.id);
-
-  if (oldSessionIds.length === 0) {
-    return;
-  }
-
-  const { error: deleteError } = await supabase
-    .from('training_sessions')
-    .delete()
-    .in('id', oldSessionIds)
-    .eq('user_id', userId);
-
-  if (deleteError) throw deleteError;
-}
-
 export async function createTrainingSession({ userId, planId, dayId, note, exercises }) {
   const { data: session, error: sessionError } = await supabase
     .from('training_sessions')
@@ -65,12 +32,11 @@ export async function createTrainingSession({ userId, planId, dayId, note, exerc
     if (exercisesError) throw exercisesError;
   }
 
-  await deleteOlderTrainingSessions(userId);
-
   return session;
 }
-export async function fetchLatestTrainingSessions(limit = 5) {
-  const { data, error } = await supabase
+
+export async function fetchLatestTrainingSessions(limit = null) {
+  let query = supabase
     .from('training_sessions')
     .select(`
       id,
@@ -84,8 +50,13 @@ export async function fetchLatestTrainingSessions(limit = 5) {
         id
       )
     `)
-    .order('performed_at', { ascending: false })
-    .limit(limit);
+    .order('performed_at', { ascending: false });
+
+  if (limit) {
+    query = query.limit(limit);
+  }
+
+  const { data, error } = await query;
 
   if (error) throw error;
 
@@ -97,6 +68,7 @@ export async function fetchLatestTrainingSessions(limit = 5) {
     note: session.note,
   }));
 }
+
 export async function fetchTrainingSessionDetail(sessionId) {
   const { data, error } = await supabase
     .from('training_sessions')

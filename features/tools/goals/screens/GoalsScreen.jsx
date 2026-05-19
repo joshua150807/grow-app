@@ -35,36 +35,65 @@ export default function GoalsScreen() {
     toggle,
     remove,
     add,
+    update,
   } = useGoals(selectedCategory);
 
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingGoal, setEditingGoal] = useState(null);
+
   const [inputName, setInputName] = useState('');
   const [inputDeadline, setInputDeadline] = useState('');
-  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [addError, setAddError] = useState(null);
 
-  const handleAdd = useCallback(async () => {
-    if (!inputName.trim()) return;
-
-    setAddError(null);
-    setAdding(true);
-
-    try {
-      await add(inputName.trim(), selectedCategory, inputDeadline.trim());
-      closeModal();
-    } catch (e) {
-      setAddError('Ziel konnte nicht gespeichert werden. Bitte versuche es erneut.');
-    } finally {
-      setAdding(false);
-    }
-  }, [inputName, inputDeadline, selectedCategory, add]);
-
-  const closeModal = () => {
-    setModalVisible(false);
+  const openAddModal = useCallback(() => {
+    setEditingGoal(null);
     setInputName('');
     setInputDeadline('');
     setAddError(null);
-  };
+    setModalVisible(true);
+  }, []);
+
+  const openEditModal = useCallback((goal) => {
+    setEditingGoal(goal);
+    setInputName(goal.name || '');
+    setInputDeadline(goal.deadline || '');
+    setAddError(null);
+    setModalVisible(true);
+  }, []);
+
+  const closeModal = useCallback(() => {
+    setModalVisible(false);
+    setEditingGoal(null);
+    setInputName('');
+    setInputDeadline('');
+    setAddError(null);
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!inputName.trim()) return;
+
+    setAddError(null);
+    setSaving(true);
+
+    try {
+      if (editingGoal) {
+        await update(editingGoal.id, inputName.trim(), inputDeadline.trim());
+      } else {
+        await add(inputName.trim(), selectedCategory, inputDeadline.trim());
+      }
+
+      closeModal();
+    } catch (e) {
+      setAddError(
+        editingGoal
+          ? 'Ziel konnte nicht aktualisiert werden. Bitte versuche es erneut.'
+          : 'Ziel konnte nicht gespeichert werden. Bitte versuche es erneut.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  }, [inputName, inputDeadline, selectedCategory, add, update, editingGoal, closeModal]);
 
   const canAdd = inputName.trim().length > 0;
 
@@ -100,7 +129,7 @@ export default function GoalsScreen() {
           </View>
         )}
 
-        {/* Aktionsfehler (Abhaken, Löschen) */}
+        {/* Aktionsfehler */}
         {actionError && (
           <View style={styles.errorBanner}>
             <Ionicons name="alert-circle-outline" size={s(16)} color={styles.errorIcon.color} />
@@ -156,20 +185,20 @@ export default function GoalsScreen() {
                 goal={goal}
                 onToggle={toggle}
                 onDelete={remove}
+                onEdit={openEditModal}
               />
             ))}
           </View>
         )}
 
         {/* Hinzufügen */}
-        <Pressable style={styles.addButton} onPress={() => setModalVisible(true)}>
+        <Pressable style={styles.addButton} onPress={openAddModal}>
           <Ionicons name="add-circle-outline" size={s(22)} color={COLORS.gold} />
           <Text style={styles.addText}>Ziel hinzufügen</Text>
         </Pressable>
 
       </ScrollView>
 
-      {/* ── Add-Modal ─────────────────────────────────────────────────────── */}
       <AddGoalModal
         visible={modalVisible}
         onClose={closeModal}
@@ -179,8 +208,9 @@ export default function GoalsScreen() {
         setInputDeadline={setInputDeadline}
         addError={addError}
         canAdd={canAdd}
-        adding={adding}
-        onAdd={handleAdd}
+        adding={saving}
+        onAdd={handleSave}
+        isEditing={!!editingGoal}
       />
     </View>
   );

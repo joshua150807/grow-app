@@ -25,6 +25,7 @@ export function AddGoalModal({
   canAdd,
   adding,
   onAdd,
+  isEditing = false,
 }) {
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -36,21 +37,25 @@ export function AddGoalModal({
           <Pressable style={styles.sheet} onPress={() => {}}>
 
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Neues Ziel</Text>
+            <Text style={styles.sheetTitle}>
+              {isEditing ? 'Ziel bearbeiten' : 'Neues Ziel'}
+            </Text>
 
             <TextInput
-              style={styles.input}
+              style={[styles.input, styles.nameInput]}
               placeholder="Mein Ziel"
               placeholderTextColor={COLORS.textDim}
               value={inputName}
               onChangeText={setInputName}
               autoFocus
+              multiline
+              textAlignVertical="top"
               returnKeyType="next"
             />
 
             <TextInput
               style={styles.input}
-              placeholder="Deadline (optional, z.B. 31.12.2025)"
+              placeholder="Deadline (optional, z.B. 31.12.2026)"
               placeholderTextColor={COLORS.textDim}
               value={inputDeadline}
               onChangeText={setInputDeadline}
@@ -77,7 +82,9 @@ export function AddGoalModal({
                 {adding ? (
                   <ActivityIndicator color={COLORS.black} />
                 ) : (
-                  <Text style={styles.confirmBtnText}>Hinzufügen</Text>
+                  <Text style={styles.confirmBtnText}>
+                    {isEditing ? 'Speichern' : 'Hinzufügen'}
+                  </Text>
                 )}
               </Pressable>
             </View>
@@ -127,9 +134,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.darkCard,
     color: COLORS.white,
     paddingHorizontal: s(14),
+    paddingVertical: sv(12),
     fontSize: sf(15),
     fontWeight: '600',
     marginBottom: sv(10),
+  },
+  nameInput: {
+    minHeight: sv(90),
+    maxHeight: sv(160),
   },
   modalErrorRow: {
     flexDirection: 'row',

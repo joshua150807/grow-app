@@ -14,6 +14,8 @@ export function useVideoProgress({
   isFeedFocused,
   isScrubbing,
   setIsScrubbing,
+  onScrubStart,
+  onScrubEnd,
 }) {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -21,6 +23,7 @@ export function useVideoProgress({
 
   const dragStartXRef = useRef(0);
   const latestDurationRef = useRef(0);
+  const latestScrubRatioRef = useRef(0);
 
   useEffect(() => {
     let intervalId;
@@ -58,7 +61,9 @@ export function useVideoProgress({
       const clampedX = clamp(x, 0, trackWidth);
       const ratio = clampedX / trackWidth;
 
+      latestScrubRatioRef.current = ratio;
       setProgress(ratio);
+
       return ratio;
     },
     [canScrub, trackWidth]
@@ -75,33 +80,50 @@ export function useVideoProgress({
     [duration, player]
   );
 
+  const startScrubbing = useCallback(
+    (x) => {
+      if (!canScrub) return;
+
+      onScrubStart?.();
+      setIsScrubbing(true);
+
+      dragStartXRef.current = x;
+
+      const ratio = setProgressFromX(x);
+      if (typeof ratio === 'number') {
+        latestScrubRatioRef.current = ratio;
+      }
+    },
+    [canScrub, onScrubStart, setIsScrubbing, setProgressFromX]
+  );
+
+  const finishScrubbing = useCallback(
+    (ratio) => {
+      if (typeof ratio === 'number') {
+        seekToProgress(ratio);
+      }
+
+      setTimeout(() => {
+        setIsScrubbing(false);
+        onScrubEnd?.();
+      }, 80);
+    },
+    [onScrubEnd, seekToProgress, setIsScrubbing]
+  );
+
   const progressPanResponder = useMemo(
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => canScrub,
-        onStartShouldSetPanResponderCapture: () => false,
+        onStartShouldSetPanResponderCapture: () => canScrub,
 
-        onMoveShouldSetPanResponder: (event, gestureState) => {
-          if (!canScrub) return false;
+        onMoveShouldSetPanResponder: () => canScrub,
+        onMoveShouldSetPanResponderCapture: () => canScrub,
 
-          const isHorizontalMove =
-            Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
-
-          const isIntentionalMove = Math.abs(gestureState.dx) > 2;
-
-          return isHorizontalMove && isIntentionalMove;
-        },
-
-        onMoveShouldSetPanResponderCapture: () => false,
+        onPanResponderTerminationRequest: () => false,
 
         onPanResponderGrant: (event) => {
-          setIsScrubbing(true);
-
-          const startX = event.nativeEvent.locationX;
-          dragStartXRef.current = startX;
-
-          const ratio = setProgressFromX(startX);
-          seekToProgress(ratio);
+          startScrubbing(event.nativeEvent.locationX);
         },
 
         onPanResponderMove: (event, gestureState) => {
@@ -114,24 +136,28 @@ export function useVideoProgress({
         onPanResponderRelease: (event, gestureState) => {
           if (!canScrub) {
             setIsScrubbing(false);
+            onScrubEnd?.();
             return;
           }
 
           const nextX = dragStartXRef.current + gestureState.dx;
           const ratio = setProgressFromX(nextX);
 
-          seekToProgress(ratio);
-
-          setTimeout(() => {
-            setIsScrubbing(false);
-          }, 120);
+          finishScrubbing(ratio);
         },
 
         onPanResponderTerminate: () => {
-          setIsScrubbing(false);
+          finishScrubbing(latestScrubRatioRef.current);
         },
       }),
-    [canScrub, seekToProgress, setIsScrubbing, setProgressFromX]
+    [
+      canScrub,
+      finishScrubbing,
+      onScrubEnd,
+      setIsScrubbing,
+      setProgressFromX,
+      startScrubbing,
+    ]
   );
 
   const safeProgress = clamp(progress, 0, 1);

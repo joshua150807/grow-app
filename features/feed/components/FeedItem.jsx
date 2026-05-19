@@ -23,6 +23,8 @@ export default function FeedItem({
   setIsMuted,
   onToggleSaved,
   onVideoReady,
+  onScrubStart,
+  onScrubEnd,
 }) {
   const [isHolding, setIsHolding] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -54,6 +56,8 @@ export default function FeedItem({
     isFeedFocused,
     isScrubbing,
     setIsScrubbing,
+    onScrubStart,
+    onScrubEnd,
   });
  
   useEffect(() => {
@@ -98,6 +102,7 @@ export default function FeedItem({
     duration,
     userId,
     videoId: item.id,
+    isScrubbing,
   });
  
   const { activeRating, rate } = useVideoRating({

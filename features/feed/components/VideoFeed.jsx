@@ -42,6 +42,7 @@ export default function VideoFeed({
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [feedError, setFeedError] = useState(null);
   const [hasNoVideos, setHasNoVideos] = useState(false);
+  const [isFeedScrollEnabled, setIsFeedScrollEnabled] = useState(true);
 
   const isFocused = useIsFocused();
   const flatListRef = useRef(null);
@@ -308,6 +309,8 @@ export default function VideoFeed({
         isMuted={isMuted}
         setIsMuted={setIsMuted}
         onToggleSaved={() => handleToggleSaved(item.id)}
+        onScrubStart={() => setIsFeedScrollEnabled(false)}
+        onScrubEnd={() => setIsFeedScrollEnabled(true)}
         onVideoReady={
           index === currentIndexRef.current ? handleInitialVideoReady : undefined
         }
@@ -356,6 +359,7 @@ export default function VideoFeed({
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           extraData={feedData}
+          scrollEnabled={isFeedScrollEnabled}
           decelerationRate="fast"
           bounces={false}
           overScrollMode="never"

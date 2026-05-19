@@ -44,7 +44,7 @@ export default function TrainingSessionsScreen() {
             <Ionicons name="time-outline" size={s(36)} color={COLORS.gold} />
           </View>
           <Text style={styles.title}>LETZTE TRAININGS</Text>
-          <Text style={styles.subtitle}>Deine letzten 5 gespeicherten Einheiten</Text>
+          <Text style={styles.subtitle}>Deine gespeicherten Einheiten</Text>
         </View>
 
         {loadingSessions ? (

@@ -15,11 +15,11 @@ export function useLatestTrainingSessions() {
     setSessionsError(null);
 
     try {
-      const data = await fetchLatestTrainingSessions(5);
+      const data = await fetchLatestTrainingSessions();
       setSessions(data);
     } catch (e) {
-      console.error('[Training Sessions] Load latest failed:', e);
-      setSessionsError('Letzte Trainingseinheiten konnten nicht geladen werden.');
+      console.error('[Training Sessions] Load failed:', e);
+      setSessionsError('Trainingseinheiten konnten nicht geladen werden.');
     } finally {
       if (!silent) {
         setLoadingSessions(false);

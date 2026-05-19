@@ -5,6 +5,7 @@ import {
   addGoal,
   toggleGoal,
   deleteGoal,
+  updateGoal,
 } from '../services/goals';
 
 export function useGoals(selectedCategory) {
@@ -73,6 +74,31 @@ export function useGoals(selectedCategory) {
     setGoals(prev => [...prev, newGoal]);
   }, []);
 
+  const update = useCallback(async (id, name, deadline) => {
+    const cleanName = name.trim();
+    const cleanDeadline = deadline?.trim() || null;
+
+    const previousGoals = goals;
+
+    setGoals(prev => prev.map(goal =>
+      goal.id === id
+        ? { ...goal, name: cleanName, deadline: cleanDeadline }
+        : goal
+    ));
+
+    try {
+      const updatedGoal = await updateGoal(id, cleanName, cleanDeadline);
+
+      setGoals(prev => prev.map(goal =>
+        goal.id === id ? updatedGoal : goal
+      ));
+    } catch (e) {
+      setActionError('Ziel konnte nicht aktualisiert werden.');
+      setGoals(previousGoals);
+      throw e;
+    }
+  }, [goals]);
+
   return {
     goals,
     loading,
@@ -86,5 +112,6 @@ export function useGoals(selectedCategory) {
     toggle,
     remove,
     add,
+    update,
   };
 }
