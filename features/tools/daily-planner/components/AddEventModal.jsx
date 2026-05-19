@@ -1,5 +1,6 @@
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,14 +15,21 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
 import { s, sv, sf } from '../../../../constants/layout';
-import { DURATIONS, slotToTime } from '../utils/plannerUtils';
+import {
+  EVENT_COLORS,
+  dateToDayMinutes,
+  dayMinutesToDate,
+  formatDurationLabel,
+  minutesToTime,
+} from '../utils/plannerUtils';
 
 export function AddEventModal({
   visible,
   onClose,
+  sheetTitle = 'Neuer Termin',
   modalFromPlus,
-  modalSlot,
-  setModalSlot,
+  modalStartMinutes,
+  setModalStartMinutes,
   modalShowPicker,
   setModalShowPicker,
   modalPickerDate,
@@ -30,38 +38,103 @@ export function AddEventModal({
   setModalTitle,
   modalDuration,
   setModalDuration,
+  modalColor,
+  setModalColor,
   saving,
   onSave,
 }) {
+  const durationPickerDate = dayMinutesToDate(modalDuration);
+
+  const handleClose = () => {
+    Keyboard.dismiss();
+    onClose();
+  };
+
+  const handleDurationChange = (event, date) => {
+    if (Platform.OS === 'android') {
+      if (event.type !== 'dismissed' && date) {
+        const nextDuration = Math.max(1, dateToDayMinutes(date));
+        setModalDuration(nextDuration);
+      }
+
+      return;
+    }
+
+    if (date) {
+      const nextDuration = Math.max(1, dateToDayMinutes(date));
+      setModalDuration(nextDuration);
+    }
+  };
+
+  const handleStartTimeChange = (event, date) => {
+    if (Platform.OS === 'android') {
+      if (event.type !== 'dismissed' && date) {
+        setModalStartMinutes(dateToDayMinutes(date));
+        setModalPickerDate(date);
+      }
+
+      setModalShowPicker(false);
+      return;
+    }
+
+    if (date) {
+      setModalStartMinutes(dateToDayMinutes(date));
+      setModalPickerDate(date);
+    }
+  };
+
+  const canSave =
+    modalTitle.trim().length > 0 &&
+    modalStartMinutes !== null &&
+    !saving;
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <Pressable style={styles.overlay} onPress={onClose}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+        <Pressable style={styles.overlay} onPress={handleClose}>
+          <Pressable style={styles.sheet} onPress={() => Keyboard.dismiss()}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Neuer Termin</Text>
+
+            <Text style={styles.sheetTitle}>{sheetTitle}</Text>
 
             {!modalFromPlus && (
-              <Text style={styles.sheetSub}>ab {slotToTime(modalSlot)} Uhr</Text>
+              <Text style={styles.sheetSub}>
+                ab {minutesToTime(modalStartMinutes ?? 0)} Uhr
+              </Text>
             )}
 
             {modalFromPlus && (
               <>
                 <Pressable
-                  style={[styles.timeToggle, modalSlot !== null && styles.timeToggleActive]}
-                  onPress={() => setModalShowPicker(value => !value)}
+                  style={[
+                    styles.timeToggle,
+                    modalStartMinutes !== null && styles.timeToggleActive,
+                  ]}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    setModalShowPicker(value => !value);
+                  }}
                 >
                   <Ionicons
-                    name={modalSlot !== null ? 'time' : 'time-outline'}
+                    name={modalStartMinutes !== null ? 'time' : 'time-outline'}
                     size={s(17)}
-                    color={modalSlot !== null ? COLORS.gold : COLORS.textSecondary}
+                    color={modalStartMinutes !== null ? COLORS.gold : COLORS.textSecondary}
                   />
-                  <Text style={[styles.timeToggleText, modalSlot !== null && styles.timeToggleTextActive]}>
-                    {modalSlot !== null ? `${slotToTime(modalSlot)} Uhr` : 'Uhrzeit wählen'}
+
+                  <Text
+                    style={[
+                      styles.timeToggleText,
+                      modalStartMinutes !== null && styles.timeToggleTextActive,
+                    ]}
+                  >
+                    {modalStartMinutes !== null
+                      ? `${minutesToTime(modalStartMinutes)} Uhr`
+                      : 'Uhrzeit wählen'}
                   </Text>
+
                   <Ionicons
                     name={modalShowPicker ? 'chevron-up' : 'chevron-down'}
                     size={s(14)}
@@ -70,30 +143,25 @@ export function AddEventModal({
                 </Pressable>
 
                 {modalShowPicker && (
-                  <DateTimePicker
-                    value={modalPickerDate}
-                    mode="time"
-                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                    themeVariant="dark"
-                    accentColor={COLORS.gold}
-                    minuteInterval={30}
-                    onChange={(event, date) => {
-                      if (Platform.OS === 'android') {
-                        if (event.type !== 'dismissed' && date) {
-                          const slot = date.getHours() * 2 + (date.getMinutes() >= 30 ? 1 : 0);
-                          setModalSlot(slot);
-                          setModalPickerDate(date);
-                        }
+                  <View style={styles.startTimePickerWrap}>
+                    <DateTimePicker
+                      value={modalPickerDate}
+                      mode="time"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      themeVariant="dark"
+                      accentColor={COLORS.gold}
+                      onChange={handleStartTimeChange}
+                      style={styles.datePicker}
+                    />
 
-                        setModalShowPicker(false);
-                      } else if (date) {
-                        const slot = date.getHours() * 2 + (date.getMinutes() >= 30 ? 1 : 0);
-                        setModalSlot(slot);
-                        setModalPickerDate(date);
-                      }
-                    }}
-                    style={styles.datePicker}
-                  />
+                    <Pressable
+                      style={styles.startTimeDoneBtn}
+                      onPress={() => setModalShowPicker(false)}
+                      hitSlop={s(8)}
+                    >
+                      <Ionicons name="checkmark" size={s(20)} color={COLORS.black} />
+                    </Pressable>
+                  </View>
                 )}
               </>
             )}
@@ -104,39 +172,73 @@ export function AddEventModal({
               placeholderTextColor={COLORS.textDim}
               value={modalTitle}
               onChangeText={setModalTitle}
-              autoFocus
+              autoFocus={false}
               returnKeyType="done"
-              onSubmitEditing={onSave}
+              blurOnSubmit
+              onSubmitEditing={() => Keyboard.dismiss()}
             />
 
-            <Text style={styles.durationLabel}>DAUER</Text>
+            <Text style={styles.durationLabel}>
+              DAUER · {formatDurationLabel(modalDuration)}
+            </Text>
 
-            <View style={styles.durationRow}>
-              {DURATIONS.map(duration => (
-                <Pressable
-                  key={duration.minutes}
-                  style={[styles.chip, modalDuration === duration.minutes && styles.chipActive]}
-                  onPress={() => setModalDuration(duration.minutes)}
-                >
-                  <Text style={[styles.chipText, modalDuration === duration.minutes && styles.chipTextActive]}>
-                    {duration.label}
-                  </Text>
-                </Pressable>
-              ))}
+            <View style={styles.durationPickerWrap}>
+              <DateTimePicker
+                value={durationPickerDate}
+                mode="time"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                themeVariant="dark"
+                accentColor={COLORS.gold}
+                onChange={handleDurationChange}
+                style={styles.durationPicker}
+              />
+            </View>
+
+            <Text style={styles.durationLabel}>FARBE</Text>
+
+            <View style={styles.colorRow}>
+              {EVENT_COLORS.map(color => {
+                const isActive = modalColor === color.value;
+
+                return (
+                  <Pressable
+                    key={color.key}
+                    style={[
+                      styles.colorDot,
+                      {
+                        backgroundColor: color.value,
+                        borderColor: isActive ? COLORS.white : 'rgba(255,255,255,0.18)',
+                      },
+                    ]}
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setModalColor(color.value);
+                    }}
+                    accessibilityLabel={color.label}
+                  >
+                    {isActive && (
+                      <Ionicons name="checkmark" size={s(14)} color={COLORS.black} />
+                    )}
+                  </Pressable>
+                );
+              })}
             </View>
 
             <View style={styles.modalBtns}>
-              <Pressable style={styles.cancelBtn} onPress={onClose}>
+              <Pressable style={styles.cancelBtn} onPress={handleClose}>
                 <Text style={styles.cancelBtnText}>Abbrechen</Text>
               </Pressable>
 
               <Pressable
                 style={[
                   styles.confirmBtn,
-                  (!modalTitle.trim() || modalSlot === null || saving) && styles.confirmBtnDisabled,
+                  !canSave && styles.confirmBtnDisabled,
                 ]}
-                onPress={onSave}
-                disabled={!modalTitle.trim() || modalSlot === null || saving}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  onSave();
+                }}
+                disabled={!canSave}
               >
                 {saving ? (
                   <ActivityIndicator color={COLORS.black} size="small" />
@@ -159,6 +261,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.58)',
   },
   sheet: {
+    maxHeight: '92%',
     backgroundColor: COLORS.background,
     borderTopLeftRadius: s(26),
     borderTopRightRadius: s(26),
@@ -215,6 +318,7 @@ const styles = StyleSheet.create({
   },
   datePicker: {
     marginBottom: sv(8),
+    alignSelf: 'stretch',
   },
   input: {
     minHeight: sv(52),
@@ -235,30 +339,27 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: sv(10),
   },
-  durationRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: s(8),
-  },
-  chip: {
-    paddingHorizontal: s(12),
-    paddingVertical: sv(8),
-    borderRadius: s(999),
+  durationPickerWrap: {
+    borderRadius: s(14),
     borderWidth: 1,
     borderColor: COLORS.goldBorder,
     backgroundColor: COLORS.darkCard,
+    marginBottom: sv(16),
+    overflow: 'hidden',
   },
-  chipActive: {
-    backgroundColor: COLORS.gold,
-    borderColor: COLORS.gold,
+  colorRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: s(10),
+    marginBottom: sv(4),
   },
-  chipText: {
-    color: COLORS.textSecondary,
-    fontSize: sf(12),
-    fontWeight: '800',
-  },
-  chipTextActive: {
-    color: COLORS.black,
+  colorDot: {
+    width: s(34),
+    height: s(34),
+    borderRadius: s(17),
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalBtns: {
     flexDirection: 'row',
@@ -295,5 +396,32 @@ const styles = StyleSheet.create({
     color: COLORS.black,
     fontSize: sf(14),
     fontWeight: '900',
+  },
+  startTimePickerWrap: {
+    position: 'relative',
+    borderRadius: s(14),
+    borderWidth: 1,
+    borderColor: COLORS.goldBorder,
+    backgroundColor: COLORS.darkCard,
+    overflow: 'hidden',
+    marginBottom: sv(12),
+  },
+
+  startTimeDoneBtn: {
+    position: 'absolute',
+    right: s(12),
+    bottom: sv(12),
+    width: s(36),
+    height: s(36),
+    borderRadius: s(18),
+    backgroundColor: COLORS.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+    elevation: 20,
+  },
+
+  datePicker: {
+    alignSelf: 'stretch',
   },
 });

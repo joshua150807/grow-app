@@ -1,24 +1,54 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { COLORS } from '../../../../constants/colors';
-import { s, sv, sf } from '../../../../constants/layout'
-import { SLOT_HEIGHT } from '../utils/plannerUtils';
+import { s, sv, sf } from '../../../../constants/layout';
+import {
+  SLOT_HEIGHT,
+  TIME_LABEL_WIDTH,
+  MINUTES_PER_SLOT,
+  timeToMinutes,
+} from '../utils/plannerUtils';
 
-export function PlannerEventItem({ event, onPress }) {
-  const [startHour, startMinute] = event.start_time.split(':').map(Number);
-  const [endHour, endMinute] = event.end_time.split(':').map(Number);
+export function PlannerEventItem({ event, onPress, timelineWidth }) {
+  const startMinutes = timeToMinutes(event.start_time);
+  const endMinutes = timeToMinutes(event.end_time);
 
-  const startSlot = startHour * 2 + (startMinute >= 30 ? 1 : 0);
-  const durationMinutes = (endHour * 60 + endMinute) - (startHour * 60 + startMinute);
-  const heightPx = Math.max((durationMinutes / 30) * SLOT_HEIGHT - 3, SLOT_HEIGHT - 3);
+  const durationMinutes = Math.max(1, endMinutes - startMinutes);
+  const topPx = (startMinutes / MINUTES_PER_SLOT) * SLOT_HEIGHT + 1;
+  const heightPx = Math.max(
+    (durationMinutes / MINUTES_PER_SLOT) * SLOT_HEIGHT - 3,
+    sv(34)
+  );
+
+  const columnCount = event.layout?.columnCount || 1;
+  const columnIndex = event.layout?.columnIndex || 0;
+
+  const leftBase = TIME_LABEL_WIDTH + s(8);
+  const rightPadding = s(14);
+  const columnGap = s(6);
+
+  const safeTimelineWidth = timelineWidth || 0;
+
+  const availableWidth = Math.max(
+    s(120),
+    safeTimelineWidth - leftBase - rightPadding
+  );
+
+  const eventWidth =
+    (availableWidth - columnGap * (columnCount - 1)) / columnCount;
+
+  const eventLeft = leftBase + columnIndex * (eventWidth + columnGap);
 
   return (
     <Pressable
       style={[
         styles.eventBlock,
         {
-          top: startSlot * SLOT_HEIGHT + 1,
+          top: topPx,
           height: heightPx,
+          left: eventLeft,
+          width: eventWidth,
+          backgroundColor: event.color || COLORS.gold,
         },
       ]}
       onPress={() => onPress(event)}
@@ -27,7 +57,7 @@ export function PlannerEventItem({ event, onPress }) {
         {event.title}
       </Text>
 
-      <Text style={styles.eventTime}>
+      <Text style={styles.eventTime} numberOfLines={1}>
         {event.start_time.slice(0, 5)} – {event.end_time.slice(0, 5)}
       </Text>
     </Pressable>
@@ -37,13 +67,11 @@ export function PlannerEventItem({ event, onPress }) {
 const styles = StyleSheet.create({
   eventBlock: {
     position: 'absolute',
-    left: s(62),
-    right: s(12),
     borderRadius: s(12),
-    backgroundColor: COLORS.gold,
     paddingHorizontal: s(10),
     paddingVertical: sv(6),
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   eventTitle: {
     color: COLORS.black,

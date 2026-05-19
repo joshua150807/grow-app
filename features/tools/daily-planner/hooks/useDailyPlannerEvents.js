@@ -4,12 +4,13 @@ import {
   getEventsForMonth,
   getEventsForDate,
   addEvent,
+  updateEvent,
   deleteEvent,
-} from '../services/planner'  
+} from '../services/planner'
 
 import {
-  slotToTime,
   minutesToTime,
+  DAY_MINUTES,
 } from '../utils/plannerUtils';
 
 export function useDailyPlannerEvents(currentYear, currentMonth, selectedDate) {
@@ -59,20 +60,47 @@ export function useDailyPlannerEvents(currentYear, currentMonth, selectedDate) {
   }, []);
 
   const saveEvent = useCallback(async ({
+    editingEventId = null,
     modalTitle,
-    modalSlot,
+    modalStartMinutes,
     modalDuration,
+    modalColor,
   }) => {
-    if (!modalTitle.trim() || modalSlot === null || !selectedDate) return null;
+    if (!modalTitle.trim()) return null;
+    if (modalStartMinutes === null || modalStartMinutes === undefined) return null;
+    if (!selectedDate) return null;
 
-    const startTime = slotToTime(modalSlot);
-    const endTime = minutesToTime(modalSlot * 30 + modalDuration);
+    const safeStartMinutes = Math.max(0, Math.min(modalStartMinutes, DAY_MINUTES - 1));
+    const safeDuration = Math.max(1, Math.min(modalDuration, DAY_MINUTES - 1));
+    const safeEndMinutes = Math.min(safeStartMinutes + safeDuration, DAY_MINUTES - 1);
+
+    const startTime = minutesToTime(safeStartMinutes);
+    const endTime = minutesToTime(safeEndMinutes);
+
+    if (editingEventId) {
+      const updatedEvent = await updateEvent({
+        id: editingEventId,
+        startTime,
+        endTime,
+        title: modalTitle.trim(),
+        color: modalColor,
+      });
+
+      setEvents(prev =>
+        prev
+          .map(event => event.id === editingEventId ? updatedEvent : event)
+          .sort((a, b) => a.start_time.localeCompare(b.start_time))
+      );
+
+      return updatedEvent;
+    }
 
     const newEvent = await addEvent({
       date: selectedDate,
       startTime,
       endTime,
       title: modalTitle.trim(),
+      color: modalColor,
     });
 
     setEvents(prev =>

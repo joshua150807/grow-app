@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../../constants/colors';
 import { s, sv, sf } from '../../../../constants/layout';
 
-export function DeleteEventModal({ event, onClose, onDelete }) {
+export function DeleteEventModal({ event, onClose, onDelete, onEdit }) {
   return (
     <Modal
       visible={!!event}
@@ -21,6 +21,16 @@ export function DeleteEventModal({ event, onClose, onDelete }) {
           <Text style={styles.sheetSub}>
             {event?.start_time?.slice(0, 5)} – {event?.end_time?.slice(0, 5)} Uhr
           </Text>
+
+          <Pressable
+            style={styles.editBtn}
+            onPress={() => {
+              if (event) onEdit?.(event);
+            }}
+          >
+            <Ionicons name="create-outline" size={s(18)} color={COLORS.black} />
+            <Text style={styles.editBtnText}>Termin bearbeiten</Text>
+          </Pressable>
 
           <Pressable
             style={styles.deleteBtn}
@@ -76,6 +86,23 @@ const styles = StyleSheet.create({
     fontSize: sf(13),
     fontWeight: '700',
     marginBottom: sv(14),
+  },
+  editBtn: {
+    minHeight: sv(48),
+    borderRadius: s(14),
+    backgroundColor: COLORS.gold,
+    borderWidth: 1,
+    borderColor: COLORS.gold,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: s(8),
+    marginBottom: sv(10),
+  },
+  editBtnText: {
+    color: COLORS.black,
+    fontSize: sf(14),
+    fontWeight: '900',
   },
   deleteBtn: {
     minHeight: sv(48),

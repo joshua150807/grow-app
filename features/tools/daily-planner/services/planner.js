@@ -41,7 +41,7 @@ export async function getEventsForMonth(year, month) {
   return data;
 }
 
-export async function addEvent({ date, startTime, endTime, title }) {
+export async function addEvent({ date, startTime, endTime, title, color }) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error('Nicht eingeloggt');
 
@@ -53,7 +53,7 @@ export async function addEvent({ date, startTime, endTime, title }) {
       start_time: startTime,
       end_time: endTime,
       title,
-      color: '#D4AF37',
+      color: color || '#D4AF37',
     })
     .select()
     .single();
@@ -69,4 +69,30 @@ export async function deleteEvent(id) {
     .eq('id', id);
 
   if (error) throw error;
+}
+
+export async function updateEvent({ id, startTime, endTime, title, color }) {
+  const userId = await getCurrentUserId();
+  if (!userId) throw new Error('Nicht eingeloggt');
+
+  const { data, error } = await supabase
+    .from('daily_planner_events')
+    .update({
+      start_time: startTime,
+      end_time: endTime,
+      title,
+      color: color || '#D4AF37',
+    })
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select()
+    .maybeSingle();
+
+  if (error) throw error;
+
+  if (!data) {
+    throw new Error('Termin konnte nicht aktualisiert werden. Keine passende Zeile gefunden.');
+  }
+
+  return data;
 }

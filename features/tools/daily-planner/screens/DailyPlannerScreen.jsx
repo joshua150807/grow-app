@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -16,7 +16,13 @@ import {
   TOTAL_SLOTS,
   toDateStr,
   slotToTime,
+  slotToMinutes,
   formatDayHeader,
+  dayMinutesToDate,
+  dateToDayMinutes,
+  applyEventOverlapLayout,
+  EVENT_COLORS,
+  timeToMinutes,
 } from '../utils/plannerUtils'
 
 import { useDailyPlannerEvents } from '../hooks/useDailyPlannerEvents';
@@ -34,6 +40,8 @@ export default function DailyPlannerScreen() {
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState(null);
+  const [timelineWidth, setTimelineWidth] = useState(0);
+  const [editingEventId, setEditingEventId] = useState(null);
 
   const {
     monthEventDates,
@@ -47,17 +55,22 @@ export default function DailyPlannerScreen() {
   } = useDailyPlannerEvents(currentYear, currentMonth, selectedDate);
 
   const [modalVisible, setModalVisible] = useState(false);
-  const [modalSlot, setModalSlot] = useState(16);
+  const [modalStartMinutes, setModalStartMinutes] = useState(16 * 60);
   const [modalTitle, setModalTitle] = useState('');
   const [modalDuration, setModalDuration] = useState(60);
+  const [modalColor, setModalColor] = useState(EVENT_COLORS[0].value);
   const [saving, setSaving] = useState(false);
   const [modalFromPlus, setModalFromPlus] = useState(false);
-  const [modalPickerDate, setModalPickerDate] = useState(new Date());
+  const [modalPickerDate, setModalPickerDate] = useState(dayMinutesToDate(16 * 60));
   const [modalShowPicker, setModalShowPicker] = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const dayScrollRef = useRef(null);
+
+  const eventsWithLayout = useMemo(() => {
+    return applyEventOverlapLayout(events);
+  }, [events]);
 
   // ─── Day view ──────────────────────────────────────────────────────────────
 
@@ -65,10 +78,12 @@ export default function DailyPlannerScreen() {
     setSelectedDate(dateStr);
     setView('day');
     loadDayEvents(dateStr);
+
     const now = new Date();
     const scrollSlot = dateStr === toDateStr(now)
       ? Math.max(0, now.getHours() * 2 - 2)
       : 14; // 07:00
+
     setTimeout(() => {
       dayScrollRef.current?.scrollTo({ y: scrollSlot * SLOT_HEIGHT, animated: false });
     }, 200);
@@ -78,7 +93,7 @@ export default function DailyPlannerScreen() {
     setView('calendar');
     setSelectedDate(null);
     clearEvents();
-  }, []);
+  }, [clearEvents]);
 
   // ─── Month navigation ─────────────────────────────────────────────────────
 
@@ -94,44 +109,92 @@ export default function DailyPlannerScreen() {
 
   // ─── Add event ────────────────────────────────────────────────────────────
 
-  const openAddModal = useCallback((slot) => {
-    setModalSlot(slot);
-    setModalFromPlus(false);
+  const resetModalBaseState = useCallback(() => {
     setModalTitle('');
     setModalDuration(60);
+    setModalColor(EVENT_COLORS[0].value);
     setModalShowPicker(false);
+  }, []);
+
+  const openAddModal = useCallback((slot) => {
+    const startMinutes = slotToMinutes(slot);
+
+    setEditingEventId(null);
+    setModalStartMinutes(startMinutes);
+    setModalPickerDate(dayMinutesToDate(startMinutes));
+    setModalFromPlus(false);
+    resetModalBaseState();
+    setModalVisible(true);
+  }, [resetModalBaseState]);
+
+  const openEditModal = useCallback((event) => {
+    const startMinutes = timeToMinutes(event.start_time);
+    const endMinutes = timeToMinutes(event.end_time);
+    const durationMinutes = Math.max(1, endMinutes - startMinutes);
+
+    setDeleteTarget(null);
+
+    setEditingEventId(event.id);
+    setModalFromPlus(true);
+    setModalStartMinutes(startMinutes);
+    setModalPickerDate(dayMinutesToDate(startMinutes));
+    setModalTitle(event.title || '');
+    setModalDuration(durationMinutes);
+    setModalColor(event.color || EVENT_COLORS[0].value);
+    setModalShowPicker(false);
+
     setModalVisible(true);
   }, []);
 
   const openAddModalFromPlus = useCallback(() => {
-    setModalSlot(null);
+    const now = new Date();
+    const currentMinutes = dateToDayMinutes(now);
+
+    setModalStartMinutes(currentMinutes);
     setModalFromPlus(true);
-    setModalTitle('');
-    setModalDuration(60);
-    setModalPickerDate(new Date());
-    setModalShowPicker(false);
+    resetModalBaseState();
+    setModalPickerDate(dayMinutesToDate(currentMinutes));
     setModalVisible(true);
-  }, []);
+  }, [resetModalBaseState]);
 
   const handleSave = useCallback(async () => {
-    if (!modalTitle.trim() || modalSlot === null) return;
+    if (!modalTitle.trim() || modalStartMinutes === null) return;
 
     setSaving(true);
 
     try {
-      await saveEvent({
+      const savedEvent = await saveEvent({
+        editingEventId,
         modalTitle,
-        modalSlot,
+        modalStartMinutes,
         modalDuration,
+        modalColor,
       });
 
+      if (!savedEvent) {
+        console.log('[DailyPlanner] Kein Termin gespeichert.');
+        return;
+      }
+
       setModalVisible(false);
-    } catch {
-      // silently fail
+      setEditingEventId(null);
+      setModalTitle('');
+      setModalDuration(60);
+      setModalColor(EVENT_COLORS[0].value);
+      setModalShowPicker(false);
+    } catch (error) {
+      console.log('[DailyPlanner] Save failed:', error);
     } finally {
       setSaving(false);
     }
-  }, [modalTitle, modalSlot, modalDuration, saveEvent]);
+  }, [
+    editingEventId,
+    modalTitle,
+    modalStartMinutes,
+    modalDuration,
+    modalColor,
+    saveEvent,
+  ]);
 
   // ─── Delete event ─────────────────────────────────────────────────────────
 
@@ -139,6 +202,7 @@ export default function DailyPlannerScreen() {
     setDeleteTarget(null);
     await removeEvent(id);
   }, [removeEvent]);
+
   // ─── Render: Calendar ─────────────────────────────────────────────────────
 
   if (view === 'calendar') {
@@ -190,7 +254,10 @@ export default function DailyPlannerScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: sv(60) }}
         >
-          <View style={styles.timeline}>
+          <View 
+            style={styles.timeline}
+            onLayout={(event) => setTimelineWidth(event.nativeEvent.layout.width)}
+          >
             {Array.from({ length: TOTAL_SLOTS }, (_, slot) => (
               <Pressable key={slot} style={styles.slotRow} onPress={() => openAddModal(slot)}>
                 <View style={styles.timeLabelWrap}>
@@ -202,10 +269,11 @@ export default function DailyPlannerScreen() {
               </Pressable>
             ))}
 
-            {events.map((event) => (
+            {eventsWithLayout.map((event) => (
               <PlannerEventItem
                 key={event.id}
                 event={event}
+                timelineWidth={timelineWidth}
                 onPress={setDeleteTarget}
               />
             ))}
@@ -213,13 +281,16 @@ export default function DailyPlannerScreen() {
         </ScrollView>
       )}
 
-      {/* Add Modal */}
       <AddEventModal
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        onClose={() => {
+          setModalVisible(false);
+          setEditingEventId(null);
+        }}
+        sheetTitle={editingEventId ? 'Termin bearbeiten' : 'Neuer Termin'}
         modalFromPlus={modalFromPlus}
-        modalSlot={modalSlot}
-        setModalSlot={setModalSlot}
+        modalStartMinutes={modalStartMinutes}
+        setModalStartMinutes={setModalStartMinutes}
         modalShowPicker={modalShowPicker}
         setModalShowPicker={setModalShowPicker}
         modalPickerDate={modalPickerDate}
@@ -228,14 +299,16 @@ export default function DailyPlannerScreen() {
         setModalTitle={setModalTitle}
         modalDuration={modalDuration}
         setModalDuration={setModalDuration}
+        modalColor={modalColor}
+        setModalColor={setModalColor}
         saving={saving}
         onSave={handleSave}
       />
-
       <DeleteEventModal
         event={deleteTarget}
         onClose={() => setDeleteTarget(null)}
         onDelete={handleDelete}
+        onEdit={openEditModal}
       />
     </View>
   );
