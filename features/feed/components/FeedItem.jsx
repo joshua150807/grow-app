@@ -50,6 +50,8 @@ export default function FeedItem({
     setTrackWidth,
     panHandlers,
     setProgress,
+    currentTimeText,
+    durationText,
   } = useVideoProgress({
     player,
     isActive,
@@ -159,6 +161,9 @@ export default function FeedItem({
         thumbLeft={thumbLeft}
         onTrackLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
         panHandlers={panHandlers}
+        isScrubbing={isScrubbing}
+        currentTimeText={currentTimeText}
+        durationText={durationText}
       />
     </View>
   );
