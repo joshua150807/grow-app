@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 
 import { COLORS } from '../../../../constants/colors';
@@ -6,7 +7,6 @@ import { SetupView } from '../components/SetupView';
 import { OverviewView } from '../components/OverviewView';
 import { styles } from '../styles/trainingStyles';
 import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
 
 export default function TrainingOverviewScreen() {
   const {
@@ -17,12 +17,23 @@ export default function TrainingOverviewScreen() {
     savePlan,
   } = useTrainingPlan();
 
+  const [showSetup, setShowSetup] = useState(false);
+
   useFocusEffect(
     useCallback(() => {
-      if (plan) {
-        loadPlan({ silent: true })
+      if (plan && !showSetup) {
+        loadPlan({ silent: true });
       }
-    }, [plan, loadPlan])
+    }, [plan, showSetup, loadPlan])
+  );
+
+  const handleSavePlan = useCallback(
+    async (planName, daysData) => {
+      await savePlan(planName, daysData);
+      setShowSetup(false);
+      await loadPlan({ silent: true });
+    },
+    [savePlan, loadPlan]
   );
 
   if (loading) {
@@ -45,9 +56,20 @@ export default function TrainingOverviewScreen() {
     );
   }
 
-  if (!plan) {
-    return <SetupView onSave={savePlan} />;
+  if (!plan || showSetup) {
+    return (
+      <SetupView
+        onSave={handleSavePlan}
+        existingPlan={plan}
+        onCancel={plan ? () => setShowSetup(false) : undefined}
+      />
+    );
   }
 
-  return <OverviewView plan={plan} />;
+  return (
+    <OverviewView
+      plan={plan}
+      onChangePlan={() => setShowSetup(true)}
+    />
+  );
 }

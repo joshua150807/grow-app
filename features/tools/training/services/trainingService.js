@@ -77,6 +77,54 @@ export async function createTrainingPlan(planName, daysData) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error('Nicht eingeloggt');
 
+  // 1. Bestehenden Plan suchen
+  const { data: existingPlans, error: existingPlanError } = await supabase
+    .from('training_plans')
+    .select('id')
+    .eq('user_id', userId)
+    .limit(1);
+
+  if (existingPlanError) throw existingPlanError;
+
+  const existingPlan = existingPlans?.[0];
+
+  // 2. Falls vorhanden: alten Plan sauber löschen
+  if (existingPlan?.id) {
+    const { data: existingDays, error: existingDaysError } = await supabase
+      .from('training_days')
+      .select('id')
+      .eq('plan_id', existingPlan.id);
+
+    if (existingDaysError) throw existingDaysError;
+
+    const existingDayIds = (existingDays || []).map((day) => day.id);
+
+    if (existingDayIds.length > 0) {
+      const { error: deleteExercisesError } = await supabase
+        .from('training_exercises')
+        .delete()
+        .in('day_id', existingDayIds);
+
+      if (deleteExercisesError) throw deleteExercisesError;
+
+      const { error: deleteDaysError } = await supabase
+        .from('training_days')
+        .delete()
+        .eq('plan_id', existingPlan.id);
+
+      if (deleteDaysError) throw deleteDaysError;
+    }
+
+    const { error: deletePlanError } = await supabase
+      .from('training_plans')
+      .delete()
+      .eq('id', existingPlan.id)
+      .eq('user_id', userId);
+
+    if (deletePlanError) throw deletePlanError;
+  }
+
+  // 3. Neuen Plan erstellen
   const { data: plan, error: planError } = await supabase
     .from('training_plans')
     .insert({ user_id: userId, name: planName })
@@ -85,6 +133,7 @@ export async function createTrainingPlan(planName, daysData) {
 
   if (planError) throw planError;
 
+  // 4. Neue Trainingstage + Übungen erstellen
   for (let i = 0; i < daysData.length; i++) {
     const day = daysData[i];
 
@@ -96,9 +145,11 @@ export async function createTrainingPlan(planName, daysData) {
 
     if (dayError) throw dayError;
 
-    const validExercises = day.exercises.filter(ex => ex.name.trim());
+    const validExercises = (day.exercises || []).filter((ex) => ex.name?.trim());
+
     for (let j = 0; j < validExercises.length; j++) {
       const ex = validExercises[j];
+
       const { error: exError } = await supabase
         .from('training_exercises')
         .insert({

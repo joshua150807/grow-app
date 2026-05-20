@@ -24,7 +24,7 @@ const MUSCLE_GROUPS = [
   { id: 'core', label: 'Bauch', icon: 'ellipse-outline' },
 ];
 
-export function OverviewView({ plan }) {
+export function OverviewView({ plan, onChangePlan }) {
   const {
     sessions,
     loadingSessions,
@@ -126,6 +126,26 @@ export function OverviewView({ plan }) {
           <Ionicons name="chevron-forward" size={s(24)} color={COLORS.gold} />
         </Pressable>
 
+        <Pressable
+          style={localStyles.changePlanBanner}
+          onPress={onChangePlan}
+          hitSlop={8}
+          android_ripple={{ color: 'rgba(212,175,55,0.12)' }}
+        >
+          <View style={localStyles.changePlanIconWrap}>
+            <Ionicons name="swap-horizontal-outline" size={s(22)} color={COLORS.gold} />
+          </View>
+
+          <View style={localStyles.changePlanContent}>
+            <Text style={localStyles.changePlanTitle}>Plan wechseln</Text>
+            <Text style={localStyles.changePlanSubtitle}>
+              Wähle einen anderen Trainingsplan aus
+            </Text>
+          </View>
+
+          <Ionicons name="chevron-forward" size={s(22)} color={COLORS.textDim} />
+        </Pressable>
+
         <View style={styles.muscleGroupSection}>
           <Text style={styles.sectionLabel}>MUSKELGRUPPEN</Text>
 
@@ -211,3 +231,46 @@ export function OverviewView({ plan }) {
     </View>
   );
 }
+
+const localStyles = {
+  changePlanBanner: {
+    marginTop: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.22)',
+    backgroundColor: 'rgba(212,175,55,0.055)',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+
+  changePlanIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(212,175,55,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.20)',
+  },
+
+  changePlanContent: {
+    flex: 1,
+  },
+
+  changePlanTitle: {
+    color: COLORS.white,
+    fontSize: 15,
+    fontWeight: '900',
+  },
+
+  changePlanSubtitle: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 3,
+  },
+};
