@@ -13,9 +13,9 @@ export const styles = StyleSheet.create({
 
   content: {
     flex: 1,
-    paddingTop: veryCompact ? sv(48) : compact ? sv(54) : sv(66),
+    paddingTop: veryCompact ? sv(44) : compact ? sv(50) : sv(62),
     paddingHorizontal: s(14),
-    paddingBottom: veryCompact ? sv(52) : compact ? sv(58) : sv(72),
+    paddingBottom: veryCompact ? sv(20) : compact ? sv(26) : sv(34),
   },
 
   header: {
@@ -175,17 +175,20 @@ export const styles = StyleSheet.create({
   },
 
   sectionHeader: {
-    marginBottom: veryCompact ? sv(2) : compact ? sv(4) : sv(12),
+    marginTop: veryCompact ? sv(0) : compact ? sv(2) : sv(4),
+    marginBottom: veryCompact ? sv(8) : compact ? sv(10) : sv(14),
     paddingHorizontal: s(2),
+    alignItems: 'center',
   },
 
   sectionTitle: {
     color: COLORS.toolsText,
-    fontSize: veryCompact ? sf(18.5) : compact ? sf(19.5) : sf(21),
-    fontWeight: '500',
-    marginBottom: compact ? sv(2) : sv(4),
-    letterSpacing: 1.3,
-  },
+    fontSize: veryCompact ? sf(19) : compact ? sf(20.5) : sf(22),
+    fontWeight: '600',
+    marginBottom: 0,
+    letterSpacing: 4,
+    textAlign: 'center',
+},
 
   sectionSubtitle: {
     color: 'rgba(255,241,210,0.50)',
@@ -200,6 +203,12 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
 
+  mentorCard: {
+    marginTop: veryCompact ? sv(4) : compact ? sv(6) : sv(8),
+    borderRadius: s(10),
+    overflow: 'hidden',
+  },
+
   mentorCardImage: {
     borderRadius: s(10),
   },
@@ -209,7 +218,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: compact ? sv(6) : sv(8),
+    paddingVertical: veryCompact ? sv(8) : compact ? sv(10) : sv(12),
     paddingLeft: '34%',
     paddingRight: compact ? s(10) : s(12),
     backgroundColor: 'rgba(0,0,0,0.16)',
@@ -257,8 +266,7 @@ export const styles = StyleSheet.create({
   },
 
   trackerSection: {
-    flex: 1,
-    marginTop: veryCompact ? sv(2) : compact ? sv(3) : sv(4),
+    marginTop: veryCompact ? sv(6) : compact ? sv(8) : sv(10),
     paddingHorizontal: s(2),
   },
 
@@ -274,14 +282,13 @@ export const styles = StyleSheet.create({
     color: 'rgba(255,241,210,0.48)',
     fontSize: veryCompact ? sf(9.2) : compact ? sf(9.8) : sf(10.5),
     fontWeight: '400',
-    marginBottom: compact ? sv(3) : sv(4),
+    marginBottom: veryCompact ? sv(7) : compact ? sv(9) : sv(11),
   },
 
   trackerRow: {
-    flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: s(8),
-    maxHeight: veryCompact ? sv(82) : compact ? sv(92) : sv(110),
+    height: veryCompact ? sv(82) : compact ? sv(96) : sv(112),
   },
 });

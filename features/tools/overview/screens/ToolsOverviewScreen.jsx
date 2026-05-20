@@ -65,37 +65,53 @@ export default function ToolsScreen() {
 
   const { height, width } = useWindowDimensions();
 
+  const runtimeVeryCompact = height < 760;
+  const runtimeCompact = height < 900;
+
   const horizontalPadding = s(14) * 2;
   const gridWidth = width - horizontalPadding;
   const cardWidth = gridWidth * 0.315;
 
-  // ungefähre feste Höhenbereiche außerhalb der Coming-Soon-Reihe
+  // Muss grob mit styles.content zusammenpassen
+  const topPaddingReserve = runtimeVeryCompact ? sv(44) : runtimeCompact ? sv(50) : sv(62);
+  const bottomPaddingReserve = runtimeVeryCompact ? sv(48) : runtimeCompact ? sv(56) : sv(68);
+
+  // Header + TOOLS Titel, ohne Subtitle
+  const headerReserve = runtimeVeryCompact ? sv(54) : runtimeCompact ? sv(60) : sv(70);
+  const titleReserve = runtimeVeryCompact ? sv(38) : runtimeCompact ? sv(42) : sv(48);
+
+  // Zwei feste obere Tool-Reihen + deren vertikale Abstände
+  const activeToolsReserve =
+    cardWidth * 2 +
+    (runtimeVeryCompact ? sv(10) : runtimeCompact ? sv(12) : sv(16));
+
+  // Mentor und Tracker bleiben sichtbar, dürfen aber etwas kleiner werden
   const mentorBannerHeight = Math.max(
-    sv(92),
-    Math.min(height * 0.105, sv(112))
+    runtimeVeryCompact ? sv(84) : sv(98),
+    Math.min(height * 0.12, runtimeCompact ? sv(116) : sv(128))
   );
 
   const trackerReserveHeight = Math.max(
-    sv(118),
-    Math.min(height * 0.135, sv(138))
+    runtimeVeryCompact ? sv(98) : sv(112),
+    Math.min(height * 0.13, runtimeCompact ? sv(128) : sv(140))
   );
 
   const fixedContentHeight =
-    sv(54) + // top padding
-    sv(58) + // bottom / tab area reserve
-    sv(78) + // header
-    sv(54) + // tools title + subtitle
-    cardWidth * 2 + // zwei aktive Toolcard-Reihen
-    sv(12) + // grid gaps
+    topPaddingReserve +
+    bottomPaddingReserve +
+    headerReserve +
+    titleReserve +
+    activeToolsReserve +
     mentorBannerHeight +
     trackerReserveHeight;
 
   const availableComingSoonHeight = height - fixedContentHeight;
 
+  // Flexible Puffer-Reihe: darf kleiner werden, aber nie größer als obere Cards
   const comingSoonCardHeight = Math.max(
-    sv(86),
+    runtimeVeryCompact ? sv(54) : runtimeCompact ? sv(66) : sv(78),
     Math.min(availableComingSoonHeight, cardWidth)
-  );
+  );;
 
   const { username, growPoints, isCeo } = useProfile();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -214,9 +230,6 @@ export default function ToolsScreen() {
         {/* Tools Grid */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>TOOLS</Text>
-          <Text style={styles.sectionSubtitle}>
-            Build discipline. Track progress. Become unstoppable.
-          </Text>
         </View>
  
         <View style={styles.grid}>
