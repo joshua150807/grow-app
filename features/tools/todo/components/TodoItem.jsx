@@ -9,37 +9,41 @@ import {
   formatDueLabel,
 } from '../utils/todoUtils';
 
-export function TodoItem({ todo, onToggle, onDelete }) {
+export function TodoItem({ todo, onToggle, onDelete, onEdit }) {
   const urgent = isUrgent(todo.due_at, todo.completed);
   const overdue = isOverdue(todo.due_at, todo.completed);
   const dueLabel = formatDueLabel(todo.due_at, todo.completed);
 
   return (
     <View style={styles.todoCardWrap}>
-      <Pressable
+      <View
         style={[
           styles.todoCard,
           todo.completed && styles.todoCardDone,
           urgent && styles.todoCardUrgent,
           overdue && styles.todoCardOverdue,
         ]}
-        onPress={() => onToggle(todo.id, todo.completed)}
       >
         <View style={styles.todoLeft}>
-          <View
+          <Pressable
             style={[
               styles.checkbox,
               todo.completed && styles.checkboxDone,
               urgent && styles.checkboxUrgent,
               overdue && styles.checkboxOverdue,
             ]}
+            onPress={() => onToggle(todo.id, todo.completed)}
+            hitSlop={s(10)}
           >
             {todo.completed && (
               <Ionicons name="checkmark" size={s(13)} color={COLORS.black} />
             )}
-          </View>
+          </Pressable>
 
-          <View style={styles.todoTextWrap}>
+          <Pressable
+            style={styles.todoTextWrap}
+            onPress={() => onToggle(todo.id, todo.completed)}
+          >
             <Text
               style={[
                 styles.todoTitle,
@@ -63,22 +67,27 @@ export function TodoItem({ todo, onToggle, onDelete }) {
                 {dueLabel}
               </Text>
             )}
-          </View>
+          </Pressable>
+
+          <Pressable
+            style={styles.editButton}
+            onPress={() => onEdit(todo)}
+            hitSlop={s(10)}
+          >
+            <Ionicons name="create-outline" size={s(20)} color={COLORS.gold} />
+          </Pressable>
 
           {todo.completed && (
             <Pressable
               style={styles.completedDeleteButton}
-              onPress={(event) => {
-                event.stopPropagation();
-                onDelete(todo.id);
-              }}
+              onPress={() => onDelete(todo.id)}
               hitSlop={s(10)}
             >
               <Ionicons name="trash-outline" size={s(21)} color={COLORS.white} />
             </Pressable>
           )}
         </View>
-      </Pressable>
+      </View>
     </View>
   );
 }
@@ -167,13 +176,23 @@ const styles = StyleSheet.create({
     color: 'rgba(220,70,70,0.9)',
     fontWeight: '600',
   },
+  editButton: {
+    width: s(34),
+    height: s(34),
+    borderRadius: s(17),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(212,175,55,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.18)',
+  },
   completedDeleteButton: {
     width: s(36),
     height: s(36),
     borderRadius: s(18),
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: s(8),
+    marginLeft: s(-4),
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
 });

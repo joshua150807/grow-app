@@ -1,19 +1,20 @@
 import { useState } from 'react';
 import {
-  View, Text, ScrollView, Pressable,
+  View,
+  Text,
+  ScrollView,
+  Pressable,
   ActivityIndicator,
-  KeyboardAvoidingView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+
 import { COLORS } from '../../../../constants/colors';
 import { s } from '../../../../constants/layout';
 import { useTodos } from '../hooks/useTodos';
-import { TodoItem } from '../components/TodoItem'
+import { TodoItem } from '../components/TodoItem';
 import { AddTodoModal } from '../components/AddTodoModal';
 import { styles } from '../styles/todoStyles';
-
-// ─── Hauptkomponente ──────────────────────────────────────────────────────────
 
 export default function TodoScreen() {
   const {
@@ -27,43 +28,83 @@ export default function TodoScreen() {
     toggle,
     remove,
     add,
+    update,
   } = useTodos();
 
-  // Modal
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingTodo, setEditingTodo] = useState(null);
+
   const [inputTitle, setInputTitle] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [androidStep, setAndroidStep] = useState('date');
-  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const closeModal = () => {
-    setModalVisible(false);
+  const resetModalState = () => {
     setInputTitle('');
     setSelectedDate(null);
     setShowDatePicker(false);
     setAndroidStep('date');
+    setEditingTodo(null);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    resetModalState();
+  };
+
+  const openAddModal = () => {
+    resetModalState();
+    setModalVisible(true);
+  };
+
+  const openEditModal = (todo) => {
+    setEditingTodo(todo);
+    setInputTitle(todo.title ?? '');
+
+    if (todo.due_at) {
+      setSelectedDate(new Date(todo.due_at));
+      setShowDatePicker(true);
+    } else {
+      setSelectedDate(null);
+      setShowDatePicker(false);
+    }
+
+    setAndroidStep('date');
+    setModalVisible(true);
   };
 
   const datePickerLabel = showDatePicker && selectedDate
-    ? `${selectedDate.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })} um ${selectedDate.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
+    ? `${selectedDate.toLocaleDateString('de-DE', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+      })} um ${selectedDate.toLocaleTimeString('de-DE', {
+        hour: '2-digit',
+        minute: '2-digit',
+      })}`
     : 'Fälligkeitsdatum setzen';
 
-  const handleAdd = async () => {
-    if (!inputTitle.trim() || adding) return;
+  const handleSubmit = async () => {
+    if (!inputTitle.trim() || saving) return;
 
     try {
-      setAdding(true);
-      await add(inputTitle.trim(), selectedDate);
+      setSaving(true);
+
+      if (editingTodo) {
+        await update(editingTodo.id, inputTitle.trim(), selectedDate);
+      } else {
+        await add(inputTitle.trim(), selectedDate);
+      }
+
       closeModal();
     } catch (e) {
-      console.log('Fehler beim Hinzufügen der Todo:', e);
+      console.log('Fehler beim Speichern der Todo:', e);
     } finally {
-      setAdding(false);
+      setSaving(false);
     }
-  };  
+  };
 
-  // ────────────────────────────────────────────────────────────────────────────
   if (error) {
     return (
       <View style={styles.centerContainer}>
@@ -75,10 +116,9 @@ export default function TodoScreen() {
       </View>
     );
   }
+
   return (
     <View style={styles.screen}>
-
-      {/* Zurück-Button */}
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
@@ -90,7 +130,6 @@ export default function TodoScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
         <View style={styles.header}>
           <View style={styles.iconCircle}>
             <Ionicons name="checkmark-done-outline" size={s(36)} color={COLORS.gold} />
@@ -99,18 +138,17 @@ export default function TodoScreen() {
           <Text style={styles.subtitle}>Erledige deine Aufgaben. Gewinne deinen Tag.</Text>
         </View>
 
-        {/* Fortschritt */}
         <View style={styles.progressRow}>
           <Text style={styles.sectionTitle}>AUFGABEN</Text>
           <Text style={styles.counter}>{completedCount}/{totalCount} erledigt</Text>
         </View>
+
         <View style={styles.progressCard}>
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
           </View>
         </View>
 
-        {/* Liste */}
         {loading ? (
           <View style={styles.emptyState}>
             <ActivityIndicator color={COLORS.gold} />
@@ -129,19 +167,18 @@ export default function TodoScreen() {
                 todo={todo}
                 onToggle={toggle}
                 onDelete={remove}
+                onEdit={openEditModal}
               />
             ))}
           </View>
         )}
 
-        {/* Hinzufügen */}
-        <Pressable style={styles.addButton} onPress={() => setModalVisible(true)}>
+        <Pressable style={styles.addButton} onPress={openAddModal}>
           <Ionicons name="add-circle-outline" size={s(22)} color={COLORS.gold} />
           <Text style={styles.addText}>Neue Aufgabe hinzufügen</Text>
         </Pressable>
       </ScrollView>
 
-      {/* ── Add-Modal ─────────────────────────────────────────────────────── */}
       <AddTodoModal
         visible={modalVisible}
         onClose={closeModal}
@@ -154,8 +191,9 @@ export default function TodoScreen() {
         androidStep={androidStep}
         setAndroidStep={setAndroidStep}
         datePickerLabel={datePickerLabel}
-        adding={adding}
-        onAdd={handleAdd}
+        adding={saving}
+        onAdd={handleSubmit}
+        isEditing={!!editingTodo}
       />
     </View>
   );

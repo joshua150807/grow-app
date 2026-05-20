@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated } from 'react-native';
+import { useAudioPlayer } from 'expo-audio';
 
 import {
   saveDeepWorkSession,
   clearDeepWorkSession,
   getSavedDeepWorkSession,
-} from '../services/deepWorkStore'
+  addCompletedDeepWorkSession,
+} from '../services/deepWorkStore';
 
 import {
   DEFAULT_SESSION_MINUTES,
   EXAMPLE_CATEGORIES,
 } from '../utils/deepWorkUtils';
+
+const deepWorkDoneSound = require('../../../../assets/sounds/deepwork-done.mp3');
 
 export function useDeepWorkSession() {
   const [phase, setPhase] = useState('idle');
@@ -30,6 +34,17 @@ export function useDeepWorkSession() {
 
   const intervalRef = useRef(null);
   const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  const donePlayer = useAudioPlayer(deepWorkDoneSound);
+
+  const playDoneSound = useCallback(() => {
+    try {
+      donePlayer.seekTo(0);
+      donePlayer.play();
+    } catch (e) {
+      console.log('Fehler beim Abspielen des Deep-Work-Sounds:', e);
+    }
+  }, [donePlayer]);
 
   useEffect(() => {
     const restoreSession = async () => {
@@ -75,9 +90,19 @@ export function useDeepWorkSession() {
         setRemaining(prev => {
           if (prev <= 1) {
             clearInterval(intervalRef.current);
+
+            const completedSeconds = totalMinutes * 60;
+
+            playDoneSound();
+
+            addCompletedDeepWorkSession(completedSeconds).catch((e) => {
+              console.log('Fehler beim Speichern der Deep-Work-Historie:', e);
+            });
+
             clearDeepWorkSession();
             setPhase('idle');
             setDoneVisible(true);
+
             return 0;
           }
 
@@ -89,14 +114,15 @@ export function useDeepWorkSession() {
     }
 
     return () => clearInterval(intervalRef.current);
-  }, [phase]);
+  }, [phase, totalMinutes, playDoneSound]);
 
   const startSession = useCallback(async () => {
     const mins = selHours * 60 + selMinutes;
     const cat = customCategory.trim() || selCategory;
     const seconds = mins * 60;
+    const name = inputTask.trim() || 'Deep Work';
 
-    setTaskName(inputTask.trim() || 'Deep Work');
+    setTaskName(name);
     setCategory(cat);
     setTotalMinutes(mins);
     setRemaining(seconds);
@@ -107,7 +133,7 @@ export function useDeepWorkSession() {
       phase: 'running',
       remaining: seconds,
       totalSeconds: seconds,
-      taskName: inputTask.trim() || 'Deep Work',
+      taskName: name,
       category: cat,
       updatedAt: Date.now(),
     });
@@ -128,14 +154,22 @@ export function useDeepWorkSession() {
 
       return nextPhase;
     });
-  }, [remaining, totalMinutes]);
+  }, [remaining, totalMinutes, taskName, category]);
 
   const endSession = useCallback(async () => {
     clearInterval(intervalRef.current);
+
+    const totalSeconds = totalMinutes * 60;
+    const completedSeconds = Math.max(totalSeconds - remaining, 0);
+
+    if (completedSeconds > 0) {
+      await addCompletedDeepWorkSession(completedSeconds);
+    }
+
     setPhase('idle');
     setRemaining(0);
     await clearDeepWorkSession();
-  }, []);
+  }, [totalMinutes, remaining]);
 
   const openSetup = useCallback(() => {
     setInputTask('');

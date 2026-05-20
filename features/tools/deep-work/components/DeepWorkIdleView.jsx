@@ -5,7 +5,7 @@ import { COLORS } from '../../../../constants/colors';
 import { s } from '../../../../constants/layout';
 import { styles } from '../styles/deepWorkStyles';
 
-export default function DeepWorkIdleView({ router, openSetup }) {
+export default function DeepWorkIdleView({ router, openSetup, phase }) {
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
@@ -14,7 +14,7 @@ export default function DeepWorkIdleView({ router, openSetup }) {
                 if (phase !== 'running') {
                   router.back();
                 }
-            }}  
+            }} 
             style={styles.backButton}
         >
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />

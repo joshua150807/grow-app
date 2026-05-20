@@ -55,7 +55,11 @@ export default function DeepWorkScreen() {
       <>
         <Stack.Screen options={{ gestureEnabled: true }} />
 
-        <DeepWorkIdleView router={router} openSetup={session.openSetup} />
+        <DeepWorkIdleView 
+          router={router} 
+          openSetup={session.openSetup} 
+          phase={phase}
+        />
 
         <DeepWorkSetupModal
           visible={setupVisible}

@@ -54,3 +54,18 @@ export async function deleteTodo(id) {
 
   if (error) throw error;
 }
+
+export async function updateTodo(id, title, dueAt) {
+  const { data, error } = await supabase
+    .from('todos')
+    .update({
+      title,
+      due_at: dueAt ?? null,
+    })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}

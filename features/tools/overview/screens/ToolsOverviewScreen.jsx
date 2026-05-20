@@ -13,7 +13,7 @@ import { s, sv, sf, SCREEN } from '../../../../constants/layout';
 
 // services / hooks aus anderen tools
 import { getHabitStreak, getTodayHabitProgress } from '../../habits/services/habits'
-import { getDeepWorkTimeLeft } from '../../deep-work/services/deepWorkStore'
+import { getTodayDeepWorkSeconds } from '../../deep-work/services/deepWorkStore'
 import { useSteps } from '../../../steps/hooks/useSteps'
 import { useProfile } from '../.././../profile/hooks/useProfile'
 import { supabase } from '../../../../services/supabaseClient';
@@ -128,13 +128,20 @@ export default function ToolsScreen() {
 
   useEffect(() => {
     let mounted = true;
-    async function tick() {
-      const t = await getDeepWorkTimeLeft();
-      if (mounted) setDeepWorkTime(t);
+
+    async function loadDeepWorkToday() {
+      const seconds = await getTodayDeepWorkSeconds();
+      if (mounted) setDeepWorkTime(seconds);
     }
-    tick();
-    const interval = setInterval(tick, 1000);
-    return () => { mounted = false; clearInterval(interval); };
+
+    loadDeepWorkToday();
+
+    const interval = setInterval(loadDeepWorkToday, 5000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, []);
 
   const habitPercent = habitProgress.total === 0
@@ -246,6 +253,32 @@ export default function ToolsScreen() {
             />
           ))}
         </View>
+
+        <Pressable
+          onPress={() => router.push('/tools/journal')}
+          style={{
+            marginTop: sv(8),
+            marginBottom: sv(4),
+            borderRadius: s(12),
+            borderWidth: 1,
+            borderColor: 'rgba(231,201,138,0.45)',
+            backgroundColor: 'rgba(231,201,138,0.08)',
+            paddingVertical: sv(9),
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Text
+            style={{
+              color: COLORS.toolsGold,
+              fontSize: sf(12),
+              fontWeight: '600',
+              letterSpacing: 0.4,
+            }}
+          >
+            Journal testen
+          </Text>
+        </Pressable>
  
         {/* KI Mentor Card */}
         <ImageBackground

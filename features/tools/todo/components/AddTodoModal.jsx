@@ -13,7 +13,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
-import { s, sf, sv } from '../../../../constants/layout'
+import { s, sf, sv } from '../../../../constants/layout';
 
 export function AddTodoModal({
   visible,
@@ -29,6 +29,7 @@ export function AddTodoModal({
   datePickerLabel,
   adding,
   onAdd,
+  isEditing = false,
 }) {
   return (
     <Modal
@@ -44,7 +45,10 @@ export function AddTodoModal({
         <Pressable style={styles.overlay} onPress={onClose}>
           <Pressable style={styles.sheet} onPress={() => {}}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Neue Aufgabe</Text>
+
+            <Text style={styles.sheetTitle}>
+              {isEditing ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}
+            </Text>
 
             <TextInput
               style={styles.input}
@@ -61,11 +65,12 @@ export function AddTodoModal({
               style={[styles.dateToggle, showDatePicker && styles.dateToggleActive]}
               onPress={() => {
                 if (!showDatePicker) {
-                  setSelectedDate(new Date(Date.now() + 60 * 60 * 1000));
+                  setSelectedDate(selectedDate ?? new Date(Date.now() + 60 * 60 * 1000));
                   setShowDatePicker(true);
                 } else {
                   setShowDatePicker(false);
                   setSelectedDate(null);
+                  setAndroidStep('date');
                 }
               }}
             >
@@ -74,9 +79,11 @@ export function AddTodoModal({
                 size={s(17)}
                 color={showDatePicker ? COLORS.gold : COLORS.textSecondary}
               />
+
               <Text style={[styles.dateToggleText, showDatePicker && styles.dateToggleTextActive]}>
                 {datePickerLabel}
               </Text>
+
               {showDatePicker && (
                 <Ionicons name="close-circle" size={s(16)} color={COLORS.textDim} />
               )}
@@ -124,7 +131,9 @@ export function AddTodoModal({
                 {adding ? (
                   <ActivityIndicator color={COLORS.black} size="small" />
                 ) : (
-                  <Text style={styles.confirmBtnText}>Hinzufügen</Text>
+                  <Text style={styles.confirmBtnText}>
+                    {isEditing ? 'Speichern' : 'Hinzufügen'}
+                  </Text>
                 )}
               </Pressable>
             </View>
