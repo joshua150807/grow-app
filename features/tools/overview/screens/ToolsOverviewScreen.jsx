@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, ImageBackground, Pressable, useWindowDimensions } from 'react-native';
+import { View, Text, Image, ImageBackground, Pressable, useWindowDimensions } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Asset } from 'expo-asset';
@@ -31,6 +31,7 @@ const compact = SCREEN.height < 900;
 const veryCompact = SCREEN.height < 700;
 
 import { MENTOR_BG } from '../../../../constants/toolAssets';
+const GROW_AVATAR = require('../../../../assets/images/grow_avatar.png');
  
 function formatDeepWork(seconds) {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -144,7 +145,13 @@ export default function ToolsScreen() {
         <View style={styles.header}>
           <View style={styles.leftHeader}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>🌳</Text>
+              <View style={styles.avatarImageClip}>
+                <Image
+                  source={GROW_AVATAR}
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+              </View>
             </View>
             <View style={styles.headerTextBox}>
               <Text style={styles.topLabel}>GROW</Text>

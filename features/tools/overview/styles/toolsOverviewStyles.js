@@ -35,19 +35,23 @@ export const styles = StyleSheet.create({
   avatar: {
     width: veryCompact ? s(48) : compact ? s(52) : s(56),
     height: veryCompact ? s(48) : compact ? s(52) : s(56),
-    borderRadius: veryCompact ? s(17) : compact ? s(18) : s(20),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(231,201,138,0.35)',
-    backgroundColor: 'rgba(231,201,138,0.045)',
+    borderRadius: veryCompact ? s(24) : compact ? s(26) : s(28),
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: compact ? s(10) : s(12),
+  },
 
-    shadowColor: COLORS.toolsGold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 3,
+  avatarImageClip: {
+    width: '100%',
+    height: '100%',
+    borderRadius: veryCompact ? s(24) : compact ? s(26) : s(28),
+    overflow: 'hidden',
+  },
+
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
 
   avatarText: {
