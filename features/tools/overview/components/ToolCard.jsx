@@ -1,4 +1,6 @@
 import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+
 import { COLORS } from '../../../../constants/colors';
 import { s, sv, sf, SCREEN } from '../../../../constants/layout';
 
@@ -11,22 +13,68 @@ export default function ToolCard({
   title,
   description,
   onPress,
+  onLongPress,
   disabled = false,
   badgeText,
   cardStyle,
+  size = 'normal',
+  placeholder = false,
+  selected = false,
+  editing = false,
 }) {
+  const isSmall = size === 'small';
+
+  if (placeholder) {
+    return (
+      <Pressable
+        style={[
+          styles.card,
+          isSmall && styles.smallCard,
+          styles.placeholderCard,
+          cardStyle,
+        ]}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        disabled={disabled}
+        delayLongPress={350}
+      >
+        <View style={[styles.iconWrapper, isSmall && styles.smallIconWrapper]}>
+          <Ionicons
+            name="construct-outline"
+            size={isSmall ? s(17) : s(21)}
+            color="rgba(255,241,210,0.42)"
+          />
+        </View>
+
+        <Text style={[styles.title, isSmall && styles.smallTitle]} numberOfLines={1}>
+          In Bearbeitung
+        </Text>
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
       style={({ pressed }) => [
         styles.card,
+        isSmall && styles.smallCard,
         image && styles.imageCard,
         disabled && styles.cardDisabled,
+        selected && editing && styles.cardSelected,
         cardStyle,
         pressed && !disabled && styles.cardPressed,
       ]}
       onPress={onPress}
+      onLongPress={onLongPress}
       disabled={disabled}
+      delayLongPress={350}
     >
+      {editing && selected ? (
+        <View style={styles.selectedBadge}>
+          <Ionicons name="checkmark" size={s(12)} color={COLORS.black} />
+        </View>
+      ) : null}
+
       {image ? (
         <ImageBackground
           source={image}
@@ -40,19 +88,20 @@ export default function ToolCard({
             </View>
           ) : null}
 
-          <View style={styles.imageTextBox}>
+          <View style={[styles.imageTextBox, isSmall && styles.smallImageTextBox]}>
             <Text
-              style={[styles.imageTitle, disabled && styles.titleDisabled]}
+              style={[
+                styles.imageTitle,
+                isSmall && styles.smallImageTitle,
+                disabled && styles.titleDisabled,
+              ]}
               numberOfLines={1}
             >
               {title}
             </Text>
 
-            {!!description && (
-              <Text
-                style={styles.imageDescription}
-                numberOfLines={compact ? 1 : 2}
-              >
+            {!!description && !isSmall && (
+              <Text style={styles.imageDescription} numberOfLines={compact ? 1 : 2}>
                 {description}
               </Text>
             )}
@@ -66,7 +115,13 @@ export default function ToolCard({
             </View>
           ) : null}
 
-          <View style={[styles.iconWrapper, disabled && styles.iconWrapperDisabled]}>
+          <View
+            style={[
+              styles.iconWrapper,
+              isSmall && styles.smallIconWrapper,
+              disabled && styles.iconWrapperDisabled,
+            ]}
+          >
             {typeof icon === 'string' ? (
               <Text style={[styles.icon, disabled && styles.iconDisabled]}>{icon}</Text>
             ) : (
@@ -77,15 +132,16 @@ export default function ToolCard({
           <Text
             style={[
               styles.title,
+              isSmall && styles.smallTitle,
               disabled && styles.titleDisabled,
               disabled && styles.disabledTitle,
             ]}
-            numberOfLines={disabled ? 1 : 2}
+            numberOfLines={isSmall ? 1 : disabled ? 1 : 2}
           >
             {title}
           </Text>
 
-          {!!description && (
+          {!!description && !isSmall && (
             <Text
               style={[
                 styles.description,
@@ -120,11 +176,24 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 
+  smallCard: {
+    width: '23.2%',
+    paddingVertical: veryCompact ? sv(4) : sv(5),
+    paddingHorizontal: s(4),
+    marginBottom: veryCompact ? sv(5) : sv(6),
+  },
+
   imageCard: {
     paddingVertical: 0,
     paddingHorizontal: 0,
     borderWidth: 0,
     backgroundColor: 'transparent',
+  },
+
+  placeholderCard: {
+    borderColor: 'rgba(255,255,255,0.075)',
+    backgroundColor: '#07050A',
+    opacity: 0.82,
   },
 
   cardDisabled: {
@@ -134,9 +203,27 @@ const styles = StyleSheet.create({
     paddingVertical: veryCompact ? sv(3) : compact ? sv(4) : sv(6),
   },
 
+  cardSelected: {
+    borderColor: COLORS.gold,
+    backgroundColor: 'rgba(212,175,55,0.08)',
+  },
+
   cardPressed: {
     transform: [{ scale: 0.985 }],
     opacity: 0.9,
+  },
+
+  selectedBadge: {
+    position: 'absolute',
+    top: sv(6),
+    right: s(6),
+    zIndex: 5,
+    width: s(20),
+    height: s(20),
+    borderRadius: s(10),
+    backgroundColor: COLORS.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   imageBackground: {
@@ -160,16 +247,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
+  smallImageTextBox: {
+    top: '58%',
+    paddingHorizontal: s(4),
+  },
+
   imageTitle: {
     color: '#FFD978',
     fontSize: veryCompact ? sf(8.6) : compact ? sf(9.6) : sf(10.6),
     fontWeight: '800',
     textAlign: 'center',
-    textTransform: 'none',
     letterSpacing: 0.1,
     textShadowColor: 'rgba(255, 217, 120, 0.75)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 6,
+  },
+
+  smallImageTitle: {
+    fontSize: veryCompact ? sf(6.8) : compact ? sf(7.4) : sf(8),
   },
 
   imageDescription: {
@@ -206,18 +301,22 @@ const styles = StyleSheet.create({
     width: compact ? s(34) : s(38),
     height: compact ? s(34) : s(38),
     borderRadius: compact ? s(17) : s(19),
-    borderWidth: 0,
-    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: compact ? sv(4) : sv(6),
     backgroundColor: 'transparent',
-
     shadowColor: COLORS.toolsGold,
     shadowOpacity: 0.28,
     shadowRadius: 7,
     shadowOffset: { width: 0, height: 0 },
     elevation: 2,
+  },
+
+  smallIconWrapper: {
+    width: veryCompact ? s(24) : s(28),
+    height: veryCompact ? s(24) : s(28),
+    borderRadius: veryCompact ? s(12) : s(14),
+    marginBottom: veryCompact ? sv(2) : sv(3),
   },
 
   iconWrapperDisabled: {
@@ -229,11 +328,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     shadowOpacity: 0,
     elevation: 0,
-  },
-
-  iconElement: {
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 
   icon: {
@@ -255,6 +349,11 @@ const styles = StyleSheet.create({
     marginBottom: compact ? sv(2) : sv(3),
     textAlign: 'center',
     letterSpacing: 0.15,
+  },
+
+  smallTitle: {
+    fontSize: veryCompact ? sf(7.6) : compact ? sf(8.2) : sf(8.8),
+    marginBottom: 0,
   },
 
   disabledTitle: {

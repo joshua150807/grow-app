@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { Stack } from 'expo-router';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { supabase } from '../services/supabaseClient';
 import { COLORS } from '../constants/colors';
@@ -119,24 +120,28 @@ export default function RootLayout() {
   // startupReady false = Session bekannt, aber Profil/Bilder werden vorbereitet
   if (session === undefined || !startupReady) {
     return (
-      <View
-        style={{
-          flex: 1,
-          backgroundColor: COLORS.background,
-          justifyContent: 'center',
-          alignItems: 'center',
-        }}
-      >
-        <ActivityIndicator color={COLORS.gold} />
-      </View>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: COLORS.background,
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}
+        >
+          <ActivityIndicator color={COLORS.gold} />
+        </View>
+      </GestureHandlerRootView>
     );
   }
 
   return (
-    <AuthContext.Provider value={session}>
-      <StartupProfileContext.Provider value={startupProfileValue}>
-        <Stack screenOptions={{ headerShown: false }} />
-      </StartupProfileContext.Provider>
-    </AuthContext.Provider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <AuthContext.Provider value={session}>
+        <StartupProfileContext.Provider value={startupProfileValue}>
+          <Stack screenOptions={{ headerShown: false }} />
+        </StartupProfileContext.Provider>
+      </AuthContext.Provider>
+    </GestureHandlerRootView>
   );
 }

@@ -203,6 +203,105 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
 
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: veryCompact ? sv(0) : compact ? sv(2) : sv(4),
+    marginBottom: veryCompact ? sv(8) : compact ? sv(10) : sv(14),
+    paddingHorizontal: s(2),
+  },
+
+  sectionHeaderSpacer: {
+    width: s(72),
+  },
+
+  sectionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(8),
+  },
+
+  sectionSmallButton: {
+    minWidth: s(72),
+    minHeight: sv(30),
+    borderRadius: s(999),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(231,201,138,0.32)',
+    backgroundColor: 'rgba(231,201,138,0.055)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: s(10),
+  },
+
+  sectionSmallButtonText: {
+    color: COLORS.toolsGold,
+    fontSize: veryCompact ? sf(8.2) : sf(8.8),
+    fontWeight: '700',
+  },
+
+  gridExpanded: {
+    marginTop: veryCompact ? sv(-2) : 0,
+  },
+
+  moreToolsButton: {
+    marginTop: veryCompact ? sv(4) : sv(8),
+    marginBottom: veryCompact ? sv(4) : sv(6),
+    borderRadius: s(12),
+    borderWidth: 1,
+    borderColor: 'rgba(231,201,138,0.45)',
+    backgroundColor: 'rgba(231,201,138,0.08)',
+    paddingVertical: veryCompact ? sv(8) : sv(9),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  moreToolsText: {
+    color: COLORS.toolsGold,
+    fontSize: sf(12),
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+
+  editPanel: {
+    marginTop: sv(4),
+    marginBottom: sv(8),
+    borderRadius: s(12),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(231,201,138,0.24)',
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    paddingHorizontal: s(12),
+    paddingVertical: sv(10),
+  },
+
+  editPanelTitle: {
+    color: COLORS.toolsText,
+    fontSize: sf(12.5),
+    fontWeight: '800',
+    marginBottom: sv(3),
+  },
+
+  editPanelText: {
+    color: 'rgba(255,241,210,0.55)',
+    fontSize: sf(10.2),
+    lineHeight: sf(14),
+  },
+
+  editDoneButton: {
+    marginTop: sv(8),
+    alignSelf: 'flex-start',
+    borderRadius: s(999),
+    backgroundColor: COLORS.toolsGold,
+    paddingHorizontal: s(12),
+    paddingVertical: sv(6),
+  },
+
+  editDoneText: {
+    color: COLORS.black,
+    fontSize: sf(10.5),
+    fontWeight: '900',
+  },
+
   mentorCard: {
     marginTop: veryCompact ? sv(4) : compact ? sv(6) : sv(8),
     borderRadius: s(10),
@@ -290,5 +389,130 @@ export const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: s(8),
     height: veryCompact ? sv(82) : compact ? sv(96) : sv(112),
+  },
+  allToolsTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: veryCompact ? sv(10) : compact ? sv(12) : sv(16),
+  },
+
+  allToolsEditButton: {
+    minHeight: sv(32),
+    borderRadius: s(999),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(231,201,138,0.32)',
+    backgroundColor: 'rgba(231,201,138,0.055)',
+    paddingHorizontal: s(12),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: s(7),
+  },
+
+  allToolsEditText: {
+    color: COLORS.toolsGold,
+    fontSize: sf(11),
+    fontWeight: '800',
+  },
+
+  allToolsContent: {
+    paddingBottom: sv(24),
+  },
+
+  allToolsHeader: {
+    alignItems: 'center',
+    marginBottom: veryCompact ? sv(12) : compact ? sv(14) : sv(18),
+    paddingHorizontal: s(8),
+  },
+  selectedOrderList: {
+    marginTop: sv(10),
+    gap: sv(7),
+  },
+
+  selectedOrderItem: {
+    minHeight: sv(38),
+    borderRadius: s(10),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(0,0,0,0.16)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: s(10),
+  },
+
+  selectedOrderIndex: {
+    width: s(22),
+    color: COLORS.toolsGold,
+    fontSize: sf(11),
+    fontWeight: '900',
+  },
+
+  selectedOrderTitle: {
+    flex: 1,
+    color: COLORS.toolsText,
+    fontSize: sf(12),
+    fontWeight: '700',
+  },
+
+  selectedOrderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(6),
+  },
+
+  selectedOrderButton: {
+    width: s(28),
+    height: s(28),
+    borderRadius: s(14),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(231,201,138,0.26)',
+    backgroundColor: 'rgba(231,201,138,0.055)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  selectedOrderButtonDisabled: {
+    opacity: 0.35,
+  },
+  replacePanel: {
+    marginTop: sv(4),
+    marginBottom: sv(8),
+    borderRadius: s(12),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(231,201,138,0.30)',
+    backgroundColor: 'rgba(231,201,138,0.07)',
+    paddingHorizontal: s(12),
+    paddingVertical: sv(10),
+  },
+
+  replacePanelTitle: {
+    color: COLORS.toolsGold,
+    fontSize: sf(12.5),
+    fontWeight: '900',
+    marginBottom: sv(3),
+  },
+
+  replacePanelText: {
+    color: 'rgba(255,241,210,0.62)',
+    fontSize: sf(10.3),
+    lineHeight: sf(14),
+  },
+
+  replaceCancelButton: {
+    marginTop: sv(8),
+    alignSelf: 'flex-start',
+    borderRadius: s(999),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: s(12),
+    paddingVertical: sv(6),
+    backgroundColor: 'rgba(0,0,0,0.18)',
+  },
+
+  replaceCancelText: {
+    color: COLORS.toolsText,
+    fontSize: sf(10.5),
+    fontWeight: '800',
   },
 });

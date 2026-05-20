@@ -1,68 +1,95 @@
-import { useEffect, useState } from 'react';
-import { View, Text, Image, ImageBackground, Pressable, useWindowDimensions } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  ImageBackground,
+  Pressable,
+  useWindowDimensions,
+} from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { Asset } from 'expo-asset';
+import { router, useFocusEffect } from 'expo-router';
 
 // data
-import { tools } from '../../../../data/tools'
+import { tools } from '../../../../data/tools';
 
 // constants
 import { COLORS } from '../../../../constants/colors';
-import { s, sv, sf, SCREEN } from '../../../../constants/layout';
+import { s, sv, SCREEN } from '../../../../constants/layout';
 
 // services / hooks aus anderen tools
-import { getHabitStreak, getTodayHabitProgress } from '../../habits/services/habits'
-import { getTodayDeepWorkSeconds } from '../../deep-work/services/deepWorkStore'
-import { useSteps } from '../../../steps/hooks/useSteps'
-import { useProfile } from '../.././../profile/hooks/useProfile'
+import { getHabitStreak, getTodayHabitProgress } from '../../habits/services/habits';
+import { getTodayDeepWorkSeconds } from '../../deep-work/services/deepWorkStore';
+import { useSteps } from '../../../steps/hooks/useSteps';
+import { useProfile } from '../.././../profile/hooks/useProfile';
 import { supabase } from '../../../../services/supabaseClient';
+
+import {
+  getSelectedOverviewToolIds,
+  saveSelectedOverviewToolIds,
+  getToolsOverviewMode,
+  saveToolsOverviewMode,
+  getPendingReplacementToolId,
+  clearPendingReplacementToolId,
+} from '../services/toolPreferences';
 
 // eigene components
 import ToolCard from '../components/ToolCard';
 import TrackerBox from '../components/Trackerbox';
+import DraggableSixToolGrid from '../components/DraggableSixToolGrid';
 
 // styles
 import { styles } from '../styles/toolsOverviewStyles';
 
-// < 900pt (iPhone 15 Pro 852pt, iPhone 16 Pro 874pt): kompakte Abstände
-// < 700pt (iPhone SE 667pt): sehr kompakte Abstände
-const compact = SCREEN.height < 900;
-const veryCompact = SCREEN.height < 700;
-
 import { MENTOR_BG } from '../../../../constants/toolAssets';
+
 const GROW_AVATAR = require('../../../../assets/images/grow_avatar.png');
- 
+
 function formatDeepWork(seconds) {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const s = (seconds % 60).toString().padStart(2, '0');
-  return `${m}:${s}`;
+  const sec = (seconds % 60).toString().padStart(2, '0');
+  return `${m}:${sec}`;
 }
 
 function formatSteps(count) {
   if (count >= 1000) {
     return `${Math.floor(count / 1000)}.${String(count % 1000).padStart(3, '0')}`;
   }
+
   return String(count);
 }
- 
+
 function renderToolIcon(tool) {
   const iconColor = tool.disabled ? COLORS.toolsTextDim : COLORS.toolsGold;
 
-  if (tool.type === 'Ionicons')
+  if (tool.type === 'Ionicons') {
     return <Ionicons name={tool.name} size={s(20)} color={iconColor} />;
+  }
 
-  if (tool.type === 'MaterialCommunityIcons')
+  if (tool.type === 'MaterialCommunityIcons') {
     return <MaterialCommunityIcons name={tool.name} size={s(20)} color={iconColor} />;
+  }
 
-  if (tool.type === 'Feather')
+  if (tool.type === 'Feather') {
     return <Feather name={tool.name} size={s(20)} color={iconColor} />;
+  }
 
   return null;
 }
- 
-export default function ToolsScreen() {
 
+function getActiveTools() {
+  return tools.filter((tool) => !tool.disabled && tool.route);
+}
+
+function buildPlaceholderSlots(count) {
+  return Array.from({ length: count }).map((_, index) => ({
+    id: `placeholder-${index}`,
+    placeholder: true,
+    title: 'In Bearbeitung',
+  }));
+}
+
+export default function ToolsScreen() {
   const { height, width } = useWindowDimensions();
 
   const runtimeVeryCompact = height < 760;
@@ -72,20 +99,16 @@ export default function ToolsScreen() {
   const gridWidth = width - horizontalPadding;
   const cardWidth = gridWidth * 0.315;
 
-  // Muss grob mit styles.content zusammenpassen
   const topPaddingReserve = runtimeVeryCompact ? sv(44) : runtimeCompact ? sv(50) : sv(62);
   const bottomPaddingReserve = runtimeVeryCompact ? sv(48) : runtimeCompact ? sv(56) : sv(68);
 
-  // Header + TOOLS Titel, ohne Subtitle
   const headerReserve = runtimeVeryCompact ? sv(54) : runtimeCompact ? sv(60) : sv(70);
   const titleReserve = runtimeVeryCompact ? sv(38) : runtimeCompact ? sv(42) : sv(48);
 
-  // Zwei feste obere Tool-Reihen + deren vertikale Abstände
   const activeToolsReserve =
     cardWidth * 2 +
     (runtimeVeryCompact ? sv(10) : runtimeCompact ? sv(12) : sv(16));
 
-  // Mentor und Tracker bleiben sichtbar, dürfen aber etwas kleiner werden
   const mentorBannerHeight = Math.max(
     runtimeVeryCompact ? sv(84) : sv(98),
     Math.min(height * 0.12, runtimeCompact ? sv(116) : sv(128))
@@ -107,19 +130,107 @@ export default function ToolsScreen() {
 
   const availableComingSoonHeight = height - fixedContentHeight;
 
-  // Flexible Puffer-Reihe: darf kleiner werden, aber nie größer als obere Cards
+  // Aktuell nicht aktiv genutzt, aber bewusst drin gelassen,
+  // falls wir später disabled Cards auf der Overview wieder individuell skalieren.
   const comingSoonCardHeight = Math.max(
     runtimeVeryCompact ? sv(54) : runtimeCompact ? sv(66) : sv(78),
     Math.min(availableComingSoonHeight, cardWidth)
-  );;
+  );
 
   const { username, growPoints, isCeo } = useProfile();
+
+  const activeTools = useMemo(() => getActiveTools(), []);
+
+  const defaultOverviewToolIds = useMemo(
+    () => activeTools.slice(0, 6).map((tool) => tool.id),
+    [activeTools]
+  );
+
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const [overviewToolIds, setOverviewToolIds] = useState(defaultOverviewToolIds);
+  const [toolsViewMode, setToolsViewMode] = useState('compact');
+  const [editingTools, setEditingTools] = useState(false);
+  const [replacementToolId, setReplacementToolId] = useState(null);
 
   const [streak, setStreak] = useState(0);
   const [habitProgress, setHabitProgress] = useState({ completed: 0, total: 0 });
   const [deepWorkTime, setDeepWorkTime] = useState(0);
+
   const steps = useSteps();
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadToolPreferences() {
+      const savedIds = await getSelectedOverviewToolIds(defaultOverviewToolIds);
+      const savedMode = await getToolsOverviewMode();
+
+      const validIds = savedIds.filter((id) =>
+        activeTools.some((tool) => tool.id === id)
+      );
+
+      const normalizedIds = validIds.length > 0
+        ? validIds.slice(0, 6)
+        : defaultOverviewToolIds;
+
+      if (mounted) {
+        setOverviewToolIds(normalizedIds);
+        setToolsViewMode(savedMode);
+      }
+    }
+
+    loadToolPreferences();
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeTools, defaultOverviewToolIds]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+
+      async function loadPendingReplacement() {
+        const pendingId = await getPendingReplacementToolId();
+
+        if (!active) return;
+
+        if (!pendingId) {
+          setReplacementToolId(null);
+          return;
+        }
+
+        const validPendingTool = activeTools.find((tool) => tool.id === pendingId);
+
+        if (!validPendingTool) {
+          setReplacementToolId(null);
+          await clearPendingReplacementToolId();
+          return;
+        }
+
+        const currentIds = overviewToolIds.filter((id) =>
+          activeTools.some((tool) => tool.id === id)
+        );
+
+        if (currentIds.includes(pendingId)) {
+          setReplacementToolId(null);
+          await clearPendingReplacementToolId();
+          return;
+        }
+
+        setReplacementToolId(pendingId);
+        setEditingTools(false);
+        setToolsViewMode('compact');
+      }
+
+      loadPendingReplacement();
+
+      return () => {
+        active = false;
+      };
+    }, [activeTools, overviewToolIds])
+  );
 
   useEffect(() => {
     getHabitStreak().then(setStreak).catch(() => {});
@@ -144,6 +255,39 @@ export default function ToolsScreen() {
     };
   }, []);
 
+  const activeToolCount = activeTools.length;
+  const requiredOverviewCount = Math.min(activeToolCount, 6);
+  const canCustomizeOverviewTools = activeToolCount > 6;
+
+  const normalizedOverviewToolIds = canCustomizeOverviewTools
+    ? overviewToolIds
+        .filter((id) => activeTools.some((tool) => tool.id === id))
+        .slice(0, 6)
+    : activeTools.slice(0, 6).map((tool) => tool.id);
+
+  const overviewTools = normalizedOverviewToolIds
+    .map((id) => activeTools.find((tool) => tool.id === id))
+    .filter(Boolean);
+
+  const visibleOverviewTools = toolsViewMode === 'expanded'
+    ? activeTools.slice(0, 16)
+    : overviewTools.slice(0, 6);
+
+  const missingSlots = toolsViewMode === 'expanded'
+    ? Math.max(16 - visibleOverviewTools.length, 0)
+    : 0;
+
+  const visibleToolSlots = [
+    ...visibleOverviewTools,
+    ...buildPlaceholderSlots(missingSlots),
+  ];
+
+  const isExpandedTools = toolsViewMode === 'expanded';
+
+  const replacementTool = replacementToolId
+    ? activeTools.find((tool) => tool.id === replacementToolId)
+    : null;
+
   const habitPercent = habitProgress.total === 0
     ? '–'
     : `${Math.round((habitProgress.completed / habitProgress.total) * 100)}%`;
@@ -154,16 +298,122 @@ export default function ToolsScreen() {
     { value: deepWorkTime > 0 ? formatDeepWork(deepWorkTime) : '00:00', label: 'Deep Work' },
     { value: formatSteps(steps), label: 'Schritte' },
   ];
- 
+
   async function handleLogout() {
     await supabase.auth.signOut();
     router.replace('/(auth)/login');
   }
- 
+
+  const handleToggleToolsViewMode = async () => {
+    const nextMode = toolsViewMode === 'expanded' ? 'compact' : 'expanded';
+
+    setToolsViewMode(nextMode);
+    await saveToolsOverviewMode(nextMode);
+  };
+
+  const handleToggleOverviewTool = async (tool) => {
+    if (!tool || tool.placeholder || tool.disabled || !tool.route) return;
+
+    // Wenn nur 6 aktive Tools existieren, darf auf der Overview nichts entfernt werden.
+    if (!canCustomizeOverviewTools) {
+      return;
+    }
+
+    const alreadySelected = overviewToolIds.includes(tool.id);
+
+    let nextIds;
+
+    if (alreadySelected) {
+      if (overviewToolIds.length <= requiredOverviewCount) {
+        return;
+      }
+
+      nextIds = overviewToolIds.filter((id) => id !== tool.id);
+    } else {
+      if (overviewToolIds.length >= 6) return;
+
+      nextIds = [...overviewToolIds, tool.id];
+    }
+
+    setOverviewToolIds(nextIds);
+    await saveSelectedOverviewToolIds(nextIds);
+  };
+
+  const handleReplaceOverviewTool = async (targetTool) => {
+    if (!replacementToolId || !targetTool || targetTool.placeholder || targetTool.disabled) {
+      return;
+    }
+
+    const replacement = activeTools.find((tool) => tool.id === replacementToolId);
+
+    if (!replacement) {
+      setReplacementToolId(null);
+      await clearPendingReplacementToolId();
+      return;
+    }
+
+    const currentIds = normalizedOverviewToolIds.slice(0, 6);
+    const targetIndex = currentIds.indexOf(targetTool.id);
+
+    if (targetIndex === -1) {
+      return;
+    }
+
+    if (currentIds.includes(replacementToolId)) {
+      setReplacementToolId(null);
+      await clearPendingReplacementToolId();
+      return;
+    }
+
+    const nextIds = [...currentIds];
+    nextIds[targetIndex] = replacementToolId;
+
+    setOverviewToolIds(nextIds);
+    await saveSelectedOverviewToolIds(nextIds);
+
+    setReplacementToolId(null);
+    await clearPendingReplacementToolId();
+  };
+
+  const handleCancelReplacement = async () => {
+    setReplacementToolId(null);
+    await clearPendingReplacementToolId();
+  };
+
+  const handleReorderOverviewTools = async (reorderedTools) => {
+    const nextIds = reorderedTools
+      .filter((tool) => !tool.disabled && !tool.placeholder && tool.route)
+      .map((tool) => tool.id)
+      .slice(0, 6);
+
+    if (nextIds.length === 0) return;
+
+    setOverviewToolIds(nextIds);
+    await saveSelectedOverviewToolIds(nextIds);
+  };
+
+  const handleToolPress = (tool) => {
+    if (!tool || tool.placeholder) {
+      return;
+    }
+
+    if (replacementToolId) {
+      handleReplaceOverviewTool(tool);
+      return;
+    }
+
+    if (editingTools) {
+      return;
+    }
+
+    if (!tool.disabled && tool.route) {
+      router.push(tool.route);
+    }
+  };
+
   return (
     <Pressable onPress={() => setMenuOpen(false)} style={styles.screen}>
       <View style={styles.content}>
- 
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.leftHeader}>
@@ -176,35 +426,40 @@ export default function ToolsScreen() {
                 />
               </View>
             </View>
+
             <View style={styles.headerTextBox}>
               <Text style={styles.topLabel}>GROW</Text>
               <Text style={styles.accountName}>{username}</Text>
             </View>
           </View>
- 
+
           <View style={styles.rightHeader}>
             <View style={styles.pointsBox}>
               <View style={styles.pointsRow}>
                 <View style={styles.coinPlaceholder}>
                   <Text style={styles.coinStar}>★</Text>
                 </View>
+
                 <Text style={styles.pointsValue}>
                   {growPoints.toLocaleString('de-DE')}
                 </Text>
               </View>
+
               <Text style={styles.pointsLabel}>GROW Points</Text>
             </View>
- 
+
             <Pressable
-              onPress={(e) => { e.stopPropagation(); setMenuOpen((p) => !p); }}
+              onPress={(e) => {
+                e.stopPropagation();
+                setMenuOpen((p) => !p);
+              }}
               style={styles.menuButton}
             >
               <Feather name="more-vertical" size={s(20)} color={COLORS.softGold} />
             </Pressable>
- 
+
             {menuOpen && (
               <Pressable style={styles.dropdown} onPress={(e) => e.stopPropagation()}>
-
                 <Pressable onPress={() => router.push('/tools/saved-videos')}>
                   <Text style={styles.menuItem}>Gespeicherte Videos</Text>
                 </Pressable>
@@ -228,58 +483,97 @@ export default function ToolsScreen() {
                 <Pressable onPress={handleLogout}>
                   <Text style={styles.logoutItem}>Logout</Text>
                 </Pressable>
-                
               </Pressable>
             )}
           </View>
         </View>
- 
-        {/* Tools Grid */}
-        <View style={styles.sectionHeader}>
+
+        {/* Tools Header */}
+        <View style={styles.sectionHeaderRow}>
+          <View style={styles.sectionHeaderSpacer} />
+
           <Text style={styles.sectionTitle}>TOOLS</Text>
-        </View>
- 
-        <View style={styles.grid}>
-          {tools.map((tool) => (
-            <ToolCard
-              key={tool.id}
-              icon={tool.image ? undefined : renderToolIcon(tool)}
-              image={tool.image}
-              onPress={tool.disabled ? undefined : () => router.push(tool.route)}
-              title={tool.title}
-              description={tool.description}
-              disabled={tool.disabled}
-              cardStyle={tool.disabled ? { height: comingSoonCardHeight } : undefined}
-            />
-          ))}
+
+          <View style={styles.sectionActions}>
+            <Pressable
+              style={styles.sectionSmallButton}
+              onPress={handleToggleToolsViewMode}
+              hitSlop={8}
+            >
+              <Text style={styles.sectionSmallButtonText}>
+                {isExpandedTools ? '2x3' : '4x4'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
 
-        <Pressable
-          onPress={() => router.push('/tools/journal')}
-          style={{
-            marginTop: sv(8),
-            marginBottom: sv(4),
-            borderRadius: s(12),
-            borderWidth: 1,
-            borderColor: 'rgba(231,201,138,0.45)',
-            backgroundColor: 'rgba(231,201,138,0.08)',
-            paddingVertical: sv(9),
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <Text
-            style={{
-              color: COLORS.toolsGold,
-              fontSize: sf(12),
-              fontWeight: '600',
-              letterSpacing: 0.4,
-            }}
+        {/* Ersetzen-Modus */}
+        {replacementToolId && (
+          <View style={styles.replacePanel}>
+            <Text style={styles.replacePanelTitle}>Tool ersetzen</Text>
+
+            <Text style={styles.replacePanelText}>
+              {replacementTool
+                ? `Wähle ein Tool aus, das durch „${replacementTool.title}“ ersetzt werden soll.`
+                : 'Wähle ein Tool aus, das ersetzt werden soll.'}
+            </Text>
+
+            <Pressable
+              style={styles.replaceCancelButton}
+              onPress={handleCancelReplacement}
+            >
+              <Text style={styles.replaceCancelText}>Abbrechen</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Tools Grid */}
+        {!isExpandedTools && !replacementToolId ? (
+          <DraggableSixToolGrid
+            tools={overviewTools}
+            renderToolIcon={renderToolIcon}
+            onPressTool={handleToolPress}
+            onReorder={handleReorderOverviewTools}
+          />
+        ) : (
+          <View style={[styles.grid, isExpandedTools && styles.gridExpanded]}>
+            {visibleToolSlots.map((tool) => {
+              const selected = overviewToolIds.includes(tool.id);
+
+              return (
+                <ToolCard
+                  key={tool.id}
+                  icon={tool.image ? undefined : renderToolIcon(tool)}
+                  image={tool.image}
+                  onPress={() => handleToolPress(tool)}
+                  onLongPress={() => {
+                    if (!tool.placeholder && !tool.disabled && !replacementToolId) {
+                      setEditingTools(true);
+                    }
+                  }}
+                  title={tool.title}
+                  description={tool.description}
+                  disabled={tool.disabled}
+                  placeholder={tool.placeholder}
+                  selected={selected}
+                  editing={editingTools && canCustomizeOverviewTools}
+                  size={isExpandedTools ? 'small' : 'normal'}
+                />
+              );
+            })}
+          </View>
+        )}
+
+        {/* Weitere Tools nur in 2x3 Ansicht */}
+        {!isExpandedTools && (
+          <Pressable
+            onPress={() => router.push('/tools/all-tools')}
+            style={styles.moreToolsButton}
           >
-            Journal testen
-          </Text>
-        </Pressable>
- 
+            <Text style={styles.moreToolsText}>Weitere Tools</Text>
+          </Pressable>
+        )}
+
         {/* KI Mentor Card */}
         <ImageBackground
           source={MENTOR_BG}
@@ -297,7 +591,7 @@ export default function ToolsScreen() {
               </View>
             </View>
 
-            <Pressable 
+            <Pressable
               style={styles.mentorButton}
               onPress={() => router.push('/mentor')}
             >
@@ -305,20 +599,25 @@ export default function ToolsScreen() {
             </Pressable>
           </View>
         </ImageBackground>
- 
+
         {/* Tracker */}
         <View style={styles.trackerSection}>
           <Text style={styles.trackerTitle}>ACTIVE TRACKER</Text>
+
           <Text style={styles.trackerSubtitle}>
             Deine heutigen Fortschritte auf einen Blick.
           </Text>
+
           <View style={styles.trackerRow}>
             {trackerItems.map((item, index) => (
-              <TrackerBox key={`tracker-${index}`} value={item.value} label={item.label} />
+              <TrackerBox
+                key={`tracker-${index}`}
+                value={item.value}
+                label={item.label}
+              />
             ))}
           </View>
         </View>
- 
       </View>
     </Pressable>
   );

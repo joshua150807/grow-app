@@ -45,6 +45,14 @@ export const tools = [
     route: '/tools/daily-planner',
   },
   {
+    id: 'journal',
+    title: 'Journal',
+    description: 'Reflektiere deinen Tag.',
+    type: 'Ionicons',
+    name: 'book-outline',
+    route: '/tools/journal',
+  },
+  {
     id: 'comming-soon-1',
     title: 'In Bearbeitung',
     description: '',
