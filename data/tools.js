@@ -53,6 +53,14 @@ export const tools = [
     route: '/tools/journal',
   },
   {
+    id: 'notes',
+    title: 'Notizen',
+    description: 'Gedanken festhalten.',
+    type: 'Ionicons',
+    name: 'document-text-outline',
+    route: '/tools/notes',
+  },
+  {
     id: 'coming-soon',
     title: 'In Bearbeitung',
     description: '',
