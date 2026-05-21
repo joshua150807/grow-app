@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -8,36 +8,23 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
-
-// data
-import { tools } from '../../../../data/tools';
+import { router } from 'expo-router';
 
 // constants
 import { COLORS } from '../../../../constants/colors';
 import { s, sv, SCREEN } from '../../../../constants/layout';
 
 // services / hooks aus anderen tools
-import { getHabitStreak, getTodayHabitProgress } from '../../habits/services/habits';
-import { getTodayDeepWorkSeconds } from '../../deep-work/services/deepWorkStore';
-import { useSteps } from '../../../steps/hooks/useSteps';
 import { useProfile } from '../.././../profile/hooks/useProfile';
 import { supabase } from '../../../../services/supabaseClient';
-
-import {
-  getSelectedOverviewToolIds,
-  saveSelectedOverviewToolIds,
-  getToolsOverviewMode,
-  saveToolsOverviewMode,
-  getPendingReplacementToolId,
-  clearPendingReplacementToolId,
-} from '../services/toolPreferences';
 
 // eigene components
 import ToolCard from '../components/ToolCard';
 import TrackerBox from '../components/Trackerbox';
 import DraggableSixToolGrid from '../components/DraggableSixToolGrid';
 import AnimatedToolsGridSwitcher from '../components/AnimatedToolsGridSwitcher';
+import { useToolsTrackerData } from '../hooks/useToolsTrackerData';
+import { useToolsOverviewPreferences } from '../hooks/useToolsOverviewPreferences';
 
 // styles
 import { styles } from '../styles/toolsOverviewStyles';
@@ -45,20 +32,6 @@ import { styles } from '../styles/toolsOverviewStyles';
 import { MENTOR_BG } from '../../../../constants/toolAssets';
 
 const GROW_AVATAR = require('../../../../assets/images/grow_avatar.png');
-
-function formatDeepWork(seconds) {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const sec = (seconds % 60).toString().padStart(2, '0');
-  return `${m}:${sec}`;
-}
-
-function formatSteps(count) {
-  if (count >= 1000) {
-    return `${Math.floor(count / 1000)}.${String(count % 1000).padStart(3, '0')}`;
-  }
-
-  return String(count);
-}
 
 function renderToolIcon(tool) {
   const iconColor = tool.disabled ? COLORS.toolsTextDim : COLORS.toolsGold;
@@ -76,18 +49,6 @@ function renderToolIcon(tool) {
   }
 
   return null;
-}
-
-function getActiveTools() {
-  return tools.filter((tool) => !tool.disabled && tool.route);
-}
-
-function buildPlaceholderSlots(count) {
-  return Array.from({ length: count }).map((_, index) => ({
-    id: `placeholder-${index}`,
-    placeholder: true,
-    title: 'In Bearbeitung',
-  }));
 }
 
 export default function ToolsScreen() {
@@ -137,271 +98,33 @@ export default function ToolsScreen() {
   );
 
   const { username, growPoints, isCeo } = useProfile();
-
-  const activeTools = useMemo(() => getActiveTools(), []);
-
-  const defaultOverviewToolIds = useMemo(
-    () => activeTools.slice(0, 6).map((tool) => tool.id),
-    [activeTools]
-  );
+  const { trackerItems } = useToolsTrackerData();
 
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const [overviewToolIds, setOverviewToolIds] = useState(defaultOverviewToolIds);
-  const [toolsViewMode, setToolsViewMode] = useState('compact');
-  const [reorderMode, setReorderMode] = useState(false);
-  const [replacementToolId, setReplacementToolId] = useState(null);
-
-  const [streak, setStreak] = useState(0);
-  const [habitProgress, setHabitProgress] = useState({ completed: 0, total: 0 });
-  const [deepWorkTime, setDeepWorkTime] = useState(0);
-
-  const steps = useSteps();
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadToolPreferences() {
-      const savedIds = await getSelectedOverviewToolIds(defaultOverviewToolIds);
-      const savedMode = await getToolsOverviewMode();
-
-      const validIds = savedIds.filter((id) =>
-        activeTools.some((tool) => tool.id === id)
-      );
-
-      const normalizedIds = validIds.length > 0
-        ? validIds.slice(0, 6)
-        : defaultOverviewToolIds;
-
-      if (mounted) {
-        setOverviewToolIds(normalizedIds);
-        setToolsViewMode(savedMode);
-      }
-    }
-
-    loadToolPreferences();
-
-    return () => {
-      mounted = false;
-    };
-  }, [activeTools, defaultOverviewToolIds]);
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-
-      async function loadPendingReplacement() {
-        const pendingId = await getPendingReplacementToolId();
-
-        if (!active) return;
-
-        if (!pendingId) {
-          setReplacementToolId(null);
-          return;
-        }
-
-        const validPendingTool = activeTools.find((tool) => tool.id === pendingId);
-
-        if (!validPendingTool) {
-          setReplacementToolId(null);
-          await clearPendingReplacementToolId();
-          return;
-        }
-
-        const currentIds = overviewToolIds.filter((id) =>
-          activeTools.some((tool) => tool.id === id)
-        );
-
-        if (currentIds.includes(pendingId)) {
-          setReplacementToolId(null);
-          await clearPendingReplacementToolId();
-          return;
-        }
-
-        setReplacementToolId(pendingId);
-        setReorderMode(false);
-        setToolsViewMode('compact');
-      }
-
-      loadPendingReplacement();
-
-      return () => {
-        active = false;
-      };
-    }, [activeTools, overviewToolIds])
-  );
-
-  useEffect(() => {
-    getHabitStreak().then(setStreak).catch(() => {});
-    getTodayHabitProgress().then(setHabitProgress).catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function loadDeepWorkToday() {
-      const seconds = await getTodayDeepWorkSeconds();
-      if (mounted) setDeepWorkTime(seconds);
-    }
-
-    loadDeepWorkToday();
-
-    const interval = setInterval(loadDeepWorkToday, 5000);
-
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
-  }, []);
-
-  const activeToolCount = activeTools.length;
-  const canCustomizeOverviewTools = activeToolCount > 6;
-
-  const normalizedOverviewToolIds = canCustomizeOverviewTools
-    ? overviewToolIds
-        .filter((id) => activeTools.some((tool) => tool.id === id))
-        .slice(0, 6)
-    : activeTools.slice(0, 6).map((tool) => tool.id);
-
-  const overviewTools = normalizedOverviewToolIds
-    .map((id) => activeTools.find((tool) => tool.id === id))
-    .filter(Boolean);
-
-  const expandedToolSlots = useMemo(() => {
-    const expandedTools = activeTools.slice(0, 16);
-    const missingExpandedSlots = Math.max(16 - expandedTools.length, 0);
-
-    return [
-      ...expandedTools,
-      ...buildPlaceholderSlots(missingExpandedSlots),
-    ];
-  }, [activeTools]);
-
-  const visibleToolSlots = expandedToolSlots;
-
-  const isExpandedTools = toolsViewMode === 'expanded';
-
-  const replacementTool = replacementToolId
-    ? activeTools.find((tool) => tool.id === replacementToolId)
-    : null;
-
-  const habitPercent = habitProgress.total === 0
-    ? '–'
-    : `${Math.round((habitProgress.completed / habitProgress.total) * 100)}%`;
-
-  const trackerItems = [
-    { value: String(streak), label: 'Tage Streak' },
-    { value: habitPercent, label: 'Tagesziele' },
-    { value: deepWorkTime > 0 ? formatDeepWork(deepWorkTime) : '00:00', label: 'Deep Work' },
-    { value: formatSteps(steps), label: 'Schritte' },
-  ];
-
-  async function handleLogout() {
-    await supabase.auth.signOut();
-    router.replace('/(auth)/login');
-  }
-
-  const handleSetToolsViewMode = async (nextMode) => {
-    if (nextMode === toolsViewMode) return;
-
-    setReorderMode(false);
-    setToolsViewMode(nextMode);
-    await saveToolsOverviewMode(nextMode);
-  };
-
-  const handleToggleToolsViewMode = () => {
-    const nextMode = toolsViewMode === 'expanded' ? 'compact' : 'expanded';
-    handleSetToolsViewMode(nextMode);
-  };
-
-  const handleReplaceOverviewTool = async (targetTool) => {
-    if (!replacementToolId || !targetTool || targetTool.placeholder || targetTool.disabled) {
-      return;
-    }
-
-    const replacement = activeTools.find((tool) => tool.id === replacementToolId);
-
-    if (!replacement) {
-      setReplacementToolId(null);
-      await clearPendingReplacementToolId();
-      return;
-    }
-
-    const currentIds = normalizedOverviewToolIds.slice(0, 6);
-    const targetIndex = currentIds.indexOf(targetTool.id);
-
-    if (targetIndex === -1) {
-      return;
-    }
-
-    if (currentIds.includes(replacementToolId)) {
-      setReplacementToolId(null);
-      await clearPendingReplacementToolId();
-      return;
-    }
-
-    const nextIds = [...currentIds];
-    nextIds[targetIndex] = replacementToolId;
-
-    setOverviewToolIds(nextIds);
-    await saveSelectedOverviewToolIds(nextIds);
-
-    setReplacementToolId(null);
-    await clearPendingReplacementToolId();
-  };
-
-  const handleCancelReplacement = async () => {
-    setReplacementToolId(null);
-    await clearPendingReplacementToolId();
-  };
-
-  const handleScreenPress = async () => {
-    setMenuOpen(false);
-
-    if (reorderMode) {
-      setReorderMode(false);
-      return;
-    }
-
-    if (replacementToolId) {
-      setReplacementToolId(null);
-      await clearPendingReplacementToolId();
-    }
-  };
-
-  const handleReorderOverviewTools = async (reorderedTools) => {
-    const nextIds = reorderedTools
-      .filter((tool) => !tool.disabled && !tool.placeholder && tool.route)
-      .map((tool) => tool.id)
-      .slice(0, 6);
-
-    if (nextIds.length === 0) return;
-
-    setOverviewToolIds(nextIds);
-    await saveSelectedOverviewToolIds(nextIds);
-  };
-
-  const handleToolPress = (tool) => {
-    if (!tool || tool.placeholder || tool.disabled) {
-      return;
-    }
-
-    if (replacementToolId) {
-      handleReplaceOverviewTool(tool);
-      return;
-    }
-
-    if (reorderMode) {
-      return;
-    }
-
-    if (tool.route) {
-      router.push(tool.route);
-    }
-  };
+  const {
+    overviewToolIds,
+    toolsViewMode,
+    reorderMode,
+    replacementToolId,
+    overviewTools,
+    visibleToolSlots,
+    isExpandedTools,
+    replacementTool,
+    setReorderMode,
+    handleSetToolsViewMode,
+    handleToggleToolsViewMode,
+    handleCancelReplacement,
+    handleReorderOverviewTools,
+    handleToolPress,
+    handleScreenPress,
+  } = useToolsOverviewPreferences();
 
   return (
-    <Pressable onPress={handleScreenPress} style={styles.screen}>
+    <Pressable 
+      onPress={() => handleScreenPress(() => setMenuOpen(false))}
+      style={styles.screen}
+    >
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
