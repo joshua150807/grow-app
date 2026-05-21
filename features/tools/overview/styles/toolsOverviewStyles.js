@@ -18,7 +18,7 @@ export const styles = StyleSheet.create({
     paddingBottom: veryCompact ? sv(20) : compact ? sv(26) : sv(34),
   },
 
-  respnsiveContent: {
+  responsiveContent: {
     flexGrow: 1,
   },
 

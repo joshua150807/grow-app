@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -7,14 +7,12 @@ import {
   Pressable,
   ScrollView,
   useWindowDimensions,
-  LayoutAnimation,
-  Platform,
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
 import { COLORS } from '../../../../constants/colors';
-import { s, sv } from '../../../../constants/layout';
+import { s } from '../../../../constants/layout';
 import { MENTOR_BG } from '../../../../constants/toolAssets';
 
 import { useProfile } from '../../../profile/hooks/useProfile';
@@ -53,7 +51,6 @@ export default function ToolsScreen() {
   const { height, width } = useWindowDimensions();
   const layout = getToolsOverviewLayout({ width, height });
 
-  const [viewportHeight, setViewportHeight] = useState(0);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const { username, growPoints, isCeo } = useProfile();
@@ -76,9 +73,6 @@ export default function ToolsScreen() {
     handleToolPress,
     handleScreenPress,
   } = useToolsOverviewPreferences();
-
-  const shouldUseFlexibleSpacer = !isExpandedTools && !replacementToolId;
-
 
   const handleLogout = async () => {
     setMenuOpen(false);

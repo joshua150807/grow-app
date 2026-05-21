@@ -101,7 +101,7 @@ export default function VideoFeed({
       setActiveVideoId(videos[safeInitialIndex].id);
       currentIndexRef.current = safeInitialIndex;
 
-      startVideoReadyFallbackTimer
+      startVideoReadyFallbackTimer();
 
       requestAnimationFrame(() => {
         flatListRef.current?.scrollToOffset({
