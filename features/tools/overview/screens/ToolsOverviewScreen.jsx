@@ -239,24 +239,6 @@ export default function ToolsScreen() {
           </View>
         )}
 
-        {/* Reorder-Modus */}
-        {reorderMode && !replacementToolId && !isExpandedTools && (
-          <View style={styles.editPanel}>
-            <Text style={styles.editPanelTitle}>Tools verschieben</Text>
-
-            <Text style={styles.editPanelText}>
-              Ziehe Tools an eine andere Position. Tippe auf Fertig, wenn die Reihenfolge passt.
-            </Text>
-
-            <Pressable
-              style={styles.editDoneButton}
-              onPress={() => setReorderMode(false)}
-            >
-              <Text style={styles.editDoneText}>Fertig</Text>
-            </Pressable>
-          </View>
-        )}
-
         {/* Tools Grid */}
         <AnimatedToolsGridSwitcher
           mode={toolsViewMode}
