@@ -18,11 +18,14 @@ export const styles = StyleSheet.create({
     paddingBottom: veryCompact ? sv(20) : compact ? sv(26) : sv(34),
   },
 
+  respnsiveContent: {
+    flexGrow: 1,
+  },
+
   header: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    marginBottom: veryCompact ? sv(2) : compact ? sv(6) : sv(16),
     paddingHorizontal: s(2),
   },
 
@@ -200,7 +203,7 @@ export const styles = StyleSheet.create({
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
   },
 
   sectionHeaderRow: {
@@ -245,13 +248,13 @@ export const styles = StyleSheet.create({
   },
 
   moreToolsButton: {
-    marginTop: veryCompact ? sv(4) : sv(8),
-    marginBottom: veryCompact ? sv(4) : sv(6),
+    marginTop: sv(12),
+    marginBottom: 0,
+    paddingVertical: veryCompact ? sv(8) : sv(9),
     borderRadius: s(12),
     borderWidth: 1,
     borderColor: 'rgba(231,201,138,0.45)',
     backgroundColor: 'rgba(231,201,138,0.08)',
-    paddingVertical: veryCompact ? sv(8) : sv(9),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -317,9 +320,9 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: veryCompact ? sv(8) : compact ? sv(10) : sv(12),
+    paddingVertical: veryCompact ? sv(7) : compact ? sv(9) : sv(11),
     paddingLeft: '34%',
-    paddingRight: compact ? s(10) : s(12),
+    paddingRight: compact ? s(9) : s(12),
     backgroundColor: 'rgba(0,0,0,0.16)',
   },
 
@@ -367,6 +370,7 @@ export const styles = StyleSheet.create({
   trackerSection: {
     marginTop: veryCompact ? sv(6) : compact ? sv(8) : sv(10),
     paddingHorizontal: s(2),
+    paddingBottom: 0,
   },
 
   trackerTitle: {
@@ -387,9 +391,8 @@ export const styles = StyleSheet.create({
   trackerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: s(8),
-    height: veryCompact ? sv(82) : compact ? sv(96) : sv(112),
   },
+  
   allToolsTopBar: {
     flexDirection: 'row',
     alignItems: 'center',

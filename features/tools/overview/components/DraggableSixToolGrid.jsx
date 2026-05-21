@@ -6,7 +6,6 @@ import {
   View,
 } from 'react-native';
 
-import { s, sv } from '../../../../constants/layout';
 import ToolCard from './ToolCard';
 
 const LONG_PRESS_MS = 220;
@@ -172,8 +171,6 @@ function DraggableTile({
 
         clearLongPressTimer();
 
-        // Normalmodus: LongPress startet Reorder + Drag.
-        // Reorder-Modus: kein LongPress mehr; Drag startet erst bei Bewegung.
         if (!reorderModeRef.current) {
           longPressTimerRef.current = setTimeout(
             startDragFromCurrentTouch,
@@ -192,7 +189,6 @@ function DraggableTile({
           Math.abs(gestureState.dx) > MOVE_CANCEL_DISTANCE ||
           Math.abs(gestureState.dy) > MOVE_CANCEL_DISTANCE;
 
-        // Im Wackelmodus: leicht bewegen reicht, kein LongPress mehr.
         if (!dragActiveRef.current && reorderModeIsActive) {
           if (movedDistance >= DRAG_START_DISTANCE_REORDER_MODE) {
             startDragFromCurrentTouch();
@@ -207,7 +203,6 @@ function DraggableTile({
           return;
         }
 
-        // Im Normalmodus: zu frühes starkes Bewegen bricht LongPress ab.
         if (!dragActiveRef.current && movedTooEarly && !reorderModeIsActive) {
           clearLongPressTimer();
           return;
@@ -287,6 +282,7 @@ function DraggableTile({
           disabled={item.disabled}
           selected={false}
           editing={false}
+          size="normal"
           onPress={() => {}}
           onLongPress={() => {}}
           cardStyle={styles.card}
@@ -302,6 +298,7 @@ export default function DraggableSixToolGrid({
   onPressTool,
   onReorder,
   reorderMode = false,
+  overviewLayout,
   onReorderModeChange,
   onExitReorderMode,
 }) {
@@ -313,8 +310,8 @@ export default function DraggableSixToolGrid({
   const dragStateRef = useRef(null);
   const dragPosition = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
 
-  const gap = s(8);
-  const rowGap = sv(8);
+  const gap = overviewLayout?.compactGridGap ?? 8;
+  const rowGap = overviewLayout?.compactGridRowGap ?? 8;
 
   useEffect(() => {
     if (!dragStateRef.current) {
@@ -324,9 +321,9 @@ export default function DraggableSixToolGrid({
   }, [tools]);
 
   const cardSize = useMemo(() => {
-    if (!containerWidth) return 0;
-    return (containerWidth - gap * 2) / 3;
-  }, [containerWidth, gap]);
+    if (!containerWidth) return overviewLayout?.compactCardSize ?? 0;
+    return Math.floor((containerWidth - gap * 2) / 3);
+  }, [containerWidth, gap, overviewLayout?.compactCardSize]);
 
   const positions = useMemo(() => {
     if (!cardSize) return [];
@@ -349,7 +346,7 @@ export default function DraggableSixToolGrid({
 
   const gridHeight = cardSize > 0
     ? cardSize * 2 + rowGap
-    : 0;
+    : overviewLayout?.compactGridHeight ?? 0;
 
   const updateDisplayTools = (nextTools) => {
     displayToolsRef.current = nextTools;
@@ -428,16 +425,11 @@ export default function DraggableSixToolGrid({
 
     onReorder(finalTools);
     updateDragState(null);
-
-    // reorderMode bleibt aktiv, bis der User „Fertig“ drückt
-    // oder kurz irgendwo tippt.
   };
 
   const handleCancelDrag = () => {
     updateDisplayTools(tools);
     updateDragState(null);
-
-    // reorderMode bleibt aktiv.
   };
 
   const draggedId = dragState?.draggedId;
@@ -447,7 +439,10 @@ export default function DraggableSixToolGrid({
     <View
       style={[styles.container, { height: gridHeight || undefined }]}
       onLayout={(event) => {
-        setContainerWidth(event.nativeEvent.layout.width);
+        const nextWidth = event.nativeEvent.layout.width;
+        if (nextWidth > 0 && Math.abs(nextWidth - containerWidth) > 1) {
+          setContainerWidth(nextWidth);
+        }
       }}
     >
       {cardSize > 0 && positions.length > 0
@@ -492,6 +487,7 @@ export default function DraggableSixToolGrid({
             disabled={dragState.item.disabled}
             selected={false}
             editing={false}
+            size="normal"
             onPress={() => {}}
             onLongPress={() => {}}
             cardStyle={styles.card}
@@ -519,6 +515,7 @@ const styles = StyleSheet.create({
 
   card: {
     width: '100%',
+    height: '100%',
     marginBottom: 0,
   },
 

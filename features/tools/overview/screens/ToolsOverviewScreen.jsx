@@ -1,35 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
   Image,
   ImageBackground,
   Pressable,
+  ScrollView,
   useWindowDimensions,
+  LayoutAnimation,
+  Platform,
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
-// constants
 import { COLORS } from '../../../../constants/colors';
-import { s, sv, SCREEN } from '../../../../constants/layout';
+import { s, sv } from '../../../../constants/layout';
+import { MENTOR_BG } from '../../../../constants/toolAssets';
 
-// services / hooks aus anderen tools
-import { useProfile } from '../.././../profile/hooks/useProfile';
+import { useProfile } from '../../../profile/hooks/useProfile';
 import { supabase } from '../../../../services/supabaseClient';
 
-// eigene components
-import ToolCard from '../components/ToolCard';
 import TrackerBox from '../components/Trackerbox';
-import DraggableSixToolGrid from '../components/DraggableSixToolGrid';
 import AnimatedToolsGridSwitcher from '../components/AnimatedToolsGridSwitcher';
+
 import { useToolsTrackerData } from '../hooks/useToolsTrackerData';
 import { useToolsOverviewPreferences } from '../hooks/useToolsOverviewPreferences';
+import { getToolsOverviewLayout } from '../utils/getToolsOverviewLayout';
 
-// styles
 import { styles } from '../styles/toolsOverviewStyles';
-
-import { MENTOR_BG } from '../../../../constants/toolAssets';
 
 const GROW_AVATAR = require('../../../../assets/images/grow_avatar.png');
 
@@ -53,54 +51,13 @@ function renderToolIcon(tool) {
 
 export default function ToolsScreen() {
   const { height, width } = useWindowDimensions();
+  const layout = getToolsOverviewLayout({ width, height });
 
-  const runtimeVeryCompact = height < 760;
-  const runtimeCompact = height < 900;
-
-  const horizontalPadding = s(14) * 2;
-  const gridWidth = width - horizontalPadding;
-  const cardWidth = gridWidth * 0.315;
-
-  const topPaddingReserve = runtimeVeryCompact ? sv(44) : runtimeCompact ? sv(50) : sv(62);
-  const bottomPaddingReserve = runtimeVeryCompact ? sv(48) : runtimeCompact ? sv(56) : sv(68);
-
-  const headerReserve = runtimeVeryCompact ? sv(54) : runtimeCompact ? sv(60) : sv(70);
-  const titleReserve = runtimeVeryCompact ? sv(38) : runtimeCompact ? sv(42) : sv(48);
-
-  const activeToolsReserve =
-    cardWidth * 2 +
-    (runtimeVeryCompact ? sv(10) : runtimeCompact ? sv(12) : sv(16));
-
-  const mentorBannerHeight = Math.max(
-    runtimeVeryCompact ? sv(84) : sv(98),
-    Math.min(height * 0.12, runtimeCompact ? sv(116) : sv(128))
-  );
-
-  const trackerReserveHeight = Math.max(
-    runtimeVeryCompact ? sv(98) : sv(112),
-    Math.min(height * 0.13, runtimeCompact ? sv(128) : sv(140))
-  );
-
-  const fixedContentHeight =
-    topPaddingReserve +
-    bottomPaddingReserve +
-    headerReserve +
-    titleReserve +
-    activeToolsReserve +
-    mentorBannerHeight +
-    trackerReserveHeight;
-
-  const availableComingSoonHeight = height - fixedContentHeight;
-
-  const comingSoonCardHeight = Math.max(
-    runtimeVeryCompact ? sv(54) : runtimeCompact ? sv(66) : sv(78),
-    Math.min(availableComingSoonHeight, cardWidth)
-  );
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const { username, growPoints, isCeo } = useProfile();
   const { trackerItems } = useToolsTrackerData();
-
-  const [menuOpen, setMenuOpen] = useState(false);
 
   const {
     overviewToolIds,
@@ -120,14 +77,48 @@ export default function ToolsScreen() {
     handleScreenPress,
   } = useToolsOverviewPreferences();
 
+  const shouldUseFlexibleSpacer = !isExpandedTools && !replacementToolId;
+
+
+  const handleLogout = async () => {
+    setMenuOpen(false);
+
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.log('[ToolsOverview] Logout failed:', error);
+      return;
+    }
+
+    router.replace('/login');
+  };
+
   return (
-    <Pressable 
+    <Pressable
       onPress={() => handleScreenPress(() => setMenuOpen(false))}
       style={styles.screen}
     >
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={{
+          paddingTop: layout.contentPaddingTop,
+          paddingHorizontal: layout.horizontalPadding,
+          paddingBottom: layout.contentPaddingBottom,
+        }}
+        scrollEnabled={layout.needsScroll}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
         {/* Header */}
-        <View style={styles.header}>
+        <View
+          style={[
+            styles.header,
+            {
+              marginBottom: layout.headerMarginBottom,
+              paddingHorizontal: s(2),
+            },
+          ]}
+        >
           <View style={styles.leftHeader}>
             <View style={styles.avatar}>
               <View style={styles.avatarImageClip}>
@@ -141,7 +132,9 @@ export default function ToolsScreen() {
 
             <View style={styles.headerTextBox}>
               <Text style={styles.topLabel}>GROW</Text>
-              <Text style={styles.accountName}>{username}</Text>
+              <Text style={styles.accountName} numberOfLines={1}>
+                {username}
+              </Text>
             </View>
           </View>
 
@@ -161,17 +154,21 @@ export default function ToolsScreen() {
             </View>
 
             <Pressable
-              onPress={(e) => {
-                e.stopPropagation();
-                setMenuOpen((p) => !p);
+              onPress={(event) => {
+                event.stopPropagation();
+                setMenuOpen((previous) => !previous);
               }}
               style={styles.menuButton}
+              hitSlop={8}
             >
               <Feather name="more-vertical" size={s(20)} color={COLORS.softGold} />
             </Pressable>
 
             {menuOpen && (
-              <Pressable style={styles.dropdown} onPress={(e) => e.stopPropagation()}>
+              <Pressable
+                style={styles.dropdown}
+                onPress={(event) => event.stopPropagation()}
+              >
                 <Pressable onPress={() => router.push('/tools/saved-videos')}>
                   <Text style={styles.menuItem}>Gespeicherte Videos</Text>
                 </Pressable>
@@ -201,7 +198,14 @@ export default function ToolsScreen() {
         </View>
 
         {/* Tools Header */}
-        <View style={styles.sectionHeaderRow}>
+        <View
+          style={[
+            styles.sectionHeaderRow,
+            {
+              marginBottom: layout.toolsHeaderMarginBottom,
+            },
+          ]}
+        >
           <View style={styles.sectionHeaderSpacer} />
 
           <Text style={styles.sectionTitle}>TOOLS</Text>
@@ -248,6 +252,7 @@ export default function ToolsScreen() {
           reorderMode={reorderMode}
           overviewToolIds={overviewToolIds}
           overviewStyles={styles}
+          overviewLayout={layout}
           renderToolIcon={renderToolIcon}
           onToolPress={handleToolPress}
           onReorder={handleReorderOverviewTools}
@@ -257,12 +262,26 @@ export default function ToolsScreen() {
           onOpenAllTools={() => router.push('/tools/all-tools')}
         />
 
-        {/* Weitere Tools nur in 2x3 Ansicht und nicht im Reorder-Modus */}
+        {/* Abstand nach Grid */}
+        <View
+          pointerEvents="none"
+          style={{
+            height: layout.gridMarginBottom,
+            flexShrink: 0,
+          }}
+        />
 
         {/* KI Mentor Card */}
         <ImageBackground
           source={MENTOR_BG}
-          style={[styles.mentorCard, { height: mentorBannerHeight }]}
+          style={[
+            styles.mentorCard,
+            {
+              marginTop: layout.mentorMarginTop,
+              marginBottom: layout.mentorMarginBottom,
+              height: layout.mentorCardHeight,
+            },
+          ]}
           imageStyle={styles.mentorCardImage}
           resizeMode="stretch"
         >
@@ -270,7 +289,7 @@ export default function ToolsScreen() {
             <View style={styles.mentorLeft}>
               <View style={styles.mentorTextBox}>
                 <Text style={styles.mentorTitle}>KI Mentor</Text>
-                <Text style={styles.mentorDescription}>
+                <Text style={styles.mentorDescription} numberOfLines={2}>
                   Dein persönlicher Mentor. Klare Tipps & Motivation.
                 </Text>
               </View>
@@ -286,14 +305,29 @@ export default function ToolsScreen() {
         </ImageBackground>
 
         {/* Tracker */}
-        <View style={styles.trackerSection}>
+        <View
+          style={[
+            styles.trackerSection,
+            {
+              marginTop: layout.trackerMarginTop,
+            },
+          ]}
+        >
           <Text style={styles.trackerTitle}>ACTIVE TRACKER</Text>
 
           <Text style={styles.trackerSubtitle}>
             Deine heutigen Fortschritte auf einen Blick.
           </Text>
 
-          <View style={styles.trackerRow}>
+          <View
+            style={[
+              styles.trackerRow,
+              {
+                height: layout.trackerRowHeight,
+                gap: layout.trackerGap,
+              },
+            ]}
+          >
             {trackerItems.map((item, index) => (
               <TrackerBox
                 key={`tracker-${index}`}
@@ -303,7 +337,7 @@ export default function ToolsScreen() {
             ))}
           </View>
         </View>
-      </View>
+      </ScrollView>
     </Pressable>
   );
 }

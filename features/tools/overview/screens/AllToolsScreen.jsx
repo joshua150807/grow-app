@@ -5,6 +5,7 @@ import {
   ScrollView,
   Pressable,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -14,7 +15,7 @@ import { COLORS } from '../../../../constants/colors';
 import { s } from '../../../../constants/layout';
 
 import ToolCard from '../components/ToolCard';
-import { styles } from '../styles/toolsOverviewStyles';
+import { allToolsStyles as styles } from '../styles/allToolsStyles';
 
 import {
   getSelectedOverviewToolIds,
@@ -43,7 +44,23 @@ function getActiveTools() {
   return tools.filter((tool) => !tool.disabled && tool.route);
 }
 
+function getAllToolsLayout(width) {
+  const horizontalPadding = s(14);
+  const gap = width < 370 ? s(7) : s(8);
+
+  const contentWidth = width - horizontalPadding * 2;
+  const cardSize = Math.floor((contentWidth - gap * 2) / 3);
+
+  return {
+    gap,
+    cardSize,
+  };
+}
+
 export default function AllToolsScreen() {
+  const { width } = useWindowDimensions();
+  const layout = useMemo(() => getAllToolsLayout(width), [width]);
+
   const activeTools = useMemo(() => getActiveTools(), []);
 
   const defaultOverviewToolIds = useMemo(
@@ -170,23 +187,45 @@ export default function AllToolsScreen() {
             </View>
           )}
 
-          <View style={styles.grid}>
+          <View
+            style={[
+              styles.grid,
+              {
+                columnGap: layout.gap,
+                rowGap: layout.gap,
+              },
+            ]}
+          >
             {tools.map((tool) => {
               const selected = selectedIds.includes(tool.id);
 
               return (
-                <ToolCard
+                <View
                   key={tool.id}
-                  icon={tool.image ? undefined : renderToolIcon(tool)}
-                  image={tool.image}
-                  title={tool.title}
-                  description={tool.description}
-                  disabled={tool.disabled}
-                  selected={selected}
-                  editing={editing && !tool.disabled}
-                  onPress={() => handleToolPress(tool)}
-                  onLongPress={() => handleLongPressTool(tool)}
-                />
+                  style={[
+                    styles.cardSlot,
+                    {
+                      width: layout.cardSize,
+                      height: layout.cardSize,
+                    },
+                  ]}
+                >
+                  <ToolCard
+                    icon={tool.image ? undefined : renderToolIcon(tool)}
+                    image={tool.image}
+                    title={tool.title}
+                    description={tool.description}
+                    disabled={tool.disabled}
+                    selected={selected}
+                    editing={editing && !tool.disabled}
+                    onPress={() => handleToolPress(tool)}
+                    onLongPress={() => handleLongPressTool(tool)}
+                    cardStyle={{
+                      width: '100%',
+                      height: '100%',
+                    }}
+                  />
+                </View>
               );
             })}
           </View>

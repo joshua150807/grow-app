@@ -161,15 +161,14 @@ export default function ToolCard({
 
 const styles = StyleSheet.create({
   card: {
-    width: '31.5%',
-    aspectRatio: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: '#08060B',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(51, 51, 51, 0.99)',
     borderRadius: s(8),
     paddingVertical: compact ? sv(6) : sv(8),
     paddingHorizontal: s(6),
-    marginBottom: compact ? sv(6) : sv(8),
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -177,10 +176,8 @@ const styles = StyleSheet.create({
   },
 
   smallCard: {
-    width: '23.2%',
     paddingVertical: veryCompact ? sv(4) : sv(5),
     paddingHorizontal: s(4),
-    marginBottom: veryCompact ? sv(5) : sv(6),
   },
 
   imageCard: {
