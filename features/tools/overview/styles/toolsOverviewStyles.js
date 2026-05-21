@@ -207,12 +207,35 @@ export const styles = StyleSheet.create({
   },
 
   sectionHeaderRow: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginTop: veryCompact ? sv(0) : compact ? sv(2) : sv(4),
-    marginBottom: veryCompact ? sv(8) : compact ? sv(10) : sv(14),
+    marginBottom: veryCompact ? sv(12) : compact ? sv(16) : sv(20),
     paddingHorizontal: s(2),
+  },
+
+  sectionFloatingButton: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: s(54),
+    minWidth: s(54),
+    minHeight: sv(26),
+    borderRadius: s(999),
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(231,201,138,0.32)',
+    backgroundColor: 'rgba(231,201,138,0.055)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: s(9),
+  },
+
+  toolsTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: s(10),
   },
 
   sectionHeaderSpacer: {
