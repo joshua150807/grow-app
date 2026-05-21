@@ -37,6 +37,7 @@ import {
 import ToolCard from '../components/ToolCard';
 import TrackerBox from '../components/Trackerbox';
 import DraggableSixToolGrid from '../components/DraggableSixToolGrid';
+import AnimatedToolsGridSwitcher from '../components/AnimatedToolsGridSwitcher';
 
 // styles
 import { styles } from '../styles/toolsOverviewStyles';
@@ -130,8 +131,6 @@ export default function ToolsScreen() {
 
   const availableComingSoonHeight = height - fixedContentHeight;
 
-  // Aktuell nicht aktiv genutzt, aber bewusst drin gelassen,
-  // falls wir später disabled Cards auf der Overview wieder individuell skalieren.
   const comingSoonCardHeight = Math.max(
     runtimeVeryCompact ? sv(54) : runtimeCompact ? sv(66) : sv(78),
     Math.min(availableComingSoonHeight, cardWidth)
@@ -150,7 +149,7 @@ export default function ToolsScreen() {
 
   const [overviewToolIds, setOverviewToolIds] = useState(defaultOverviewToolIds);
   const [toolsViewMode, setToolsViewMode] = useState('compact');
-  const [editingTools, setEditingTools] = useState(false);
+  const [reorderMode, setReorderMode] = useState(false);
   const [replacementToolId, setReplacementToolId] = useState(null);
 
   const [streak, setStreak] = useState(0);
@@ -220,7 +219,7 @@ export default function ToolsScreen() {
         }
 
         setReplacementToolId(pendingId);
-        setEditingTools(false);
+        setReorderMode(false);
         setToolsViewMode('compact');
       }
 
@@ -256,7 +255,6 @@ export default function ToolsScreen() {
   }, []);
 
   const activeToolCount = activeTools.length;
-  const requiredOverviewCount = Math.min(activeToolCount, 6);
   const canCustomizeOverviewTools = activeToolCount > 6;
 
   const normalizedOverviewToolIds = canCustomizeOverviewTools
@@ -269,18 +267,17 @@ export default function ToolsScreen() {
     .map((id) => activeTools.find((tool) => tool.id === id))
     .filter(Boolean);
 
-  const visibleOverviewTools = toolsViewMode === 'expanded'
-    ? activeTools.slice(0, 16)
-    : overviewTools.slice(0, 6);
+  const expandedToolSlots = useMemo(() => {
+    const expandedTools = activeTools.slice(0, 16);
+    const missingExpandedSlots = Math.max(16 - expandedTools.length, 0);
 
-  const missingSlots = toolsViewMode === 'expanded'
-    ? Math.max(16 - visibleOverviewTools.length, 0)
-    : 0;
+    return [
+      ...expandedTools,
+      ...buildPlaceholderSlots(missingExpandedSlots),
+    ];
+  }, [activeTools]);
 
-  const visibleToolSlots = [
-    ...visibleOverviewTools,
-    ...buildPlaceholderSlots(missingSlots),
-  ];
+  const visibleToolSlots = expandedToolSlots;
 
   const isExpandedTools = toolsViewMode === 'expanded';
 
@@ -304,39 +301,17 @@ export default function ToolsScreen() {
     router.replace('/(auth)/login');
   }
 
-  const handleToggleToolsViewMode = async () => {
-    const nextMode = toolsViewMode === 'expanded' ? 'compact' : 'expanded';
+  const handleSetToolsViewMode = async (nextMode) => {
+    if (nextMode === toolsViewMode) return;
 
+    setReorderMode(false);
     setToolsViewMode(nextMode);
     await saveToolsOverviewMode(nextMode);
   };
 
-  const handleToggleOverviewTool = async (tool) => {
-    if (!tool || tool.placeholder || tool.disabled || !tool.route) return;
-
-    // Wenn nur 6 aktive Tools existieren, darf auf der Overview nichts entfernt werden.
-    if (!canCustomizeOverviewTools) {
-      return;
-    }
-
-    const alreadySelected = overviewToolIds.includes(tool.id);
-
-    let nextIds;
-
-    if (alreadySelected) {
-      if (overviewToolIds.length <= requiredOverviewCount) {
-        return;
-      }
-
-      nextIds = overviewToolIds.filter((id) => id !== tool.id);
-    } else {
-      if (overviewToolIds.length >= 6) return;
-
-      nextIds = [...overviewToolIds, tool.id];
-    }
-
-    setOverviewToolIds(nextIds);
-    await saveSelectedOverviewToolIds(nextIds);
+  const handleToggleToolsViewMode = () => {
+    const nextMode = toolsViewMode === 'expanded' ? 'compact' : 'expanded';
+    handleSetToolsViewMode(nextMode);
   };
 
   const handleReplaceOverviewTool = async (targetTool) => {
@@ -380,6 +355,20 @@ export default function ToolsScreen() {
     await clearPendingReplacementToolId();
   };
 
+  const handleScreenPress = async () => {
+    setMenuOpen(false);
+
+    if (reorderMode) {
+      setReorderMode(false);
+      return;
+    }
+
+    if (replacementToolId) {
+      setReplacementToolId(null);
+      await clearPendingReplacementToolId();
+    }
+  };
+
   const handleReorderOverviewTools = async (reorderedTools) => {
     const nextIds = reorderedTools
       .filter((tool) => !tool.disabled && !tool.placeholder && tool.route)
@@ -393,7 +382,7 @@ export default function ToolsScreen() {
   };
 
   const handleToolPress = (tool) => {
-    if (!tool || tool.placeholder) {
+    if (!tool || tool.placeholder || tool.disabled) {
       return;
     }
 
@@ -402,17 +391,17 @@ export default function ToolsScreen() {
       return;
     }
 
-    if (editingTools) {
+    if (reorderMode) {
       return;
     }
 
-    if (!tool.disabled && tool.route) {
+    if (tool.route) {
       router.push(tool.route);
     }
   };
 
   return (
-    <Pressable onPress={() => setMenuOpen(false)} style={styles.screen}>
+    <Pressable onPress={handleScreenPress} style={styles.screen}>
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
@@ -527,52 +516,43 @@ export default function ToolsScreen() {
           </View>
         )}
 
-        {/* Tools Grid */}
-        {!isExpandedTools && !replacementToolId ? (
-          <DraggableSixToolGrid
-            tools={overviewTools}
-            renderToolIcon={renderToolIcon}
-            onPressTool={handleToolPress}
-            onReorder={handleReorderOverviewTools}
-          />
-        ) : (
-          <View style={[styles.grid, isExpandedTools && styles.gridExpanded]}>
-            {visibleToolSlots.map((tool) => {
-              const selected = overviewToolIds.includes(tool.id);
+        {/* Reorder-Modus */}
+        {reorderMode && !replacementToolId && !isExpandedTools && (
+          <View style={styles.editPanel}>
+            <Text style={styles.editPanelTitle}>Tools verschieben</Text>
 
-              return (
-                <ToolCard
-                  key={tool.id}
-                  icon={tool.image ? undefined : renderToolIcon(tool)}
-                  image={tool.image}
-                  onPress={() => handleToolPress(tool)}
-                  onLongPress={() => {
-                    if (!tool.placeholder && !tool.disabled && !replacementToolId) {
-                      setEditingTools(true);
-                    }
-                  }}
-                  title={tool.title}
-                  description={tool.description}
-                  disabled={tool.disabled}
-                  placeholder={tool.placeholder}
-                  selected={selected}
-                  editing={editingTools && canCustomizeOverviewTools}
-                  size={isExpandedTools ? 'small' : 'normal'}
-                />
-              );
-            })}
+            <Text style={styles.editPanelText}>
+              Ziehe Tools an eine andere Position. Tippe auf Fertig, wenn die Reihenfolge passt.
+            </Text>
+
+            <Pressable
+              style={styles.editDoneButton}
+              onPress={() => setReorderMode(false)}
+            >
+              <Text style={styles.editDoneText}>Fertig</Text>
+            </Pressable>
           </View>
         )}
 
-        {/* Weitere Tools nur in 2x3 Ansicht */}
-        {!isExpandedTools && (
-          <Pressable
-            onPress={() => router.push('/tools/all-tools')}
-            style={styles.moreToolsButton}
-          >
-            <Text style={styles.moreToolsText}>Weitere Tools</Text>
-          </Pressable>
-        )}
+        {/* Tools Grid */}
+        <AnimatedToolsGridSwitcher
+          mode={toolsViewMode}
+          overviewTools={overviewTools}
+          visibleToolSlots={visibleToolSlots}
+          replacementToolId={replacementToolId}
+          reorderMode={reorderMode}
+          overviewToolIds={overviewToolIds}
+          overviewStyles={styles}
+          renderToolIcon={renderToolIcon}
+          onToolPress={handleToolPress}
+          onReorder={handleReorderOverviewTools}
+          onReorderModeChange={setReorderMode}
+          onExitReorderMode={() => setReorderMode(false)}
+          onModeChange={handleSetToolsViewMode}
+          onOpenAllTools={() => router.push('/tools/all-tools')}
+        />
+
+        {/* Weitere Tools nur in 2x3 Ansicht und nicht im Reorder-Modus */}
 
         {/* KI Mentor Card */}
         <ImageBackground

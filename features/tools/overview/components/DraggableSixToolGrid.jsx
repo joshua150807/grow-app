@@ -9,8 +9,9 @@ import {
 import { s, sv } from '../../../../constants/layout';
 import ToolCard from './ToolCard';
 
-const LONG_PRESS_MS = 280;
-const MOVE_CANCEL_DISTANCE = 18;
+const LONG_PRESS_MS = 220;
+const MOVE_CANCEL_DISTANCE = 36;
+const DRAG_START_DISTANCE_REORDER_MODE = 6;
 
 function getDropIndex(x, y, positions, cardSize) {
   return positions.findIndex((position) => {
@@ -33,18 +34,78 @@ function swapItems(list, fromIndex, toIndex) {
   return next;
 }
 
+function WiggleWrapper({ active, children }) {
+  const wiggleAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!active) {
+      wiggleAnim.stopAnimation();
+      wiggleAnim.setValue(0);
+      return;
+    }
+
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(wiggleAnim, {
+          toValue: 1,
+          duration: 90,
+          useNativeDriver: true,
+        }),
+        Animated.timing(wiggleAnim, {
+          toValue: -1,
+          duration: 90,
+          useNativeDriver: true,
+        }),
+        Animated.timing(wiggleAnim, {
+          toValue: 0,
+          duration: 90,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    loop.start();
+
+    return () => {
+      loop.stop();
+      wiggleAnim.setValue(0);
+    };
+  }, [active, wiggleAnim]);
+
+  const rotate = wiggleAnim.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['-1.1deg', '0deg', '1.1deg'],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.wiggleWrap,
+        active && {
+          transform: [{ rotate }],
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
 function DraggableTile({
   item,
   index,
   position,
   cardSize,
   isHidden,
+  shouldWiggle,
+  reorderMode,
   renderToolIcon,
   onPressTool,
   onStartDrag,
   onMoveDrag,
   onEndDrag,
   onCancelDrag,
+  onExitReorderMode,
 }) {
   const longPressTimerRef = useRef(null);
   const dragActiveRef = useRef(false);
@@ -52,16 +113,44 @@ function DraggableTile({
 
   const itemRef = useRef(item);
   const indexRef = useRef(index);
+  const reorderModeRef = useRef(reorderMode);
   const startTouchRef = useRef({ x: cardSize / 2, y: cardSize / 2 });
+
+  const onPressToolRef = useRef(onPressTool);
+  const onStartDragRef = useRef(onStartDrag);
+  const onMoveDragRef = useRef(onMoveDrag);
+  const onEndDragRef = useRef(onEndDrag);
+  const onCancelDragRef = useRef(onCancelDrag);
+  const onExitReorderModeRef = useRef(onExitReorderMode);
 
   itemRef.current = item;
   indexRef.current = index;
+  reorderModeRef.current = reorderMode;
+
+  onPressToolRef.current = onPressTool;
+  onStartDragRef.current = onStartDrag;
+  onMoveDragRef.current = onMoveDrag;
+  onEndDragRef.current = onEndDrag;
+  onCancelDragRef.current = onCancelDrag;
+  onExitReorderModeRef.current = onExitReorderMode;
 
   const clearLongPressTimer = () => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
       longPressTimerRef.current = null;
     }
+  };
+
+  const startDragFromCurrentTouch = () => {
+    if (!touchStartedRef.current || dragActiveRef.current) return;
+
+    dragActiveRef.current = true;
+
+    onStartDragRef.current(
+      indexRef.current,
+      itemRef.current,
+      startTouchRef.current
+    );
   };
 
   const panResponder = useRef(
@@ -83,31 +172,49 @@ function DraggableTile({
 
         clearLongPressTimer();
 
-        longPressTimerRef.current = setTimeout(() => {
-          if (!touchStartedRef.current) return;
-
-          dragActiveRef.current = true;
-
-          onStartDrag(
-            indexRef.current,
-            itemRef.current,
-            startTouchRef.current
+        // Normalmodus: LongPress startet Reorder + Drag.
+        // Reorder-Modus: kein LongPress mehr; Drag startet erst bei Bewegung.
+        if (!reorderModeRef.current) {
+          longPressTimerRef.current = setTimeout(
+            startDragFromCurrentTouch,
+            LONG_PRESS_MS
           );
-        }, LONG_PRESS_MS);
+        }
       },
 
       onPanResponderMove: (_, gestureState) => {
+        const reorderModeIsActive = reorderModeRef.current;
+
+        const movedDistance =
+          Math.abs(gestureState.dx) + Math.abs(gestureState.dy);
+
         const movedTooEarly =
           Math.abs(gestureState.dx) > MOVE_CANCEL_DISTANCE ||
           Math.abs(gestureState.dy) > MOVE_CANCEL_DISTANCE;
 
-        if (!dragActiveRef.current && movedTooEarly) {
+        // Im Wackelmodus: leicht bewegen reicht, kein LongPress mehr.
+        if (!dragActiveRef.current && reorderModeIsActive) {
+          if (movedDistance >= DRAG_START_DISTANCE_REORDER_MODE) {
+            startDragFromCurrentTouch();
+
+            onMoveDragRef.current(
+              itemRef.current.id,
+              gestureState.dx,
+              gestureState.dy
+            );
+          }
+
+          return;
+        }
+
+        // Im Normalmodus: zu frühes starkes Bewegen bricht LongPress ab.
+        if (!dragActiveRef.current && movedTooEarly && !reorderModeIsActive) {
           clearLongPressTimer();
           return;
         }
 
         if (dragActiveRef.current) {
-          onMoveDrag(
+          onMoveDragRef.current(
             itemRef.current.id,
             gestureState.dx,
             gestureState.dy
@@ -122,7 +229,7 @@ function DraggableTile({
         if (dragActiveRef.current) {
           dragActiveRef.current = false;
 
-          onEndDrag(
+          onEndDragRef.current(
             itemRef.current.id,
             gestureState.dx,
             gestureState.dy
@@ -136,7 +243,12 @@ function DraggableTile({
           Math.abs(gestureState.dy) <= MOVE_CANCEL_DISTANCE;
 
         if (wasTap) {
-          onPressTool(itemRef.current);
+          if (reorderModeRef.current) {
+            onExitReorderModeRef.current?.();
+            return;
+          }
+
+          onPressToolRef.current(itemRef.current);
         }
       },
 
@@ -146,7 +258,7 @@ function DraggableTile({
 
         if (dragActiveRef.current) {
           dragActiveRef.current = false;
-          onCancelDrag();
+          onCancelDragRef.current();
         }
       },
     })
@@ -166,18 +278,20 @@ function DraggableTile({
         },
       ]}
     >
-      <ToolCard
-        icon={item.image ? undefined : renderToolIcon(item)}
-        image={item.image}
-        title={item.title}
-        description={item.description}
-        disabled={item.disabled}
-        selected={false}
-        editing={false}
-        onPress={() => {}}
-        onLongPress={() => {}}
-        cardStyle={styles.card}
-      />
+      <WiggleWrapper active={shouldWiggle && !isHidden}>
+        <ToolCard
+          icon={item.image ? undefined : renderToolIcon(item)}
+          image={item.image}
+          title={item.title}
+          description={item.description}
+          disabled={item.disabled}
+          selected={false}
+          editing={false}
+          onPress={() => {}}
+          onLongPress={() => {}}
+          cardStyle={styles.card}
+        />
+      </WiggleWrapper>
     </View>
   );
 }
@@ -187,6 +301,9 @@ export default function DraggableSixToolGrid({
   renderToolIcon,
   onPressTool,
   onReorder,
+  reorderMode = false,
+  onReorderModeChange,
+  onExitReorderMode,
 }) {
   const [containerWidth, setContainerWidth] = useState(0);
   const [displayTools, setDisplayTools] = useState(tools);
@@ -247,6 +364,8 @@ export default function DraggableSixToolGrid({
   const handleStartDrag = (index, item, touchOffset) => {
     const position = positions[index];
     if (!position) return;
+
+    onReorderModeChange?.(true);
 
     const nextState = {
       draggedId: item.id,
@@ -309,14 +428,20 @@ export default function DraggableSixToolGrid({
 
     onReorder(finalTools);
     updateDragState(null);
+
+    // reorderMode bleibt aktiv, bis der User „Fertig“ drückt
+    // oder kurz irgendwo tippt.
   };
 
   const handleCancelDrag = () => {
     updateDisplayTools(tools);
     updateDragState(null);
+
+    // reorderMode bleibt aktiv.
   };
 
   const draggedId = dragState?.draggedId;
+  const shouldWiggle = reorderMode;
 
   return (
     <View
@@ -334,12 +459,15 @@ export default function DraggableSixToolGrid({
               position={positions[index]}
               cardSize={cardSize}
               isHidden={draggedId === item.id}
+              shouldWiggle={shouldWiggle}
+              reorderMode={reorderMode}
               renderToolIcon={renderToolIcon}
               onPressTool={onPressTool}
               onStartDrag={handleStartDrag}
               onMoveDrag={handleMoveDrag}
               onEndDrag={handleEndDrag}
               onCancelDrag={handleCancelDrag}
+              onExitReorderMode={onExitReorderMode}
             />
           ))
         : null}
@@ -382,6 +510,11 @@ const styles = StyleSheet.create({
 
   slot: {
     position: 'absolute',
+  },
+
+  wiggleWrap: {
+    width: '100%',
+    height: '100%',
   },
 
   card: {

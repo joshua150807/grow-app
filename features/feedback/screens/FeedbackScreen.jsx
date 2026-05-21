@@ -65,24 +65,6 @@ export default function FeedbackScreen() {
           </View>
         </View>
  
-        <View style={styles.topCardsContainer}>
-          <InfoCard
-            icon={<Ionicons name="bulb-outline" size={22} color={COLORS.gold} />}
-            title="Deine Meinung zählt"
-            text="Jedes Feedback bringt uns weiter."
-          />
-          <InfoCard
-            icon={<Ionicons name="trending-up-outline" size={22} color={COLORS.gold} />}
-            title="Gemeinsam wachsen"
-            text="Wir hören zu und setzen um."
-          />
-          <InfoCard
-            icon={<Ionicons name="gift-outline" size={22} color={COLORS.gold} />}
-            title="Belohnt werden"
-            text="Gib Feedback & sammle Grow Points."
-          />
-        </View>
- 
         <Text style={styles.sectionTitle}>WAS MÖCHTEST DU FEEDBACK GEBEN?</Text>
  
         <View style={styles.feedbackTypeRow}>
@@ -173,6 +155,24 @@ export default function FeedbackScreen() {
             </TouchableOpacity>
           </View>
         )}
+
+        <View style={styles.topCardsContainer}>
+          <InfoCard
+            icon={<Ionicons name="bulb-outline" size={22} color={COLORS.gold} />}
+            title="Deine Meinung zählt"
+            text="Jedes Feedback bringt uns weiter."
+          />
+          <InfoCard
+            icon={<Ionicons name="trending-up-outline" size={22} color={COLORS.gold} />}
+            title="Gemeinsam wachsen"
+            text="Wir hören zu und setzen um."
+          />
+          <InfoCard
+            icon={<Ionicons name="gift-outline" size={22} color={COLORS.gold} />}
+            title="Belohnt werden"
+            text="Gib Feedback & sammle Grow Points."
+          />
+        </View>
  
         <TouchableOpacity
           style={[styles.sendButton, sending && styles.sendButtonDisabled]}
