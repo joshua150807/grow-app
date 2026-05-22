@@ -53,6 +53,14 @@ export const tools = [
     route: '/tools/affirmations',
   },
   {
+    id: 'recommendations',
+    title: 'Empfehlungen',
+    description: 'Bücher, Podcasts und Produkte.',
+    type: 'Ionicons',
+    name: 'compass-outline',
+    route: '/tools/recommendations',
+  },
+  {
     id: 'journal',
     title: 'Journal',
     description: 'Reflektiere deinen Tag.',
