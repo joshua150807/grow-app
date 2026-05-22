@@ -45,6 +45,14 @@ export const tools = [
     route: '/tools/daily-planner',
   },
   {
+    id: 'affirmations',
+    title: 'Affirmationen',
+    description: 'Trainiere dein Mindset.',
+    type: 'Ionicons',
+    name: 'sparkles-outline',
+    route: '/tools/affirmations',
+  },
+  {
     id: 'journal',
     title: 'Journal',
     description: 'Reflektiere deinen Tag.',
