@@ -9,6 +9,7 @@ import {
 import { Image, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { Pedometer } from 'expo-sensors';
 
 import { supabase } from '../services/supabaseClient';
 import { COLORS } from '../constants/colors';
@@ -115,6 +116,39 @@ export default function RootLayout() {
     }),
     [startupProfile, reloadStartupProfile]
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function requestMotionPermissionOnStartup() {
+      try {
+        // Erst starten, wenn Session/Startup fertig ist
+        if (!startupReady) return;
+
+        // Optional: Nur eingeloggte Nutzer fragen
+        if (!session?.user?.id) return;
+
+        const available = await Pedometer.isAvailableAsync();
+        if (!available || cancelled) return;
+
+        const currentPermission = await Pedometer.getPermissionsAsync();
+
+        if (cancelled) return;
+
+        if (currentPermission.status !== 'granted') {
+          await Pedometer.requestPermissionsAsync();
+        }
+      } catch (err) {
+        console.log('Motion Permission konnte beim Start nicht abgefragt werden:', err);
+      }
+    }
+
+    requestMotionPermissionOnStartup();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [startupReady, session?.user?.id]);
 
   // undefined = noch nicht geprüft
   // startupReady false = Session bekannt, aber Profil/Bilder werden vorbereitet

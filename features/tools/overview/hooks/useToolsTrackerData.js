@@ -12,11 +12,13 @@ function formatDeepWork(seconds) {
 }
 
 function formatSteps(count) {
-  if (count >= 1000) {
-    return `${Math.floor(count / 1000)}.${String(count % 1000).padStart(3, '0')}`;
+  const safeCount = Number(count ?? 0);
+
+  if (safeCount >= 1000) {
+    return `${Math.floor(safeCount / 1000)}.${String(safeCount % 1000).padStart(3, '0')}`;
   }
 
-  return String(count);
+  return String(safeCount);
 }
 
 export function useToolsTrackerData() {
@@ -27,7 +29,12 @@ export function useToolsTrackerData() {
   });
   const [deepWorkTime, setDeepWorkTime] = useState(0);
 
-  const steps = useSteps();
+  const {
+    steps,
+    isAvailable: stepsAvailable,
+    permissionStatus: stepsPermissionStatus,
+    error: stepsError,
+  } = useSteps();
 
   useEffect(() => {
     getHabitStreak().then(setStreak).catch(() => {});
@@ -38,10 +45,16 @@ export function useToolsTrackerData() {
     let mounted = true;
 
     async function loadDeepWorkToday() {
-      const seconds = await getTodayDeepWorkSeconds();
+      try {
+        const seconds = await getTodayDeepWorkSeconds();
 
-      if (mounted) {
-        setDeepWorkTime(seconds);
+        if (mounted) {
+          setDeepWorkTime(seconds);
+        }
+      } catch {
+        if (mounted) {
+          setDeepWorkTime(0);
+        }
       }
     }
 
@@ -59,6 +72,14 @@ export function useToolsTrackerData() {
     ? '–'
     : `${Math.round((habitProgress.completed / habitProgress.total) * 100)}%`;
 
+  const stepsValue = !stepsAvailable
+    ? '–'
+    : stepsPermissionStatus !== 'granted'
+      ? 'Aus'
+      : stepsError
+        ? '–'
+        : formatSteps(steps);
+
   const trackerItems = useMemo(() => [
     {
       value: String(streak),
@@ -73,16 +94,20 @@ export function useToolsTrackerData() {
       label: 'Deep Work',
     },
     {
-      value: formatSteps(steps),
+      value: stepsValue,
       label: 'Schritte',
     },
-  ], [streak, habitPercent, deepWorkTime, steps]);
+  ], [streak, habitPercent, deepWorkTime, stepsValue]);
 
   return {
     streak,
     habitProgress,
     deepWorkTime,
     steps,
+    stepsAvailable,
+    stepsPermissionStatus,
+    stepsError,
+    stepsValue,
     trackerItems,
   };
 }

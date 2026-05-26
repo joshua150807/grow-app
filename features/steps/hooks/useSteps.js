@@ -1,46 +1,106 @@
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AppState } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { Pedometer } from 'expo-sensors';
 import { upsertSteps } from '../services/steps';
 
+function getLocalStartOfDay() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
 export function useSteps() {
   const [steps, setSteps] = useState(0);
+  const [isAvailable, setIsAvailable] = useState(true);
+  const [permissionStatus, setPermissionStatus] = useState('undetermined');
+  const [error, setError] = useState(null);
+
+  const mountedRef = useRef(true);
   const saveTimeoutRef = useRef(null);
 
-  useEffect(() => {
-    let mounted = true;
+  const fetchSteps = useCallback(async () => {
+    try {
+      setError(null);
 
-    async function fetchSteps() {
-      try {
-        const isAvailable = await Pedometer.isAvailableAsync();
-        if (!isAvailable || !mounted) return;
+      const available = await Pedometer.isAvailableAsync();
 
-        await Pedometer.requestPermissionsAsync();
+      if (!mountedRef.current) return;
 
-        const now = new Date();
-        const midnight = new Date(now);
-        midnight.setHours(0, 0, 0, 0);
+      setIsAvailable(available);
 
-        const { steps: count } = await Pedometer.getStepCountAsync(midnight, now);
-        if (!mounted) return;
+      if (!available) {
+        setSteps(0);
+        setError('steps_not_available');
+        return;
+      }
 
-        setSteps(count);
+      const permission = await Pedometer.getPermissionsAsync();
 
-        clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = setTimeout(() => {
-          upsertSteps(count).catch(() => {});
-        }, 3000);
-      } catch {}
-    }
+      if (!mountedRef.current) return;
 
-    fetchSteps();
-    const interval = setInterval(fetchSteps, 30000);
+      setPermissionStatus(permission.status);
 
-    return () => {
-      mounted = false;
-      clearInterval(interval);
+      if (permission.status !== 'granted') {
+        setSteps(0);
+        setError('motion_permission_denied');
+        return;
+      }
+
+      const startOfDay = getLocalStartOfDay();
+      const now = new Date();
+
+      const result = await Pedometer.getStepCountAsync(startOfDay, now);
+
+      if (!mountedRef.current) return;
+
+      const count = Number(result?.steps ?? 0);
+
+      setSteps(count);
+
       clearTimeout(saveTimeoutRef.current);
-    };
+      saveTimeoutRef.current = setTimeout(() => {
+        upsertSteps(count).catch(() => {});
+      }, 3000);
+    } catch (err) {
+      if (!mountedRef.current) return;
+
+      setError('steps_fetch_failed');
+    }
   }, []);
 
-  return steps;
+  useEffect(() => {
+    mountedRef.current = true;
+
+    fetchSteps();
+
+    const interval = setInterval(fetchSteps, 30000);
+
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        fetchSteps();
+      }
+    });
+
+    return () => {
+      mountedRef.current = false;
+      clearInterval(interval);
+      clearTimeout(saveTimeoutRef.current);
+      appStateSub.remove();
+    };
+  }, [fetchSteps]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchSteps();
+    }, [fetchSteps])
+  );
+
+  return {
+    steps,
+    isAvailable,
+    permissionStatus,
+    error,
+    refreshSteps: fetchSteps,
+  };
 }
