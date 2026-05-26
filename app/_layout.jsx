@@ -6,7 +6,7 @@ import {
   useCallback,
   useMemo,
 } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { Image, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -129,7 +129,14 @@ export default function RootLayout() {
             alignItems: 'center',
           }}
         >
-          <ActivityIndicator color={COLORS.gold} />
+          <Image
+            source={require('../assets/images/grow-loading.jpeg')}
+            style={{
+              width: 120,
+              height: 120,
+              resizeMode: 'contain',
+            }}
+          />
         </View>
       </GestureHandlerRootView>
     );

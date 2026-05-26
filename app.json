@@ -8,6 +8,11 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/grow-loading.jpeg",
+      "resizeMode": "contain",
+      "backgroundColor": "#050505"
+    },
     "ios": {
       "icon": "./assets/images/icon.png",
       "supportsTablet": false,
