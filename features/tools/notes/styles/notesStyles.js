@@ -31,6 +31,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: BG,
+    zIndex: 40,
   },
 
   backButton: {
@@ -64,6 +65,18 @@ export const styles = StyleSheet.create({
     gap: s(10),
   },
 
+  savingText: {
+    color: TEXT_DIM,
+    fontSize: sf(11),
+    fontWeight: '700',
+  },
+
+  doneText: {
+    color: SOFT_GOLD,
+    fontSize: sf(14),
+    fontWeight: '800',
+  },
+
   listContent: {
     paddingHorizontal: s(18),
     paddingBottom: sv(38),
@@ -88,7 +101,7 @@ export const styles = StyleSheet.create({
     marginTop: sv(4),
   },
 
-  searchFake: {
+  searchBox: {
     minHeight: sv(38),
     borderRadius: s(12),
     backgroundColor: 'rgba(255,255,255,0.055)',
@@ -100,10 +113,21 @@ export const styles = StyleSheet.create({
     marginBottom: sv(14),
   },
 
-  searchFakeText: {
-    color: TEXT_DIM,
+  searchInput: {
+    flex: 1,
+    minHeight: sv(38),
+    color: TEXT,
     fontSize: sf(13),
     marginLeft: s(8),
+    paddingVertical: 0,
+  },
+
+  searchClearButton: {
+    width: s(26),
+    height: s(26),
+    borderRadius: s(13),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   errorBanner: {
@@ -123,6 +147,14 @@ export const styles = StyleSheet.create({
     color: ERROR,
     fontSize: sf(12),
     lineHeight: sf(16),
+  },
+
+  loadingBox: {
+    flex: 1,
+    minHeight: sv(160),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: BG,
   },
 
   emptyState: {
@@ -215,14 +247,6 @@ export const styles = StyleSheet.create({
     fontWeight: '800',
   },
 
-  loadingBox: {
-    flex: 1,
-    minHeight: sv(160),
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: BG,
-  },
-
   editorScroll: {
     flex: 1,
     backgroundColor: BG,
@@ -231,7 +255,7 @@ export const styles = StyleSheet.create({
   editorContent: {
     flexGrow: 1,
     paddingHorizontal: s(20),
-    paddingBottom: sv(36),
+    paddingBottom: sv(180),
     backgroundColor: BG,
   },
 
@@ -243,34 +267,19 @@ export const styles = StyleSheet.create({
     marginBottom: sv(14),
   },
 
-  editorInput: {
-    flex: 1,
-    minHeight: SCREEN.height * 0.68,
-    color: TEXT,
-    fontSize: sf(19),
-    lineHeight: sf(28),
-    fontWeight: '500',
-    textAlignVertical: 'top',
-    paddingTop: sv(8),
-  },
-
-  savingText: {
-    color: TEXT_DIM,
-    fontSize: sf(11),
-    fontWeight: '700',
-  },
-
-  doneText: {
-    color: SOFT_GOLD,
-    fontSize: sf(14),
-    fontWeight: '800',
+  editorMenuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+    zIndex: 30,
+    elevation: 30,
   },
 
   editorMenu: {
     position: 'absolute',
     top: veryCompact ? sv(84) : compact ? sv(92) : sv(100),
     right: s(18),
-    zIndex: 20,
+    zIndex: 50,
+    elevation: 50,
     width: s(180),
     borderRadius: s(14),
     borderWidth: StyleSheet.hairlineWidth,
@@ -281,7 +290,6 @@ export const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
   },
 
   menuItem: {
@@ -292,318 +300,12 @@ export const styles = StyleSheet.create({
     gap: s(9),
   },
 
-  menuText: {
-    color: TEXT,
-    fontSize: sf(13),
-    fontWeight: '700',
-  },
-
   menuDangerText: {
     color: ERROR,
     fontSize: sf(13),
     fontWeight: '800',
   },
 
-  richEditorWrap: {
-    flex: 1,
-    minHeight: SCREEN.height * 0.68,
-    backgroundColor: BG,
-    overflow: 'hidden',
-  },
-
-  richEditorWebViewContainer: {
-    flex: 1,
-    minHeight: SCREEN.height * 0.68,
-    backgroundColor: BG,
-  },
-
-  richEditorWebView: {
-    flex: 1,
-    minHeight: SCREEN.height * 0.68,
-    backgroundColor: BG,
-  },
-
-  formatToolbarWrap: {
-    minHeight: sv(54),
-    marginHorizontal: s(12),
-    marginBottom: sv(8),
-    borderRadius: s(18),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(22,22,22,0.96)',
-    overflow: 'hidden',
-    justifyContent: 'center',
-  },
-
-  formatToolbarContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: s(8),
-    gap: s(7),
-  },
-
-  colorRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: s(6),
-  },
-
-  formatDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: sv(30),
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    marginHorizontal: s(2),
-  },
-
-  formatTextButton: {
-    width: s(34),
-    height: s(34),
-    borderRadius: s(17),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  formatLargeA: {
-    color: 'rgba(255,241,210,0.88)',
-    fontSize: sf(20),
-    fontWeight: '900',
-  },
-
-  formatSmallA: {
-    color: 'rgba(255,241,210,0.78)',
-    fontSize: sf(14),
-    fontWeight: '800',
-  },
-
-  toolbarBold: {
-    color: 'rgba(255,241,210,0.88)',
-    fontSize: sf(16),
-    fontWeight: '900',
-  },
-
-  toolbarItalic: {
-    color: 'rgba(255,241,210,0.88)',
-    fontSize: sf(16),
-    fontWeight: '800',
-    fontStyle: 'italic',
-  },
-
-  toolbarUnderline: {
-    color: 'rgba(255,241,210,0.88)',
-    fontSize: sf(16),
-    fontWeight: '800',
-    textDecorationLine: 'underline',
-  },
-
-  toolbarStrike: {
-    color: 'rgba(255,241,210,0.88)',
-    fontSize: sf(16),
-    fontWeight: '800',
-    textDecorationLine: 'line-through',
-  },
-
-  colorDot: {
-    width: s(24),
-    height: s(24),
-    borderRadius: s(12),
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
-  },
-
-  formatIconButton: {
-    width: s(34),
-    height: s(34),
-    borderRadius: s(17),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  formatToolbarOuter: {
-    position: 'relative',
-    backgroundColor: 'transparent',
-  },
-
-  formatToolbarWrap: {
-    minHeight: sv(54),
-    marginHorizontal: s(12),
-    marginBottom: sv(8),
-    borderRadius: s(18),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(22,22,22,0.96)',
-    overflow: 'hidden',
-    justifyContent: 'center',
-  },
-
-  formatToolbarContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: s(8),
-    gap: s(7),
-  },
-
-  formatButtonActive: {
-    backgroundColor: 'rgba(231,201,138,0.18)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(231,201,138,0.32)',
-  },
-
-  formatDivider: {
-    width: StyleSheet.hairlineWidth,
-    height: sv(30),
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    marginHorizontal: s(2),
-  },
-
-  formatTextButton: {
-    width: s(34),
-    height: s(34),
-    borderRadius: s(17),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  formatLargeA: {
-    color: 'rgba(255,241,210,0.88)',
-    fontSize: sf(20),
-    fontWeight: '900',
-  },
-
-  formatSmallA: {
-    color: 'rgba(255,241,210,0.78)',
-    fontSize: sf(14),
-    fontWeight: '800',
-  },
-
-  toolbarBold: {
-    color: 'rgba(255,241,210,0.88)',
-    fontSize: sf(16),
-    fontWeight: '900',
-  },
-
-  toolbarItalic: {
-    color: 'rgba(255,241,210,0.88)',
-    fontSize: sf(16),
-    fontWeight: '800',
-    fontStyle: 'italic',
-  },
-
-  toolbarUnderline: {
-    color: 'rgba(255,241,210,0.88)',
-    fontSize: sf(16),
-    fontWeight: '800',
-    textDecorationLine: 'underline',
-  },
-
-  toolbarStrike: {
-    color: 'rgba(255,241,210,0.88)',
-    fontSize: sf(16),
-    fontWeight: '800',
-    textDecorationLine: 'line-through',
-  },
-
-  formatIconButton: {
-    width: s(34),
-    height: s(34),
-    borderRadius: s(17),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  formatColorButton: {
-    width: s(38),
-    height: s(34),
-    borderRadius: s(17),
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-
-  selectedColorDot: {
-    position: 'absolute',
-    right: s(5),
-    bottom: sv(5),
-    width: s(9),
-    height: s(9),
-    borderRadius: s(4.5),
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.55)',
-  },
-
-  colorPopup: {
-    position: 'absolute',
-    left: s(12),
-    right: s(12),
-    bottom: sv(68),
-    zIndex: 50,
-    borderRadius: s(18),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.14)',
-    backgroundColor: 'rgba(18,18,18,0.98)',
-    paddingHorizontal: s(12),
-    paddingTop: sv(10),
-    paddingBottom: sv(12),
-    shadowColor: '#000',
-    shadowOpacity: 0.28,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: -5 },
-    elevation: 12,
-  },
-
-  colorPopupTitle: {
-    color: 'rgba(255,241,210,0.72)',
-    fontSize: sf(11),
-    fontWeight: '800',
-    marginBottom: sv(9),
-    letterSpacing: 0.4,
-  },
-
-  colorPopupGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: s(8),
-  },
-
-  colorPopupOption: {
-    minHeight: sv(34),
-    borderRadius: s(999),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.10)',
-    backgroundColor: 'rgba(255,255,255,0.035)',
-    paddingHorizontal: s(10),
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: s(7),
-  },
-
-  colorPopupOptionActive: {
-    borderColor: 'rgba(231,201,138,0.42)',
-    backgroundColor: 'rgba(231,201,138,0.12)',
-  },
-
-  colorPopupDot: {
-    width: s(16),
-    height: s(16),
-    borderRadius: s(8),
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
-  },
-
-  colorPopupLabel: {
-    color: 'rgba(255,241,210,0.82)',
-    fontSize: sf(11),
-    fontWeight: '700',
-  },
-  nativeEditorInput: {
-    minHeight: SCREEN.height * 0.68,
-    color: TEXT,
-    fontSize: sf(19),
-    lineHeight: sf(28),
-    fontWeight: '500',
-    textAlignVertical: 'top',
-    paddingTop: sv(8),
-    paddingBottom: sv(40),
-    backgroundColor: BG,
-  },
   noteTitleInput: {
     minHeight: sv(48),
     color: TEXT,
@@ -618,14 +320,46 @@ export const styles = StyleSheet.create({
   },
 
   noteBodyInput: {
-    minHeight: SCREEN.height * 0.58,
+    minHeight: SCREEN.height * 0.72,
     color: TEXT,
     fontSize: sf(18),
     lineHeight: sf(27),
     fontWeight: '500',
     textAlignVertical: 'top',
     paddingTop: sv(10),
-    paddingBottom: sv(40),
+    paddingBottom: sv(80),
     backgroundColor: BG,
+  },
+
+  noteTitleDisplayWrap: {
+    minHeight: sv(48),
+    justifyContent: 'center',
+    paddingTop: sv(8),
+    paddingBottom: sv(16),
+  },
+
+  noteTitleDisplay: {
+    color: TEXT,
+    fontSize: sf(27),
+    lineHeight: sf(34),
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
+
+  noteBodyDisplayWrap: {
+    minHeight: SCREEN.height * 0.58,
+    paddingTop: sv(10),
+    paddingBottom: sv(40),
+  },
+
+  noteBodyDisplay: {
+    color: TEXT,
+    fontSize: sf(18),
+    lineHeight: sf(27),
+    fontWeight: '500',
+  },
+
+  notePlaceholderText: {
+    color: 'rgba(255,241,210,0.28)',
   },
 });

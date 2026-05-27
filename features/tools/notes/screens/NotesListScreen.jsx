@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -5,6 +6,7 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +23,8 @@ import {
 import { styles } from '../styles/notesStyles';
 
 export default function NotesListScreen() {
+  const [searchQuery, setSearchQuery] = useState('');
+
   const {
     notes,
     loading,
@@ -31,6 +35,26 @@ export default function NotesListScreen() {
     removeNote,
     togglePinned,
   } = useNotes();
+
+  const filteredNotes = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    if (!query) {
+      return notes;
+    }
+
+    return notes.filter((note) => {
+      const title = getNoteTitle(note.body).toLowerCase();
+      const preview = getNotePreview(note.body).toLowerCase();
+      const fullBody = String(note.body ?? '').toLowerCase();
+
+      return (
+        title.includes(query) ||
+        preview.includes(query) ||
+        fullBody.includes(query)
+      );
+    });
+  }, [notes, searchQuery]);
 
   const handleOpenNote = (note) => {
     router.push(`/tools/notes/${note.id}`);
@@ -58,6 +82,8 @@ export default function NotesListScreen() {
     );
   };
 
+  const hasSearchQuery = searchQuery.trim().length > 0;
+
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
@@ -74,17 +100,41 @@ export default function NotesListScreen() {
       <ScrollView
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
       >
         <View style={styles.listHeader}>
           <Text style={styles.listTitle}>Notizen</Text>
           <Text style={styles.listSubtitle}>
-            {notes.length} {notes.length === 1 ? 'Notiz' : 'Notizen'}
+            {hasSearchQuery
+              ? `${filteredNotes.length} von ${notes.length} gefunden`
+              : `${notes.length} ${notes.length === 1 ? 'Notiz' : 'Notizen'}`}
           </Text>
         </View>
 
-        <View style={styles.searchFake}>
+        <View style={styles.searchBox}>
           <Ionicons name="search" size={s(15)} color="rgba(255,241,210,0.38)" />
-          <Text style={styles.searchFakeText}>Suchen</Text>
+
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Suchen"
+            placeholderTextColor="rgba(255,241,210,0.38)"
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="search"
+            style={styles.searchInput}
+          />
+
+          {hasSearchQuery ? (
+            <Pressable
+              onPress={() => setSearchQuery('')}
+              style={styles.searchClearButton}
+              hitSlop={8}
+            >
+              <Ionicons name="close" size={s(15)} color="rgba(255,241,210,0.48)" />
+            </Pressable>
+          ) : null}
         </View>
 
         {loadError ? (
@@ -125,10 +175,24 @@ export default function NotesListScreen() {
               Tippe oben rechts auf Plus, um deine erste Notiz zu erstellen.
             </Text>
           </View>
+        ) : filteredNotes.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons
+              name="search-outline"
+              size={s(42)}
+              color="rgba(255,241,210,0.38)"
+            />
+
+            <Text style={styles.emptyTitle}>Nichts gefunden</Text>
+
+            <Text style={styles.emptyText}>
+              Für deine Suche gibt es aktuell keine passende Notiz.
+            </Text>
+          </View>
         ) : (
           <View style={styles.notesList}>
-            {notes.map((note, index) => {
-              const isLast = index === notes.length - 1;
+            {filteredNotes.map((note, index) => {
+              const isLast = index === filteredNotes.length - 1;
 
               return (
                 <View key={note.id}>
