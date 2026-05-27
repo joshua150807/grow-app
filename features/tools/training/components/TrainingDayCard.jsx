@@ -7,7 +7,18 @@ import { s, sv } from '../../../../constants/layout';
 import { styles } from '../styles/trainingStyles';
 import { formatWeight, formatSetsReps } from '../utils/trainingUtils';
 
+function getDayType(day) {
+  if (day?.type === 'run' || day?.day_type === 'run') return 'run';
+  if (day?.type === 'rest' || day?.day_type === 'rest') return 'rest';
+  return 'gym';
+}
+
 export function TrainingDayCard({ day, onExercisePress, onAddExercise, onRenameDay }) {
+  const exercises = Array.isArray(day?.exercises) ? day.exercises : [];
+  const dayType = getDayType(day);
+  const isRunDay = dayType === 'run';
+  const isRestDay = dayType === 'rest';
+  const isGymDay = dayType === 'gym';
   const [isRenaming, setIsRenaming] = useState(false);
   const [draftName, setDraftName] = useState(day.name);
 
@@ -45,23 +56,43 @@ export function TrainingDayCard({ day, onExercisePress, onAddExercise, onRenameD
         </View>
       ) : (
         <View style={styles.dayCardHeader}>
-          <Text style={styles.dayCardTitle}>{day.name}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dayCardTitle}>{day.name}</Text>
+            {isRunDay ? (
+              <Text style={[styles.dayCardCount, { marginTop: sv(4) }]}>Lauftag</Text>
+            ) : null}
+            {isRestDay ? (
+              <Text style={[styles.dayCardCount, { marginTop: sv(4) }]}>Rest Day</Text>
+            ) : null}
+          </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(10) }}>
             <Pressable onPress={() => setIsRenaming(true)} hitSlop={s(8)}>
               <Ionicons name="pencil-outline" size={s(16)} color={COLORS.textDim} />
             </Pressable>
-            <Text style={styles.dayCardCount}>
-              {day.exercises.length} {day.exercises.length === 1 ? 'Übung' : 'Übungen'}
-            </Text>
+            {isGymDay ? (
+              <Text style={styles.dayCardCount}>
+                {exercises.length} {exercises.length === 1 ? 'Übung' : 'Übungen'}
+              </Text>
+            ) : (
+              <Ionicons name={isRunDay ? 'walk-outline' : 'moon-outline'} size={s(17)} color={COLORS.gold} />
+            )}
           </View>
         </View>
       )}
 
-      {day.exercises.length === 0 ? (
-        <Text style={styles.dayCardEmpty}>Noch keine Übungen.</Text>
+      {!isGymDay ? (
+        <Text style={styles.dayCardEmpty}>
+          {isRunDay
+            ? 'Lauftag: Distanz und Dauer trägst du ein, wenn du die Einheit speicherst.'
+            : 'Rest Day: Dieser Tag dient nur zur Planung und wird nicht als Einheit gespeichert.'}
+        </Text>
+      ) : exercises.length === 0 ? (
+        <Text style={styles.dayCardEmpty}>
+          Keine Kraftübungen hinterlegt.
+        </Text>
       ) : (
         <View style={styles.exerciseList}>
-          {day.exercises.map(exercise => (
+          {exercises.map(exercise => (
             <Pressable
               key={exercise.id}
               style={styles.exerciseItem}
@@ -87,10 +118,12 @@ export function TrainingDayCard({ day, onExercisePress, onAddExercise, onRenameD
         </View>
       )}
 
-      <Pressable style={styles.addExerciseToDayBtn} onPress={onAddExercise}>
-        <Ionicons name="add-outline" size={s(16)} color={COLORS.softGold} />
-        <Text style={styles.addExerciseToDayBtnText}>Übung hinzufügen</Text>
-      </Pressable>
+      {isGymDay ? (
+        <Pressable style={styles.addExerciseToDayBtn} onPress={onAddExercise}>
+          <Ionicons name="add-outline" size={s(16)} color={COLORS.softGold} />
+          <Text style={styles.addExerciseToDayBtnText}>Übung hinzufügen</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

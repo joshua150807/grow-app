@@ -1,11 +1,11 @@
 import { StyleSheet } from 'react-native';
 
 import { COLORS } from '../../../../constants/colors';
-import { s, sv, sf } from '../../../../constants/layout'
+import { s, sv, sf } from '../../../../constants/layout';
 import {
   SLOT_HEIGHT,
   TIME_LABEL_WIDTH,
-} from '../utils/plannerUtils'
+} from '../utils/plannerUtils';
 
 export const styles = StyleSheet.create({
   screen: {
@@ -24,6 +24,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+
   addPlusBtn: {
     width: s(36),
     height: s(36),
@@ -34,35 +35,42 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(212,175,55,0.08)',
   },
+
   dayHeaderText: {
     color: COLORS.paleGold,
     fontSize: sf(16),
     fontWeight: '700',
   },
+
   timeline: {
     position: 'relative',
   },
+
   slotRow: {
     height: SLOT_HEIGHT,
     flexDirection: 'row',
     alignItems: 'stretch',
   },
+
   timeLabelWrap: {
     width: TIME_LABEL_WIDTH,
     justifyContent: 'flex-start',
-    paddingTop: sv(4),
+    paddingTop: sv(2),
     paddingLeft: s(14),
   },
+
   timeLabel: {
     color: COLORS.textDim,
-    fontSize: sf(11),
+    fontSize: sf(10),
     fontWeight: '500',
   },
+
   slotHour: {
     flex: 1,
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.07)',
   },
+
   slotHalf: {
     flex: 1,
     borderTopWidth: 0.5,
@@ -76,18 +84,21 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: s(20),
   },
+
   errorText: {
     color: COLORS.white,
     fontSize: sf(16),
     textAlign: 'center',
     marginBottom: sv(12),
   },
+
   retryBtn: {
     backgroundColor: COLORS.white,
     paddingHorizontal: s(16),
     paddingVertical: sv(10),
     borderRadius: s(10),
   },
+
   retryBtnText: {
     color: COLORS.black,
     fontWeight: '600',

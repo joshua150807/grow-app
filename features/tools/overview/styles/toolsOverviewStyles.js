@@ -143,6 +143,13 @@ export const styles = StyleSheet.create({
     padding: s(4),
   },
 
+  menuBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
+    zIndex: 900,
+    elevation: 900,
+  },
+
   dropdown: {
     position: 'absolute',
     top: sv(46),
@@ -154,7 +161,8 @@ export const styles = StyleSheet.create({
     borderRadius: s(10),
     paddingVertical: sv(10),
     paddingHorizontal: s(14),
-    zIndex: 999,
+    zIndex: 1000,
+    elevation: 1000,
   },
 
   menuItem: {
@@ -191,7 +199,7 @@ export const styles = StyleSheet.create({
     marginBottom: 0,
     letterSpacing: 4,
     textAlign: 'center',
-},
+  },
 
   sectionSubtitle: {
     color: 'rgba(255,241,210,0.50)',
@@ -415,7 +423,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  
+
   allToolsTopBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -451,6 +459,7 @@ export const styles = StyleSheet.create({
     marginBottom: veryCompact ? sv(12) : compact ? sv(14) : sv(18),
     paddingHorizontal: s(8),
   },
+
   selectedOrderList: {
     marginTop: sv(10),
     gap: sv(7),
@@ -501,6 +510,7 @@ export const styles = StyleSheet.create({
   selectedOrderButtonDisabled: {
     opacity: 0.35,
   },
+
   replacePanel: {
     marginTop: sv(4),
     marginBottom: sv(8),

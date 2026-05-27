@@ -83,7 +83,7 @@ export default function TrainingSessionDetailScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.iconCircle}>
-            <Ionicons name="barbell-outline" size={s(36)} color={COLORS.gold} />
+            <Ionicons name={session.sessionType === 'run' ? 'walk-outline' : 'barbell-outline'} size={s(36)} color={COLORS.gold} />
           </View>
           <Text style={styles.title}>{session.dayName}</Text>
           <Text style={styles.subtitle}>
@@ -98,9 +98,20 @@ export default function TrainingSessionDetailScreen() {
           </View>
         ) : null}
 
-        <Text style={styles.sectionLabel}>ÜBUNGEN</Text>
+        {session.sessionType === 'run' ? (
+          <View style={styles.trainingSessionDetailNoteBox}>
+            <Text style={styles.trainingSessionDetailNoteTitle}>Laufdaten</Text>
+            <Text style={styles.trainingSessionDetailNoteText}>
+              {session.runMetaText || 'Keine Laufdaten eingetragen.'}
+            </Text>
+          </View>
+        ) : null}
 
-        {session.exercises.map((exercise, index) => (
+        {session.sessionType !== 'run' ? (
+          <Text style={styles.sectionLabel}>ÜBUNGEN</Text>
+        ) : null}
+
+        {session.sessionType !== 'run' && session.exercises.map((exercise, index) => (
           <View key={exercise.id} style={styles.trainingSessionExerciseCard}>
             <View style={styles.sessionExerciseHeader}>
               <Text style={styles.sessionExerciseIndex}>{index + 1}</Text>

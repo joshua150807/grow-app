@@ -27,6 +27,16 @@ function shuffleArray(array) {
   return shuffled;
 }
 
+function mapVideos(videos, bookmarkedVideoIds = []) {
+  return videos.map((video) => ({
+    id: video.id,
+    title: video.title,
+    source: video.video_url,
+    thumbnail: video.thumbnail_url,
+    saved: bookmarkedVideoIds.includes(video.id),
+  }));
+}
+
 export async function getActiveVideos() {
   const userId = await getCurrentUserId();
 
@@ -39,30 +49,76 @@ export async function getActiveVideos() {
     throw videosError;
   }
 
-  let bookmarkedVideoIds = [];
+  const activeVideos = videos ?? [];
 
-  if (userId) {
-    const { data: bookmarks, error: bookmarksError } = await supabase
-      .from('video_bookmarks')
-      .select('video_id')
-      .eq('user_id', userId);
-
-    if (bookmarksError) {
-      throw bookmarksError;
-    }
-
-    bookmarkedVideoIds = bookmarks.map((bookmark) => bookmark.video_id);
+  if (activeVideos.length === 0) {
+    return [];
   }
 
-  const mappedVideos = videos.map((video) => ({
-    id: video.id,
-    title: video.title,
-    source: video.video_url,
-    thumbnail: video.thumbnail_url,
-    saved: bookmarkedVideoIds.includes(video.id),
-  }));
+  // Ohne eingeloggten User können wir keinen persönlichen Verlauf filtern.
+  if (!userId) {
+    return shuffleArray(mapVideos(activeVideos));
+  }
 
-  return shuffleArray(mappedVideos);
+  const [
+    bookmarksResult,
+    viewsResult,
+    ratingsResult,
+  ] = await Promise.all([
+    supabase
+      .from('video_bookmarks')
+      .select('video_id')
+      .eq('user_id', userId),
+
+    supabase
+      .from('video_views')
+      .select('video_id')
+      .eq('user_id', userId),
+
+    supabase
+      .from('video_ratings')
+      .select('video_id')
+      .eq('user_id', userId),
+  ]);
+
+  if (bookmarksResult.error) {
+    throw bookmarksResult.error;
+  }
+
+  if (viewsResult.error) {
+    throw viewsResult.error;
+  }
+
+  if (ratingsResult.error) {
+    throw ratingsResult.error;
+  }
+
+  const bookmarkedVideoIds = (bookmarksResult.data ?? []).map(
+    (bookmark) => bookmark.video_id
+  );
+
+  // Ein Video gilt als gesehen, wenn es entweder:
+  // 1. in video_views steht, also angeschaut wurde
+  // 2. in video_ratings steht, also bewertet wurde
+  //
+  // Dadurch tauchen bewertete Videos nicht wieder im normalen Feed auf,
+  // solange es noch ungesehene aktive Videos gibt.
+  const seenVideoIds = new Set([
+    ...(viewsResult.data ?? []).map((view) => view.video_id),
+    ...(ratingsResult.data ?? []).map((rating) => rating.video_id),
+  ]);
+
+  const unseenVideos = activeVideos.filter(
+    (video) => !seenVideoIds.has(video.id)
+  );
+
+  // Regel:
+  // Solange es ungesehene Videos gibt, bekommt der User nur diese.
+  // Erst wenn alle aktiven Videos gesehen/bewertet wurden,
+  // wird wieder aus allen aktiven Videos gemischt.
+  const videosForFeed = unseenVideos.length > 0 ? unseenVideos : activeVideos;
+
+  return shuffleArray(mapVideos(videosForFeed, bookmarkedVideoIds));
 }
 
 export async function getSavedVideos() {
@@ -109,21 +165,26 @@ export async function getSavedVideos() {
       thumbnail: bookmark.videos.thumbnail_url,
       saved: true,
       savedAt: bookmark.created_at,
-  }));
+    }));
 }
 
 export async function getSavedVideoIds() {
   const userId = await getCurrentUserId();
-  if (!userId) return [];
+
+  if (!userId) {
+    return [];
+  }
 
   const { data, error } = await supabase
     .from('video_bookmarks')
     .select('video_id')
     .eq('user_id', userId);
 
-  if (error) throw error;
+  if (error) {
+    throw error;
+  }
 
-  return data.map((b) => b.video_id);
+  return (data ?? []).map((bookmark) => bookmark.video_id);
 }
 
 export async function toggleVideoBookmark(videoId, currentlySaved) {

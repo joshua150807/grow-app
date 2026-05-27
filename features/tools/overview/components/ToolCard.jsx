@@ -242,6 +242,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: s(6),
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'transparent',
   },
 
   smallImageTextBox: {
@@ -250,14 +251,16 @@ const styles = StyleSheet.create({
   },
 
   imageTitle: {
-    color: '#FFD978',
+    color: COLORS.toolsGold,
     fontSize: veryCompact ? sf(8.6) : compact ? sf(9.6) : sf(10.6),
     fontWeight: '800',
     textAlign: 'center',
-    letterSpacing: 0.1,
-    textShadowColor: 'rgba(255, 217, 120, 0.75)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 6,
+    letterSpacing: 0.2,
+    backgroundColor: 'transparent',
+
+    textShadowColor: 'rgba(231,201,138,0.28)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 1.5,
   },
 
   smallImageTitle: {
@@ -266,14 +269,16 @@ const styles = StyleSheet.create({
 
   imageDescription: {
     marginTop: sv(3),
-    color: 'rgba(255, 217, 120, 0.82)',
+    color: COLORS.softGold ?? COLORS.toolsGold,
     fontSize: veryCompact ? sf(6) : compact ? sf(6.6) : sf(7.2),
     fontWeight: '600',
     textAlign: 'center',
     lineHeight: veryCompact ? sf(7.8) : compact ? sf(8.5) : sf(9.2),
-    textShadowColor: 'rgba(255, 217, 120, 0.45)',
+    backgroundColor: 'transparent',
+
+    textShadowColor: 'rgba(231,201,138,0.18)',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 4,
+    textShadowRadius: 1,
   },
 
   badge: {
@@ -340,12 +345,17 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    color: '#FFF1D2',
+    color: COLORS.toolsGold,
     fontSize: compact ? sf(10.2) : sf(10.8),
-    fontWeight: '500',
+    fontWeight: '700',
     marginBottom: compact ? sv(2) : sv(3),
     textAlign: 'center',
-    letterSpacing: 0.15,
+    letterSpacing: 0.2,
+    backgroundColor: 'transparent',
+
+    textShadowColor: 'rgba(231,201,138,0.22)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 1.5,
   },
 
   smallTitle: {
@@ -364,11 +374,16 @@ const styles = StyleSheet.create({
   },
 
   description: {
-    color: 'rgba(255,241,210,0.50)',
+    color: COLORS.softGold ?? COLORS.toolsGold,
     fontSize: compact ? sf(7.8) : sf(8.4),
     fontWeight: '400',
     lineHeight: compact ? sf(10) : sf(11),
     textAlign: 'center',
+    backgroundColor: 'transparent',
+
+    textShadowColor: 'rgba(231,201,138,0.14)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 1,
   },
 
   disabledDescription: {

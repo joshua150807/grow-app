@@ -13,17 +13,26 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
-import { s, sv } from '../../../../constants/layout';
+import { s, sv, sf } from '../../../../constants/layout';
 import { styles } from '../styles/trainingStyles';
+
+const DAY_TYPES = [
+  { value: 'gym', label: 'Gym', icon: 'barbell-outline' },
+  { value: 'run', label: 'Laufen', icon: 'walk-outline' },
+  { value: 'rest', label: 'Rest', icon: 'moon-outline' },
+];
 
 export function AddDayModal({ visible, onClose, onSave }) {
   const [name, setName] = useState('');
+  const [dayType, setDayType] = useState('gym');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   const reset = () => {
     setName('');
+    setDayType('gym');
     setError(null);
+    setSaving(false);
   };
 
   const handleClose = () => {
@@ -36,7 +45,7 @@ export function AddDayModal({ visible, onClose, onSave }) {
     setSaving(true);
     setError(null);
     try {
-      await onSave(name);
+      await onSave(name, dayType);
       reset();
     } catch {
       setError('Tag konnte nicht hinzugefügt werden.');
@@ -60,10 +69,35 @@ export function AddDayModal({ visible, onClose, onSave }) {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <Text style={styles.modalLabel}>TYP</Text>
+              <View style={localStyles.typeRow}>
+                {DAY_TYPES.map((typeOption) => {
+                  const active = dayType === typeOption.value;
+
+                  return (
+                    <Pressable
+                      key={typeOption.value}
+                      style={[localStyles.typePill, active && localStyles.typePillActive]}
+                      onPress={() => setDayType(typeOption.value)}
+                      disabled={saving}
+                    >
+                      <Ionicons
+                        name={typeOption.icon}
+                        size={s(15)}
+                        color={active ? COLORS.black : COLORS.softGold}
+                      />
+                      <Text style={[localStyles.typeText, active && localStyles.typeTextActive]}>
+                        {typeOption.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
               <Text style={styles.modalLabel}>TAGNAME</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="z.B. Beine, Push, Oberkörper..."
+                placeholder={dayType === 'run' ? 'z.B. Zone 2 Lauf' : dayType === 'rest' ? 'z.B. Rest Day' : 'z.B. Beine, Push, Oberkörper...'}
                 placeholderTextColor={COLORS.textFaint}
                 value={name}
                 onChangeText={setName}
@@ -95,3 +129,35 @@ export function AddDayModal({ visible, onClose, onSave }) {
     </Modal>
   );
 }
+
+const localStyles = {
+  typeRow: {
+    flexDirection: 'row',
+    gap: s(8),
+    marginBottom: sv(16),
+  },
+  typePill: {
+    flex: 1,
+    minHeight: sv(36),
+    borderRadius: s(12),
+    borderWidth: 1,
+    borderColor: COLORS.goldBorder,
+    backgroundColor: COLORS.darkCard,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: s(5),
+  },
+  typePillActive: {
+    backgroundColor: COLORS.gold,
+    borderColor: COLORS.gold,
+  },
+  typeText: {
+    color: COLORS.softGold,
+    fontSize: sf(11),
+    fontWeight: '800',
+  },
+  typeTextActive: {
+    color: COLORS.black,
+  },
+};

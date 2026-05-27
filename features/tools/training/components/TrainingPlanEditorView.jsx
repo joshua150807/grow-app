@@ -138,8 +138,8 @@ export function TrainingPlanEditorView({
       <AddDayModal
         visible={addingDay}
         onClose={() => setAddingDay(false)}
-        onSave={async (name) => {
-          await onAddDay(name);
+        onSave={async (name, dayType) => {
+          await onAddDay(name, dayType);
           setAddingDay(false);
         }}
       />

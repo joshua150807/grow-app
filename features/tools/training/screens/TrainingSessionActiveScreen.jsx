@@ -20,20 +20,30 @@ import { useTrainingPlan } from '../hooks/useTrainingPlan';
 import { createTrainingSession } from '../services/trainingSessionService';
 import { styles } from '../styles/trainingStyles';
 
+function safeText(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
 function parseDecimal(value) {
-  const normalized = String(value || '').replace(',', '.').trim();
+  const normalized = safeText(value).replace(',', '.');
   if (!normalized) return null;
 
   const number = Number(normalized);
   return Number.isFinite(number) && number >= 0 ? number : null;
 }
 
+function parsePositiveDecimal(value) {
+  const number = parseDecimal(value);
+  return number !== null && number > 0 ? number : null;
+}
+
 function parsePositiveInt(value) {
-  const normalized = String(value || '').trim();
+  const normalized = safeText(value);
   if (!normalized) return null;
 
   const number = Number(normalized);
-  return Number.isInteger(number) && number >= 0 ? number : null;
+  return Number.isInteger(number) && number > 0 ? number : null;
 }
 
 export default function TrainingSessionActiveScreen() {
@@ -42,6 +52,9 @@ export default function TrainingSessionActiveScreen() {
 
   const [exerciseValues, setExerciseValues] = useState({});
   const [sessionNote, setSessionNote] = useState('');
+  const [runDurationMinutes, setRunDurationMinutes] = useState('');
+  const [runDistanceKm, setRunDistanceKm] = useState('');
+  const [runPace, setRunPace] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
 
@@ -51,6 +64,13 @@ export default function TrainingSessionActiveScreen() {
   }, [plan, dayId]);
 
   const exercises = selectedDay?.exercises || [];
+  const dayType = selectedDay?.type === 'run' || selectedDay?.day_type === 'run'
+    ? 'run'
+    : selectedDay?.type === 'rest' || selectedDay?.day_type === 'rest'
+      ? 'rest'
+      : 'gym';
+  const isRunDay = dayType === 'run';
+  const isRestDay = dayType === 'rest';
 
   const getExerciseValue = (exercise, field) => {
     const localValue = exerciseValues[exercise.id]?.[field];
@@ -76,7 +96,7 @@ export default function TrainingSessionActiveScreen() {
   };
 
   const handleSaveSession = async () => {
-    if (!plan || !selectedDay || saving) return;
+    if (!plan || !selectedDay || saving || isRestDay) return;
 
     setSaving(true);
     setSaveError(null);
@@ -92,26 +112,42 @@ export default function TrainingSessionActiveScreen() {
         throw new Error('Kein eingeloggter Nutzer gefunden.');
       }
 
-      const sessionExercises = exercises.map(exercise => ({
-        exerciseId: exercise.id,
-        name: exercise.name,
-        weight: parseDecimal(getExerciseValue(exercise, 'weight')),
-        sets: parsePositiveInt(getExerciseValue(exercise, 'sets')),
-        reps: parsePositiveInt(getExerciseValue(exercise, 'reps')),
-        note: getExerciseValue(exercise, 'note').trim(),
-      }));
+      const durationMinutes = isRunDay ? parsePositiveInt(runDurationMinutes) : null;
+      const distanceKm = isRunDay ? parsePositiveDecimal(runDistanceKm) : null;
+
+      if (isRunDay && durationMinutes === null && distanceKm === null) {
+        setSaveError('Trage für die Laufeinheit mindestens Dauer oder Distanz ein.');
+        return;
+      }
+
+      const sessionExercises = isRunDay
+        ? []
+        : exercises.map(exercise => ({
+            exerciseId: exercise.id,
+            name: exercise.name,
+            weight: parseDecimal(getExerciseValue(exercise, 'weight')),
+            sets: parsePositiveInt(getExerciseValue(exercise, 'sets')),
+            reps: parsePositiveInt(getExerciseValue(exercise, 'reps')),
+            note: getExerciseValue(exercise, 'note').trim(),
+          }));
 
       await createTrainingSession({
         userId,
         planId: plan.id,
         dayId: selectedDay.id,
+        sessionType: isRunDay ? 'run' : 'gym',
         note: sessionNote.trim(),
         exercises: sessionExercises,
+        runDurationMinutes: durationMinutes,
+        runDistanceKm: distanceKm,
+        runPace: safeText(runPace) || null,
       });
 
       Alert.alert(
-        'Training gespeichert',
-        'Deine Trainingseinheit wurde erfolgreich gespeichert.',
+        isRunDay ? 'Lauf gespeichert' : 'Training gespeichert',
+        isRunDay
+          ? 'Deine Laufeinheit wurde erfolgreich gespeichert.'
+          : 'Deine Trainingseinheit wurde erfolgreich gespeichert.',
         [
           {
             text: 'OK',
@@ -121,7 +157,7 @@ export default function TrainingSessionActiveScreen() {
       );
     } catch (e) {
       console.error('[Training Session] Save failed:', e);
-      setSaveError('Trainingseinheit konnte nicht gespeichert werden.');
+      setSaveError(e?.message || 'Trainingseinheit konnte nicht gespeichert werden.');
     } finally {
       setSaving(false);
     }
@@ -164,6 +200,25 @@ export default function TrainingSessionActiveScreen() {
     );
   }
 
+  if (isRestDay) {
+    return (
+      <View style={styles.screen}>
+        <View style={styles.topBar}>
+          <Pressable onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
+            <Text style={styles.backText}>Zurück</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.centered}>
+          <Ionicons name="moon-outline" size={s(42)} color={COLORS.gold} />
+          <Text style={[styles.emptyText, { marginTop: sv(12) }]}>Das ist ein Rest Day.</Text>
+          <Text style={[styles.loadingText, { textAlign: 'center', marginTop: sv(6) }]}>Ruhetage werden im Plan angezeigt, aber nicht als Training gespeichert.</Text>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
       style={styles.screen}
@@ -183,15 +238,71 @@ export default function TrainingSessionActiveScreen() {
       >
         <View style={styles.header}>
           <View style={styles.iconCircle}>
-            <Ionicons name="play-outline" size={s(36)} color={COLORS.gold} />
+            <Ionicons name={isRunDay ? 'walk-outline' : 'play-outline'} size={s(36)} color={COLORS.gold} />
           </View>
           <Text style={styles.title}>{selectedDay.name}</Text>
-          <Text style={styles.subtitle}>Trage deine heutige Einheit ein</Text>
+          <Text style={styles.subtitle}>
+            {isRunDay ? 'Speichere deine Laufeinheit' : 'Trage deine heutige Einheit ein'}
+          </Text>
         </View>
 
-        <Text style={styles.sectionLabel}>ÜBUNGEN</Text>
+        <Text style={styles.sectionLabel}>{isRunDay ? 'LAUFEINHEIT' : 'ÜBUNGEN'}</Text>
 
-        {exercises.map((exercise, index) => (
+        {isRunDay ? (
+          <View style={styles.sessionExerciseCard}>
+            <View style={styles.sessionExerciseHeader}>
+              <Text style={styles.sessionExerciseIndex}>🏃</Text>
+              <View style={styles.sessionExerciseTitleWrap}>
+                <Text style={styles.sessionExerciseName}>{selectedDay.name}</Text>
+                <Text style={styles.sessionExerciseHint}>
+                  Trage Dauer und/oder Distanz ein. Pace ist optional.
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.sessionInputRow}>
+              <View style={styles.sessionInputGroup}>
+                <Text style={styles.sessionInputLabel}>Min.</Text>
+                <TextInput
+                  style={styles.sessionSmallInput}
+                  keyboardType="number-pad"
+                  placeholder="45"
+                  placeholderTextColor={COLORS.textFaint}
+                  value={runDurationMinutes}
+                  onChangeText={setRunDurationMinutes}
+                  editable={!saving}
+                />
+              </View>
+
+              <View style={styles.sessionInputGroup}>
+                <Text style={styles.sessionInputLabel}>km</Text>
+                <TextInput
+                  style={styles.sessionSmallInput}
+                  keyboardType="decimal-pad"
+                  placeholder="6,0"
+                  placeholderTextColor={COLORS.textFaint}
+                  value={runDistanceKm}
+                  onChangeText={setRunDistanceKm}
+                  editable={!saving}
+                />
+              </View>
+
+              <View style={styles.sessionInputGroup}>
+                <Text style={styles.sessionInputLabel}>Pace</Text>
+                <TextInput
+                  style={styles.sessionSmallInput}
+                  placeholder="6:30"
+                  placeholderTextColor={COLORS.textFaint}
+                  value={runPace}
+                  onChangeText={setRunPace}
+                  editable={!saving}
+                />
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {!isRunDay && exercises.map((exercise, index) => (
           <View key={exercise.id} style={styles.sessionExerciseCard}>
             <View style={styles.sessionExerciseHeader}>
               <Text style={styles.sessionExerciseIndex}>{index + 1}</Text>
@@ -256,13 +367,11 @@ export default function TrainingSessionActiveScreen() {
           </View>
         ))}
 
-        <Text style={[styles.sectionLabel, { marginTop: sv(18) }]}>
-          NOTIZ ZUR EINHEIT
-        </Text>
+        <Text style={[styles.sectionLabel, { marginTop: sv(18) }]}>NOTIZ ZUR EINHEIT</Text>
 
         <TextInput
           style={styles.sessionOverallNoteInput}
-          placeholder="Optional: Wie lief das Training?"
+          placeholder={isRunDay ? 'Optional: Gefühl, Puls, Untergrund, Zone...' : 'Optional: Wie lief das Training?'}
           placeholderTextColor={COLORS.textFaint}
           value={sessionNote}
           onChangeText={setSessionNote}
@@ -282,7 +391,7 @@ export default function TrainingSessionActiveScreen() {
           {saving ? (
             <ActivityIndicator color={COLORS.black} />
           ) : (
-            <Text style={styles.saveBtnText}>Training speichern</Text>
+            <Text style={styles.saveBtnText}>{isRunDay ? 'Lauf speichern' : 'Training speichern'}</Text>
           )}
         </Pressable>
       </ScrollView>

@@ -12,7 +12,7 @@ import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
 import { COLORS } from '../../../../constants/colors';
-import { s } from '../../../../constants/layout';
+import { s, sv } from '../../../../constants/layout';
 import { MENTOR_BG } from '../../../../constants/toolAssets';
 
 import { useProfile } from '../../../profile/hooks/useProfile';
@@ -87,11 +87,17 @@ export default function ToolsScreen() {
     router.replace('/login');
   };
 
+  const handleOutsideMenuPress = () => {
+    handleScreenPress(() => setMenuOpen(false));
+  };
+
+  const navigateFromMenu = (route) => {
+    setMenuOpen(false);
+    router.push(route);
+  };
+
   return (
-    <Pressable
-      onPress={() => handleScreenPress(() => setMenuOpen(false))}
-      style={styles.screen}
-    >
+    <View style={styles.screen}>
       <ScrollView
         style={styles.screen}
         contentContainerStyle={{
@@ -157,37 +163,6 @@ export default function ToolsScreen() {
             >
               <Feather name="more-vertical" size={s(20)} color={COLORS.softGold} />
             </Pressable>
-
-            {menuOpen && (
-              <Pressable
-                style={styles.dropdown}
-                onPress={(event) => event.stopPropagation()}
-              >
-                <Pressable onPress={() => router.push('/tools/saved-videos')}>
-                  <Text style={styles.menuItem}>Gespeicherte Videos</Text>
-                </Pressable>
-
-                <Pressable onPress={() => router.push('/tools/privacy')}>
-                  <Text style={styles.menuItem}>Datenschutz</Text>
-                </Pressable>
-
-                <Pressable onPress={() => router.push('/tools/imprint')}>
-                  <Text style={styles.menuItem}>Impressum</Text>
-                </Pressable>
-
-                {isCeo && (
-                  <Pressable onPress={() => router.push('/admin-dashboard')}>
-                    <Text style={styles.menuItem}>CEO Dashboard</Text>
-                  </Pressable>
-                )}
-
-                <View style={styles.line} />
-
-                <Pressable onPress={handleLogout}>
-                  <Text style={styles.logoutItem}>Logout</Text>
-                </Pressable>
-              </Pressable>
-            )}
           </View>
         </View>
 
@@ -332,6 +307,50 @@ export default function ToolsScreen() {
           </View>
         </View>
       </ScrollView>
-    </Pressable>
+
+      {menuOpen && (
+        <>
+          <Pressable
+            style={styles.menuBackdrop}
+            onPress={handleOutsideMenuPress}
+          />
+
+          <Pressable
+            style={[
+              styles.dropdown,
+              {
+                top: layout.contentPaddingTop + sv(46),
+                right: layout.horizontalPadding,
+              },
+            ]}
+            onPress={(event) => event.stopPropagation()}
+          >
+            <Pressable onPress={() => navigateFromMenu('/tools/saved-videos')}>
+              <Text style={styles.menuItem}>Gespeicherte Videos</Text>
+            </Pressable>
+
+            <Pressable onPress={() => navigateFromMenu('/tools/privacy')}>
+              <Text style={styles.menuItem}>Datenschutz</Text>
+            </Pressable>
+
+            <Pressable onPress={() => navigateFromMenu('/tools/imprint')}>
+              <Text style={styles.menuItem}>Impressum</Text>
+            </Pressable>
+
+            {isCeo && (
+              <Pressable onPress={() => navigateFromMenu('/admin-dashboard')}>
+                <Text style={styles.menuItem}>CEO Dashboard</Text>
+              </Pressable>
+            )}
+
+            <View style={styles.line} />
+
+            <Pressable onPress={handleLogout}>
+              <Text style={styles.logoutItem}>Logout</Text>
+            </Pressable>
+          </Pressable>
+        </>
+      )}
+    </View>
   );
 }

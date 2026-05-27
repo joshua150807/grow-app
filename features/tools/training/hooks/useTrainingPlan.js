@@ -56,6 +56,8 @@ export function useTrainingPlan() {
         days: daysData.map((day, index) => ({
           id: `temp-day-${index}`,
           name: day.name,
+          type: day.type || 'gym',
+          day_type: day.type || 'gym',
           exercises: day.exercises || [],
         })),
       });
@@ -91,10 +93,10 @@ export function useTrainingPlan() {
     await loadPlan();
   }, [loadPlan]);
 
-  const addDay = useCallback(async (dayName) => {
+  const addDay = useCallback(async (dayName, dayType = 'gym') => {
     const currentPlan = planRef.current;
     if (!currentPlan) return;
-    await addTrainingDayService(currentPlan.id, dayName);
+    await addTrainingDayService(currentPlan.id, dayName, dayType);
     await loadPlan();
   }, [loadPlan]);
 

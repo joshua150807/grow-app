@@ -78,7 +78,7 @@ export default function TrainingSessionsScreen() {
                 }
               >
                 <View style={styles.trainingSessionCardIcon}>
-                  <Ionicons name="barbell-outline" size={s(22)} color={COLORS.gold} />
+                  <Ionicons name={session.sessionType === 'run' ? 'walk-outline' : 'barbell-outline'} size={s(22)} color={COLORS.gold} />
                 </View>
 
                 <View style={styles.trainingSessionCardContent}>
@@ -87,8 +87,7 @@ export default function TrainingSessionsScreen() {
                   </Text>
 
                   <Text style={styles.trainingSessionCardMeta}>
-                    {formatTrainingSessionDate(session.performedAt)} · {session.exerciseCount}{' '}
-                    {session.exerciseCount === 1 ? 'Übung' : 'Übungen'}
+                    {formatTrainingSessionDate(session.performedAt)} · {session.metaText}
                   </Text>
 
                   {session.note ? (

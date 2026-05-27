@@ -15,9 +15,10 @@ export function PlannerEventItem({ event, onPress, timelineWidth }) {
 
   const durationMinutes = Math.max(1, endMinutes - startMinutes);
   const topPx = (startMinutes / MINUTES_PER_SLOT) * SLOT_HEIGHT + 1;
+
   const heightPx = Math.max(
     (durationMinutes / MINUTES_PER_SLOT) * SLOT_HEIGHT - 3,
-    sv(34)
+    sv(22)
   );
 
   const columnCount = event.layout?.columnCount || 1;
@@ -53,7 +54,7 @@ export function PlannerEventItem({ event, onPress, timelineWidth }) {
       ]}
       onPress={() => onPress(event)}
     >
-      <Text style={styles.eventTitle} numberOfLines={2}>
+      <Text style={styles.eventTitle} numberOfLines={1}>
         {event.title}
       </Text>
 
@@ -67,21 +68,23 @@ export function PlannerEventItem({ event, onPress, timelineWidth }) {
 const styles = StyleSheet.create({
   eventBlock: {
     position: 'absolute',
-    borderRadius: s(12),
-    paddingHorizontal: s(10),
-    paddingVertical: sv(6),
+    borderRadius: s(8),
+    paddingHorizontal: s(8),
+    paddingVertical: sv(3),
     justifyContent: 'center',
     overflow: 'hidden',
   },
+
   eventTitle: {
     color: COLORS.black,
-    fontSize: sf(13),
+    fontSize: sf(11),
     fontWeight: '900',
   },
+
   eventTime: {
     color: 'rgba(0,0,0,0.65)',
-    fontSize: sf(11),
+    fontSize: sf(9),
     fontWeight: '700',
-    marginTop: sv(2),
+    marginTop: sv(1),
   },
 });

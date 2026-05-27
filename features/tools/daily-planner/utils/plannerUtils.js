@@ -2,7 +2,11 @@ import { Dimensions } from 'react-native';
 import { s, sv } from '../../../../constants/layout';
 
 export const SCREEN_WIDTH = Dimensions.get('window').width;
-export const SLOT_HEIGHT = sv(48);
+
+// 30 Minuten = 28px.
+// Dadurch sind ca. 12 Stunden gleichzeitig sichtbar.
+export const SLOT_HEIGHT = sv(28);
+
 export const TIME_LABEL_WIDTH = s(58);
 export const TOTAL_SLOTS = 48;
 export const MINUTES_PER_SLOT = 30;

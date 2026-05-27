@@ -43,8 +43,8 @@ export function EditExerciseModal({ visible, exercise, onClose, onSave, onDelete
     setError(null);
     try {
       await onSave({ name, weight, sets, reps, note });
-    } catch {
-      setError('Übung konnte nicht gespeichert werden.');
+    } catch (e) {
+      setError(e?.message || 'Übung konnte nicht gespeichert werden.');
       setSaving(false);
     }
   };

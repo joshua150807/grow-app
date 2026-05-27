@@ -7,14 +7,22 @@ import { s } from '../../../../constants/layout';
 import { useTrainingPlan } from '../hooks/useTrainingPlan';
 import { styles } from '../styles/trainingStyles';
 
+function getDayType(day) {
+  if (day?.type === 'run' || day?.day_type === 'run') return 'run';
+  if (day?.type === 'rest' || day?.day_type === 'rest') return 'rest';
+  return 'gym';
+}
+
 export default function TrainingSessionSelectScreen() {
   const { plan, loading, error, loadPlan } = useTrainingPlan();
 
   const handleSelectDay = (day) => {
+    if (getDayType(day) === 'rest') return;
+
     router.push({
-        pathname: '/tools/training-session-active',
-        params: { dayId: day.id },
-    })
+      pathname: '/tools/training-session-active',
+      params: { dayId: day.id },
+    });
   };
 
   if (loading) {
@@ -74,27 +82,43 @@ export default function TrainingSessionSelectScreen() {
 
         <Text style={styles.sectionLabel}>TRAININGSTAGE</Text>
 
-        {plan.days.map((day) => (
-          <Pressable
-            key={day.id}
-            style={styles.trainingDaySelectCard}
-            onPress={() => handleSelectDay(day)}
-          >
-            <View style={styles.trainingDaySelectIconWrap}>
-              <Ionicons name="barbell-outline" size={s(22)} color={COLORS.gold} />
-            </View>
+        {plan.days.map((day) => {
+          const exerciseCount = day.exercises?.length || 0;
+          const dayType = getDayType(day);
+          const isRunDay = dayType === 'run';
+          const isRestDay = dayType === 'rest';
 
-            <View style={styles.trainingDaySelectContent}>
-              <Text style={styles.trainingDaySelectTitle}>{day.name}</Text>
-              <Text style={styles.trainingDaySelectSubtitle}>
-                {day.exercises?.length || 0}{' '}
-                {(day.exercises?.length || 0) === 1 ? 'Übung' : 'Übungen'}
-              </Text>
-            </View>
+          return (
+            <Pressable
+              key={day.id}
+              style={[styles.trainingDaySelectCard, isRestDay && { opacity: 0.65 }]}
+              onPress={() => handleSelectDay(day)}
+            >
+              <View style={styles.trainingDaySelectIconWrap}>
+                <Ionicons
+                  name={isRunDay ? 'walk-outline' : isRestDay ? 'moon-outline' : 'barbell-outline'}
+                  size={s(22)}
+                  color={COLORS.gold}
+                />
+              </View>
 
-            <Ionicons name="chevron-forward" size={s(20)} color={COLORS.textDim} />
-          </Pressable>
-        ))}
+              <View style={styles.trainingDaySelectContent}>
+                <Text style={styles.trainingDaySelectTitle}>{day.name}</Text>
+                <Text style={styles.trainingDaySelectSubtitle}>
+                  {isRunDay
+                    ? 'Laufeinheit'
+                    : isRestDay
+                      ? 'Rest Day / nicht speicherbar'
+                      : `${exerciseCount} ${exerciseCount === 1 ? 'Übung' : 'Übungen'}`}
+                </Text>
+              </View>
+
+              {!isRestDay ? (
+                <Ionicons name="chevron-forward" size={s(20)} color={COLORS.textDim} />
+              ) : null}
+            </Pressable>
+          );
+        })}
       </ScrollView>
     </View>
   );
