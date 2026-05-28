@@ -29,24 +29,44 @@ export function useAuth() {
 
 export default function RootLayout() {
   const [session, setSession] = useState(undefined);
-  const [startupReady, setStartupReady] = useState(false);
   const [startupProfile, setStartupProfile] = useState(null);
 
   useEffect(() => {
-    // Einmaliger Check beim Start
+    // Lokale Tools-Overview-Bilder sofort anwärmen, aber niemals den Appstart blockieren.
+    preloadStartupImageAssets().catch((err) => {
+      console.log('Tool-Bilder konnten nicht vorgeladen werden:', err);
+    });
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    // Nur die Session-Prüfung darf das native Startsymbol kurz halten.
     supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session ?? null);
+      if (mounted) {
+        setSession(data.session ?? null);
+      }
     });
 
-    // Echtzeit-Listener: reagiert auf Login, Logout, Token-Refresh
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession ?? null);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
+
+  useEffect(() => {
+    if (session === undefined) return;
+
+    // Sobald die Session bekannt ist, darf der Feed rendern.
+    // Profil/Tool-Daten laufen danach im Hintergrund.
+    SplashScreen.hideAsync().catch(() => {});
+  }, [session]);
 
   const reloadStartupProfile = useCallback(async () => {
     if (!session?.user?.id) {
@@ -63,63 +83,31 @@ export default function RootLayout() {
   useEffect(() => {
     let cancelled = false;
 
-    async function prepareStartupData() {
-      // undefined = Session wurde noch nicht geprüft
-      if (session === undefined) return;
-
-      setStartupReady(false);
-
+    async function loadProfileInBackground() {
       try {
-        // Lokale Bilder vorbereiten
-        const assetPromise = preloadStartupImageAssets();
-
-        // Kein User eingeloggt
         if (!session?.user?.id) {
           setStartupProfile(null);
-          await assetPromise;
-
-          if (!cancelled) {
-            setStartupReady(true);
-          }
-
           return;
         }
 
-        // User ist eingeloggt:
-        // Profil + lokale Bilder parallel vorbereiten
-        const [profile] = await Promise.all([
-          loadProfileData(session.user.id),
-          assetPromise,
-        ]);
+        const profile = await loadProfileData(session.user.id);
 
         if (!cancelled) {
           setStartupProfile(profile);
-          setStartupReady(true);
         }
       } catch (err) {
-        console.log('Fehler beim Vorbereiten der Startdaten:', err);
-
-        // App trotzdem weiter starten lassen
-        if (!cancelled) {
-          setStartupReady(true);
-        }
+        console.log('Profil konnte im Hintergrund nicht geladen werden:', err);
       }
     }
 
-    prepareStartupData();
+    if (session !== undefined) {
+      loadProfileInBackground();
+    }
 
     return () => {
       cancelled = true;
     };
   }, [session]);
-
-  const appIsReady = session !== undefined && startupReady;
-
-  useEffect(() => {
-    if (!appIsReady) return;
-
-    SplashScreen.hideAsync().catch(() => {});
-  }, [appIsReady]);
 
   const startupProfileValue = useMemo(
     () => ({
@@ -132,19 +120,16 @@ export default function RootLayout() {
   useEffect(() => {
     let cancelled = false;
 
-    async function requestMotionPermissionOnStartup() {
+    async function requestMotionPermissionAfterStartup() {
       try {
-        // Erst starten, wenn Session/Startup fertig ist
-        if (!startupReady) return;
-
-        // Optional: Nur eingeloggte Nutzer fragen
+        // Start niemals wegen Motion Permission blockieren.
+        if (session === undefined) return;
         if (!session?.user?.id) return;
 
         const available = await Pedometer.isAvailableAsync();
         if (!available || cancelled) return;
 
         const currentPermission = await Pedometer.getPermissionsAsync();
-
         if (cancelled) return;
 
         if (currentPermission.status !== 'granted') {
@@ -155,16 +140,16 @@ export default function RootLayout() {
       }
     }
 
-    requestMotionPermissionOnStartup();
+    requestMotionPermissionAfterStartup();
 
     return () => {
       cancelled = true;
     };
-  }, [startupReady, session?.user?.id]);
+  }, [session]);
 
-  // Native Splash bleibt sichtbar, bis Auth/Startup fertig ist.
-  // Falls JS vorher rendert, ist der Fallback ebenfalls komplett schwarz mit Grow-Symbol.
-  if (!appIsReady) {
+  // Nur die Session-Prüfung zeigt noch kurz das Grow-Symbol.
+  // Feed, Profil, Tool-Bilder und Tool-Daten blockieren den Appstart nicht.
+  if (session === undefined) {
     return (
       <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
         <View
@@ -196,6 +181,7 @@ export default function RootLayout() {
             screenOptions={{
               headerShown: false,
               contentStyle: { backgroundColor: COLORS.background },
+              animation: 'none',
             }}
           />
         </StartupProfileContext.Provider>

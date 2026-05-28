@@ -12,10 +12,16 @@ import {
   minutesToTime,
   DAY_MINUTES,
 } from '../utils/plannerUtils';
+import { getPreloadedToolData, setPreloadedToolData } from '../../../../lib/preloadedTools';
 
 export function useDailyPlannerEvents(currentYear, currentMonth, selectedDate) {
-  const [monthEventDates, setMonthEventDates] = useState(new Set());
-  const [events, setEvents] = useState([]);
+  const monthCacheKey = `plannerMonth:${currentYear}-${currentMonth}`;
+  const dayCacheKey = selectedDate ? `plannerDay:${selectedDate}` : null;
+  const preloadedMonthEvents = getPreloadedToolData(monthCacheKey);
+  const preloadedDayEvents = dayCacheKey ? getPreloadedToolData(dayCacheKey) : null;
+
+  const [monthEventDates, setMonthEventDates] = useState(() => new Set((preloadedMonthEvents ?? []).map(event => event.date)));
+  const [events, setEvents] = useState(() => preloadedDayEvents ?? []);
   const [dayLoading, setDayLoading] = useState(false);
   const [dayError, setDayError] = useState(null);
 
@@ -28,6 +34,7 @@ export function useDailyPlannerEvents(currentYear, currentMonth, selectedDate) {
 
         if (!cancelled) {
           setMonthEventDates(new Set(data.map(event => event.date)));
+          setPreloadedToolData(monthCacheKey, data);
         }
       } catch {
         // Dots may fail silently.
@@ -39,25 +46,42 @@ export function useDailyPlannerEvents(currentYear, currentMonth, selectedDate) {
     return () => {
       cancelled = true;
     };
-  }, [currentYear, currentMonth]);
+  }, [currentYear, currentMonth, monthCacheKey]);
 
-  const loadDayEvents = useCallback(async (dateStr) => {
-    setDayLoading(true);
+  const loadDayEvents = useCallback(async (dateStr, { silent = false } = {}) => {
+    if (!silent) {
+      setDayLoading(true);
+    }
     setDayError(null);
+
+    const cacheKey = `plannerDay:${dateStr}`;
 
     try {
       const data = await getEventsForDate(dateStr);
       setEvents(data);
+      setPreloadedToolData(cacheKey, data);
     } catch {
       setDayError('Termine konnten nicht geladen werden.');
     } finally {
-      setDayLoading(false);
+      if (!silent) {
+        setDayLoading(false);
+      }
     }
   }, []);
 
   const clearEvents = useCallback(() => {
     setEvents([]);
   }, []);
+
+  useEffect(() => {
+    if (!selectedDate || !dayCacheKey) return;
+
+    const cached = getPreloadedToolData(dayCacheKey);
+    if (cached) {
+      setEvents(cached);
+      loadDayEvents(selectedDate, { silent: true });
+    }
+  }, [selectedDate, dayCacheKey, loadDayEvents]);
 
   const saveEvent = useCallback(async ({
     editingEventId = null,
@@ -86,11 +110,13 @@ export function useDailyPlannerEvents(currentYear, currentMonth, selectedDate) {
         color: modalColor,
       });
 
-      setEvents(prev =>
-        prev
+      setEvents(prev => {
+        const nextEvents = prev
           .map(event => event.id === editingEventId ? updatedEvent : event)
-          .sort((a, b) => a.start_time.localeCompare(b.start_time))
-      );
+          .sort((a, b) => a.start_time.localeCompare(b.start_time));
+        setPreloadedToolData(`plannerDay:${selectedDate}`, nextEvents);
+        return nextEvents;
+      });
 
       return updatedEvent;
     }
@@ -103,9 +129,11 @@ export function useDailyPlannerEvents(currentYear, currentMonth, selectedDate) {
       color: modalColor,
     });
 
-    setEvents(prev =>
-      [...prev, newEvent].sort((a, b) => a.start_time.localeCompare(b.start_time))
-    );
+    setEvents(prev => {
+      const nextEvents = [...prev, newEvent].sort((a, b) => a.start_time.localeCompare(b.start_time));
+      setPreloadedToolData(`plannerDay:${selectedDate}`, nextEvents);
+      return nextEvents;
+    });
 
     setMonthEventDates(prev => new Set([...prev, selectedDate]));
 
@@ -113,7 +141,13 @@ export function useDailyPlannerEvents(currentYear, currentMonth, selectedDate) {
   }, [selectedDate]);
 
   const removeEvent = useCallback(async (id) => {
-    setEvents(prev => prev.filter(event => event.id !== id));
+    setEvents(prev => {
+      const nextEvents = prev.filter(event => event.id !== id);
+      if (selectedDate) {
+        setPreloadedToolData(`plannerDay:${selectedDate}`, nextEvents);
+      }
+      return nextEvents;
+    });
 
     try {
       await deleteEvent(id);

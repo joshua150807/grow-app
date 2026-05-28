@@ -9,45 +9,71 @@ import {
 } from '../../../tools/habits/services/habits';
 
 import { getDateForDayIndex } from '../utils/habitUtils';
+import { getPreloadedToolData, setPreloadedToolData } from '../../../../lib/preloadedTools';
 
 export function useHabits(selectedDay) {
-  const [habits, setHabits] = useState([]);
-  const [completedIds, setCompletedIds] = useState(new Set());
-  const [loading, setLoading] = useState(true);
+  const selectedDate = getDateForDayIndex(selectedDay);
+  const completionsCacheKey = `habitCompletions:${selectedDate}`;
+  const preloadedHabits = getPreloadedToolData('habits');
+  const preloadedCompletedIds = getPreloadedToolData(completionsCacheKey);
+
+  const [habits, setHabits] = useState(() => preloadedHabits ?? []);
+  const [completedIds, setCompletedIds] = useState(() => new Set(preloadedCompletedIds ?? []));
+  const [loading, setLoading] = useState(!preloadedHabits);
   const [loadError, setLoadError] = useState(null);
   const [actionError, setActionError] = useState(null);
 
-  const loadHabits = useCallback(async () => {
+  const loadHabits = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setLoadError(null);
 
     try {
       const data = await getHabits();
       setHabits(data);
+      setPreloadedToolData('habits', data);
     } catch (e) {
       setLoadError('Gewohnheiten konnten nicht geladen werden.');
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
   const loadCompletions = useCallback(async () => {
-    const date = getDateForDayIndex(selectedDay);
-
     try {
-      const ids = await getCompletionsForDate(date);
+      const ids = await getCompletionsForDate(selectedDate);
       setCompletedIds(new Set(ids));
+      setPreloadedToolData(completionsCacheKey, ids);
     } catch (e) {
       setActionError('Fortschritt konnte nicht geladen werden.');
     }
-  }, [selectedDay]);
+  }, [selectedDate, completionsCacheKey]);
 
   useEffect(() => {
+    const cached = getPreloadedToolData('habits');
+
+    if (cached) {
+      setHabits(cached);
+      setLoading(false);
+      loadHabits({ silent: true });
+      return;
+    }
+
     loadHabits();
   }, [loadHabits]);
 
   useEffect(() => {
+    const cached = getPreloadedToolData(completionsCacheKey);
+
+    if (cached) {
+      setCompletedIds(new Set(cached));
+    }
+
     loadCompletions();
-  }, [loadCompletions]);
+  }, [loadCompletions, completionsCacheKey]);
 
   const visibleHabits = useMemo(
     () => habits.filter(habit => habit.days.includes(selectedDay)),
@@ -63,7 +89,6 @@ export function useHabits(selectedDay) {
   const progress = total === 0 ? 0 : completedCount / total;
 
   const toggle = useCallback(async (id) => {
-    const date = getDateForDayIndex(selectedDay);
     const isDone = completedIds.has(id);
 
     setCompletedIds(prev => {
@@ -73,7 +98,12 @@ export function useHabits(selectedDay) {
     });
 
     try {
-      await toggleCompletion(id, date, !isDone);
+      await toggleCompletion(id, selectedDate, !isDone);
+      setPreloadedToolData(completionsCacheKey, Array.from(
+        isDone
+          ? new Set(Array.from(completedIds).filter(itemId => itemId !== id))
+          : new Set([...Array.from(completedIds), id])
+      ));
     } catch (e) {
       setActionError('Änderung konnte nicht gespeichert werden.');
 
@@ -83,10 +113,14 @@ export function useHabits(selectedDay) {
         return next;
       });
     }
-  }, [selectedDay, completedIds]);
+  }, [selectedDate, completedIds, completionsCacheKey]);
 
   const remove = useCallback(async (id) => {
-    setHabits(prev => prev.filter(habit => habit.id !== id));
+    setHabits(prev => {
+      const nextHabits = prev.filter(habit => habit.id !== id);
+      setPreloadedToolData('habits', nextHabits);
+      return nextHabits;
+    });
 
     try {
       await deleteHabit(id);
@@ -98,7 +132,11 @@ export function useHabits(selectedDay) {
 
   const add = useCallback(async (name, days) => {
     const newHabit = await addHabit(name, days);
-    setHabits(prev => [...prev, newHabit]);
+    setHabits(prev => {
+      const nextHabits = [...prev, newHabit];
+      setPreloadedToolData('habits', nextHabits);
+      return nextHabits;
+    });
   }, []);
 
   return {

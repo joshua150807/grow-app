@@ -10,10 +10,12 @@ import {
   renameTrainingDay as renameTrainingDayService,
   addTrainingDay as addTrainingDayService,
 } from '../services/trainingService';
+import { getPreloadedToolData, setPreloadedToolData, clearPreloadedToolData } from '../../../../lib/preloadedTools';
 
 export function useTrainingPlan() {
-  const [plan, setPlan] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const preloadedPlan = getPreloadedToolData('trainingPlan');
+  const [plan, setPlan] = useState(() => preloadedPlan ?? null);
+  const [loading, setLoading] = useState(!preloadedPlan);
   const [error, setError] = useState(null);
   const planRef = useRef(plan);
   planRef.current = plan;
@@ -28,6 +30,7 @@ export function useTrainingPlan() {
     try {
       const data = await fetchTrainingPlan();
       setPlan(data);
+      setPreloadedToolData('trainingPlan', data);
     } catch (e) {
       console.error('[Training Hook] Load error:', e);
       setError('Trainingsplan konnte nicht geladen werden.');
@@ -39,7 +42,7 @@ export function useTrainingPlan() {
   }, []);
 
   useEffect(() => {
-    loadPlan();
+    loadPlan({ silent: Boolean(preloadedPlan) });
   }, [loadPlan]);
 
   const savePlan = useCallback(async (planName, daysData) => {
@@ -51,7 +54,7 @@ export function useTrainingPlan() {
       console.error('[Training Hook] Reload after save failed:', e);
 
       // Fallback, damit SetupView nicht fälschlich einen Fehler zeigt.
-      setPlan({
+      const fallbackPlan = {
         ...createdPlan,
         days: daysData.map((day, index) => ({
           id: `temp-day-${index}`,
@@ -60,7 +63,9 @@ export function useTrainingPlan() {
           day_type: day.type || 'gym',
           exercises: day.exercises || [],
         })),
-      });
+      };
+      setPlan(fallbackPlan);
+      setPreloadedToolData('trainingPlan', fallbackPlan);
     }
   }, [loadPlan]);
 
@@ -86,6 +91,7 @@ export function useTrainingPlan() {
 
     await deleteTrainingPlanService(currentPlan.id);
     setPlan(null);
+    clearPreloadedToolData('trainingPlan');
   }, []);
 
   const renameDay = useCallback(async (dayId, newName) => {

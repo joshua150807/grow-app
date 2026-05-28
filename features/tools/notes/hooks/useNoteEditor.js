@@ -11,21 +11,25 @@ import {
   isEmptyNote,
   normalizeNoteBody,
 } from '../utils/noteTextUtils';
+import { getPreloadedToolData, setPreloadedToolData } from '../../../../lib/preloadedTools';
 
 const AUTOSAVE_DELAY_MS = 900;
 
 export function useNoteEditor(noteId) {
+  const preloadedNotes = getPreloadedToolData('notes') ?? [];
+  const preloadedNote = noteId ? preloadedNotes.find((note) => note.id === noteId) : null;
+
   const [localNoteId, setLocalNoteId] = useState(noteId ?? null);
-  const [body, setBody] = useState('');
-  const [initialBody, setInitialBody] = useState('');
-  const [noteMeta, setNoteMeta] = useState(null);
-  const [loading, setLoading] = useState(Boolean(noteId));
+  const [body, setBody] = useState(preloadedNote?.body ?? '');
+  const [initialBody, setInitialBody] = useState(preloadedNote?.body ?? '');
+  const [noteMeta, setNoteMeta] = useState(preloadedNote ?? null);
+  const [loading, setLoading] = useState(Boolean(noteId && !preloadedNote));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
   const saveTimerRef = useRef(null);
   const latestBodyRef = useRef('');
-  const hasLoadedRef = useRef(!noteId);
+  const hasLoadedRef = useRef(!noteId || Boolean(preloadedNote));
 
   latestBodyRef.current = body;
 
@@ -42,7 +46,9 @@ export function useNoteEditor(noteId) {
     async function loadNote() {
       if (!noteId) return;
 
-      setLoading(true);
+      if (!preloadedNote) {
+        setLoading(true);
+      }
       setError(null);
 
       try {
@@ -59,6 +65,11 @@ export function useNoteEditor(noteId) {
         setBody(note.body ?? '');
         setInitialBody(note.body ?? '');
         setNoteMeta(note);
+        const existingNotes = getPreloadedToolData('notes') ?? [];
+        const nextNotes = existingNotes.some((item) => item.id === note.id)
+          ? existingNotes.map((item) => (item.id === note.id ? note : item))
+          : [note, ...existingNotes];
+        setPreloadedToolData('notes', nextNotes);
         hasLoadedRef.current = true;
       } catch (loadError) {
         console.log('[NoteEditor] Load failed:', loadError);
@@ -105,6 +116,7 @@ export function useNoteEditor(noteId) {
           setLocalNoteId(createdNote.id);
           setInitialBody(createdNote.body ?? '');
           setNoteMeta(createdNote);
+          setPreloadedToolData('notes', [createdNote, ...(getPreloadedToolData('notes') ?? [])]);
         }
 
         return createdNote;
@@ -114,6 +126,8 @@ export function useNoteEditor(noteId) {
 
       setInitialBody(updatedNote.body ?? '');
       setNoteMeta(updatedNote);
+      const existingNotes = getPreloadedToolData('notes') ?? [];
+      setPreloadedToolData('notes', existingNotes.map((item) => (item.id === updatedNote.id ? updatedNote : item)));
 
       return updatedNote;
     } catch (saveError) {
@@ -153,6 +167,7 @@ export function useNoteEditor(noteId) {
     if (!localNoteId) return;
 
     await deleteNote(localNoteId);
+    setPreloadedToolData('notes', (getPreloadedToolData('notes') ?? []).filter((note) => note.id !== localNoteId));
   }, [clearSaveTimer, localNoteId]);
 
   return {

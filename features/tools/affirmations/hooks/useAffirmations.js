@@ -9,18 +9,20 @@ import {
   deleteAffirmation,
 } from '../services/affirmations';
 import { getTodayIsoDate } from '../utils/affirmationUtils';
+import { getPreloadedToolData, setPreloadedToolData } from '../../../../lib/preloadedTools';
 
 function sortAffirmations(items) {
   return [...items].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 }
 
 export function useAffirmations() {
-  const [affirmations, setAffirmations] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const preloadedAffirmations = getPreloadedToolData('affirmations');
+  const [affirmations, setAffirmations] = useState(() => preloadedAffirmations ?? []);
+  const [loading, setLoading] = useState(!preloadedAffirmations);
   const [loadError, setLoadError] = useState(null);
   const [actionError, setActionError] = useState(null);
 
-  const hasLoadedOnceRef = useRef(false);
+  const hasLoadedOnceRef = useRef(Boolean(preloadedAffirmations));
 
   const loadAffirmations = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
@@ -29,6 +31,7 @@ export function useAffirmations() {
     try {
       const data = await getAffirmations();
       setAffirmations(data);
+      setPreloadedToolData('affirmations', data);
       hasLoadedOnceRef.current = true;
     } catch (error) {
       console.log('[Affirmations] Load failed:', error);
@@ -48,7 +51,11 @@ export function useAffirmations() {
     try {
       const created = await createAffirmation({ text, category });
       if (created) {
-        setAffirmations((current) => [created, ...current]);
+        setAffirmations((current) => {
+          const nextItems = [created, ...current];
+          setPreloadedToolData('affirmations', nextItems);
+          return nextItems;
+        });
       }
       return created;
     } catch (error) {
@@ -61,23 +68,28 @@ export function useAffirmations() {
   const editAffirmation = useCallback(async (id, payload) => {
     const previous = affirmations;
 
-    setAffirmations((current) =>
-      current.map((item) =>
+    setAffirmations((current) => {
+      const nextItems = current.map((item) =>
         item.id === id
           ? { ...item, ...payload, updated_at: new Date().toISOString() }
           : item
-      )
-    );
+      );
+      setPreloadedToolData('affirmations', nextItems);
+      return nextItems;
+    });
 
     try {
       const updated = await updateAffirmation(id, payload);
-      setAffirmations((current) =>
-        current.map((item) => (item.id === id ? updated : item))
-      );
+      setAffirmations((current) => {
+        const nextItems = current.map((item) => (item.id === id ? updated : item));
+        setPreloadedToolData('affirmations', nextItems);
+        return nextItems;
+      });
       return updated;
     } catch (error) {
       console.log('[Affirmations] Update failed:', error);
       setAffirmations(previous);
+      setPreloadedToolData('affirmations', previous);
       setActionError('Affirmation konnte nicht aktualisiert werden.');
       throw error;
     }
@@ -89,8 +101,8 @@ export function useAffirmations() {
     const shouldRepeat = !wasRepeatedToday;
     const previous = affirmations;
 
-    setAffirmations((current) =>
-      current.map((item) =>
+    setAffirmations((current) => {
+      const nextItems = current.map((item) =>
         item.id === affirmation.id
           ? {
               ...item,
@@ -101,8 +113,10 @@ export function useAffirmations() {
               updated_at: new Date().toISOString(),
             }
           : item
-      )
-    );
+      );
+      setPreloadedToolData('affirmations', nextItems);
+      return nextItems;
+    });
 
     try {
       const updated = await setAffirmationRepeated(
@@ -111,12 +125,15 @@ export function useAffirmations() {
         affirmation.total_repetitions
       );
 
-      setAffirmations((current) =>
-        current.map((item) => (item.id === affirmation.id ? updated : item))
-      );
+      setAffirmations((current) => {
+        const nextItems = current.map((item) => (item.id === affirmation.id ? updated : item));
+        setPreloadedToolData('affirmations', nextItems);
+        return nextItems;
+      });
     } catch (error) {
       console.log('[Affirmations] Repeat failed:', error);
       setAffirmations(previous);
+      setPreloadedToolData('affirmations', previous);
       setActionError('Status konnte nicht gespeichert werden.');
     }
   }, [affirmations]);
@@ -124,13 +141,18 @@ export function useAffirmations() {
   const removeAffirmation = useCallback(async (id) => {
     const previous = affirmations;
 
-    setAffirmations((current) => current.filter((item) => item.id !== id));
+    setAffirmations((current) => {
+      const nextItems = current.filter((item) => item.id !== id);
+      setPreloadedToolData('affirmations', nextItems);
+      return nextItems;
+    });
 
     try {
       await deleteAffirmation(id);
     } catch (error) {
       console.log('[Affirmations] Delete failed:', error);
       setAffirmations(previous);
+      setPreloadedToolData('affirmations', previous);
       setActionError('Affirmation konnte nicht gelöscht werden.');
     }
   }, [affirmations]);

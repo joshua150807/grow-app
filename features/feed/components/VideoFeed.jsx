@@ -35,6 +35,7 @@ export default function VideoFeed({
   reloadOnFocus = false,
   syncSavedStateOnFocus = false,
   removeUnsavedVideos = false,
+  onFirstVideoShown,
 }) {
   const [feedData, setFeedData] = useState([]);
   const [activeVideoId, setActiveVideoId] = useState(null);
@@ -174,7 +175,8 @@ export default function VideoFeed({
   const handleInitialVideoReady = useCallback(() => {
     clearVideoReadyFallbackTimer();
     setIsInitialLoading(false);
-  }, [clearVideoReadyFallbackTimer]);
+    onFirstVideoShown?.();
+  }, [clearVideoReadyFallbackTimer, onFirstVideoShown]);
 
   const handleToggleSaved = useCallback(
     async (id) => {

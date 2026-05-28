@@ -7,29 +7,37 @@ import {
   updateTodo,
 } from '../services/todo';
 import { sortTodos } from '../utils/todoUtils';
+import { getPreloadedToolData, setPreloadedToolData } from '../../../../lib/preloadedTools';
 
 export function useTodos() {
-  const [todos, setTodos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const preloadedTodos = getPreloadedToolData('todos');
+  const [todos, setTodos] = useState(() => sortTodos(preloadedTodos ?? []));
+  const [loading, setLoading] = useState(!preloadedTodos);
   const [error, setError] = useState(null);
 
-  const loadTodos = useCallback(async () => {
+  const loadTodos = useCallback(async ({ silent = false } = {}) => {
     try {
       setError(null);
-      setLoading(true);
+      if (!silent) {
+        setLoading(true);
+      }
 
       const data = await getTodos();
-      setTodos(sortTodos(data));
+      const sorted = sortTodos(data);
+      setTodos(sorted);
+      setPreloadedToolData('todos', sorted);
     } catch (e) {
       console.log('Fehler beim Laden der Todos:', e);
       setError('Todos konnten nicht geladen werden.');
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    loadTodos();
+    loadTodos({ silent: Boolean(preloadedTodos) });
   }, [loadTodos]);
 
   const completedCount = todos.filter(t => t.completed).length;
@@ -39,25 +47,33 @@ export function useTodos() {
   const toggle = useCallback(async (id, current) => {
     const next = !current;
 
-    setTodos(prev =>
-      sortTodos(prev.map(t =>
+    setTodos(prev => {
+      const nextTodos = sortTodos(prev.map(t =>
         t.id === id ? { ...t, completed: next } : t
-      ))
-    );
+      ));
+      setPreloadedToolData('todos', nextTodos);
+      return nextTodos;
+    });
 
     try {
       await toggleTodo(id, next);
     } catch {
-      setTodos(prev =>
-        sortTodos(prev.map(t =>
+      setTodos(prev => {
+        const nextTodos = sortTodos(prev.map(t =>
           t.id === id ? { ...t, completed: current } : t
-        ))
-      );
+        ));
+        setPreloadedToolData('todos', nextTodos);
+        return nextTodos;
+      });
     }
   }, []);
 
   const remove = useCallback(async (id) => {
-    setTodos(prev => prev.filter(t => t.id !== id));
+    setTodos(prev => {
+      const nextTodos = prev.filter(t => t.id !== id);
+      setPreloadedToolData('todos', nextTodos);
+      return nextTodos;
+    });
 
     try {
       await deleteTodo(id);
@@ -72,7 +88,11 @@ export function useTodos() {
       date ? date.toISOString() : null
     );
 
-    setTodos(prev => sortTodos([...prev, newTodo]));
+    setTodos(prev => {
+      const nextTodos = sortTodos([...prev, newTodo]);
+      setPreloadedToolData('todos', nextTodos);
+      return nextTodos;
+    });
   }, []);
 
   const update = useCallback(async (id, title, date) => {
@@ -82,11 +102,13 @@ export function useTodos() {
       date ? date.toISOString() : null
     );
 
-    setTodos(prev =>
-      sortTodos(prev.map(t =>
+    setTodos(prev => {
+      const nextTodos = sortTodos(prev.map(t =>
         t.id === id ? updatedTodo : t
-      ))
-    );
+      ));
+      setPreloadedToolData('todos', nextTodos);
+      return nextTodos;
+    });
   }, []);
 
   return {

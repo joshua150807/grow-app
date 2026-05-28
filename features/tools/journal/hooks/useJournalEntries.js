@@ -6,29 +6,36 @@ import {
   updateJournalEntry,
   deleteJournalEntry,
 } from '../services/journal';
+import { getPreloadedToolData, setPreloadedToolData } from '../../../../lib/preloadedTools';
 
 export function useJournalEntries(selectedDate) {
-  const [entries, setEntries] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const preloadedEntries = getPreloadedToolData('journal');
+  const [entries, setEntries] = useState(() => preloadedEntries ?? []);
+  const [loading, setLoading] = useState(!preloadedEntries);
   const [loadError, setLoadError] = useState(null);
   const [actionError, setActionError] = useState(null);
 
-  const loadEntries = useCallback(async () => {
-    setLoading(true);
+  const loadEntries = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setLoadError(null);
 
     try {
       const data = await getJournalEntries();
       setEntries(data);
+      setPreloadedToolData('journal', data);
     } catch (e) {
       setLoadError('Journal konnte nicht geladen werden.');
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    loadEntries();
+    loadEntries({ silent: Boolean(preloadedEntries) });
   }, [loadEntries]);
 
   const visibleEntries = useMemo(
@@ -45,44 +52,62 @@ export function useJournalEntries(selectedDate) {
 
   const add = useCallback(async (payload) => {
     const createdEntry = await addJournalEntry(payload);
-    setEntries(prev => [createdEntry, ...prev]);
+    setEntries(prev => {
+      const nextEntries = [createdEntry, ...prev];
+      setPreloadedToolData('journal', nextEntries);
+      return nextEntries;
+    });
   }, []);
 
   const update = useCallback(async (id, payload) => {
     const previousEntries = entries;
 
-    setEntries(prev => prev.map(entry => (
-      entry.id === id
-        ? {
-            ...entry,
-            gratitude: payload.gratitude,
-            did_well: payload.didWell,
-            improve_tomorrow: payload.improveTomorrow,
-            habits_completed: payload.habitsCompleted,
-            missed_habits: payload.habitsCompleted ? null : payload.missedHabits,
-          }
-        : entry
-    )));
+    setEntries(prev => {
+      const nextEntries = prev.map(entry => (
+        entry.id === id
+          ? {
+              ...entry,
+              gratitude: payload.gratitude,
+              did_well: payload.didWell,
+              improve_tomorrow: payload.improveTomorrow,
+              habits_completed: payload.habitsCompleted,
+              missed_habits: payload.habitsCompleted ? null : payload.missedHabits,
+            }
+          : entry
+      ));
+      setPreloadedToolData('journal', nextEntries);
+      return nextEntries;
+    });
 
     try {
       const updatedEntry = await updateJournalEntry(id, payload);
-      setEntries(prev => prev.map(entry => entry.id === id ? updatedEntry : entry));
+      setEntries(prev => {
+        const nextEntries = prev.map(entry => entry.id === id ? updatedEntry : entry);
+        setPreloadedToolData('journal', nextEntries);
+        return nextEntries;
+      });
     } catch (e) {
       setActionError('Journal-Eintrag konnte nicht aktualisiert werden.');
       setEntries(previousEntries);
+      setPreloadedToolData('journal', previousEntries);
       throw e;
     }
   }, [entries]);
 
   const remove = useCallback(async (id) => {
     const previousEntries = entries;
-    setEntries(prev => prev.filter(entry => entry.id !== id));
+    setEntries(prev => {
+      const nextEntries = prev.filter(entry => entry.id !== id);
+      setPreloadedToolData('journal', nextEntries);
+      return nextEntries;
+    });
 
     try {
       await deleteJournalEntry(id);
     } catch (e) {
       setActionError('Journal-Eintrag konnte nicht gelöscht werden.');
       setEntries(previousEntries);
+      setPreloadedToolData('journal', previousEntries);
     }
   }, [entries]);
 

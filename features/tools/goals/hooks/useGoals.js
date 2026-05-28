@@ -7,30 +7,47 @@ import {
   deleteGoal,
   updateGoal,
 } from '../services/goals';
+import { getPreloadedToolData, setPreloadedToolData } from '../../../../lib/preloadedTools';
 
 export function useGoals(selectedCategory) {
-  const [goals, setGoals] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const cacheKey = `goals:${selectedCategory}`;
+  const preloadedGoals = getPreloadedToolData(cacheKey);
+  const [goals, setGoals] = useState(() => preloadedGoals ?? []);
+  const [loading, setLoading] = useState(!preloadedGoals);
   const [loadError, setLoadError] = useState(null);
   const [actionError, setActionError] = useState(null);
 
-  const loadGoals = useCallback(async () => {
-    setLoading(true);
+  const loadGoals = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setLoadError(null);
 
     try {
       const data = await getGoals(selectedCategory);
       setGoals(data);
+      setPreloadedToolData(cacheKey, data);
     } catch (e) {
       setLoadError('Ziele konnten nicht geladen werden.');
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
-  }, [selectedCategory]);
+  }, [selectedCategory, cacheKey]);
 
   useEffect(() => {
+    const cached = getPreloadedToolData(cacheKey);
+
+    if (cached) {
+      setGoals(cached);
+      setLoading(false);
+      loadGoals({ silent: true });
+      return;
+    }
+
     loadGoals();
-  }, [loadGoals]);
+  }, [cacheKey, loadGoals]);
 
   const completedCount = useMemo(
     () => goals.filter(goal => goal.completed).length,
@@ -43,23 +60,35 @@ export function useGoals(selectedCategory) {
   const toggle = useCallback(async (id, currentCompleted) => {
     const nextCompleted = !currentCompleted;
 
-    setGoals(prev => prev.map(goal =>
-      goal.id === id ? { ...goal, completed: nextCompleted } : goal
-    ));
+    setGoals(prev => {
+      const nextGoals = prev.map(goal =>
+        goal.id === id ? { ...goal, completed: nextCompleted } : goal
+      );
+      setPreloadedToolData(cacheKey, nextGoals);
+      return nextGoals;
+    });
 
     try {
       await toggleGoal(id, nextCompleted);
     } catch (e) {
       setActionError('Änderung konnte nicht gespeichert werden.');
 
-      setGoals(prev => prev.map(goal =>
-        goal.id === id ? { ...goal, completed: currentCompleted } : goal
-      ));
+      setGoals(prev => {
+        const nextGoals = prev.map(goal =>
+          goal.id === id ? { ...goal, completed: currentCompleted } : goal
+        );
+        setPreloadedToolData(cacheKey, nextGoals);
+        return nextGoals;
+      });
     }
-  }, []);
+  }, [cacheKey]);
 
   const remove = useCallback(async (id) => {
-    setGoals(prev => prev.filter(goal => goal.id !== id));
+    setGoals(prev => {
+      const nextGoals = prev.filter(goal => goal.id !== id);
+      setPreloadedToolData(cacheKey, nextGoals);
+      return nextGoals;
+    });
 
     try {
       await deleteGoal(id);
@@ -67,12 +96,20 @@ export function useGoals(selectedCategory) {
       setActionError('Ziel konnte nicht gelöscht werden.');
       loadGoals();
     }
-  }, [loadGoals]);
+  }, [loadGoals, cacheKey]);
 
   const add = useCallback(async (name, category, deadline) => {
     const newGoal = await addGoal(name, category, deadline);
-    setGoals(prev => [...prev, newGoal]);
-  }, []);
+    if (category !== selectedCategory) {
+      return;
+    }
+
+    setGoals(prev => {
+      const nextGoals = [...prev, newGoal];
+      setPreloadedToolData(cacheKey, nextGoals);
+      return nextGoals;
+    });
+  }, [cacheKey, selectedCategory]);
 
   const update = useCallback(async (id, name, deadline) => {
     const cleanName = name.trim();
@@ -80,24 +117,33 @@ export function useGoals(selectedCategory) {
 
     const previousGoals = goals;
 
-    setGoals(prev => prev.map(goal =>
-      goal.id === id
-        ? { ...goal, name: cleanName, deadline: cleanDeadline }
-        : goal
-    ));
+    setGoals(prev => {
+      const nextGoals = prev.map(goal =>
+        goal.id === id
+          ? { ...goal, name: cleanName, deadline: cleanDeadline }
+          : goal
+      );
+      setPreloadedToolData(cacheKey, nextGoals);
+      return nextGoals;
+    });
 
     try {
       const updatedGoal = await updateGoal(id, cleanName, cleanDeadline);
 
-      setGoals(prev => prev.map(goal =>
-        goal.id === id ? updatedGoal : goal
-      ));
+      setGoals(prev => {
+        const nextGoals = prev.map(goal =>
+          goal.id === id ? updatedGoal : goal
+        );
+        setPreloadedToolData(cacheKey, nextGoals);
+        return nextGoals;
+      });
     } catch (e) {
       setActionError('Ziel konnte nicht aktualisiert werden.');
       setGoals(previousGoals);
+      setPreloadedToolData(cacheKey, previousGoals);
       throw e;
     }
-  }, [goals]);
+  }, [goals, cacheKey]);
 
   return {
     goals,
