@@ -239,8 +239,8 @@ export default function ToolsScreen() {
 
             <Text style={styles.replacePanelText}>
               {replacementTool
-                ? `Wähle ein Tool aus, das durch „${replacementTool.title}“ ersetzt werden soll.`
-                : 'Wähle ein Tool aus, das ersetzt werden soll.'}
+                ? `Ziehe „${replacementTool.title}“ auf den Slot, den du auf deiner 2x3-Tools-Seite ersetzen möchtest.`
+                : 'Ziehe das ausgewählte Tool auf den Slot, den du ersetzen möchtest.'}
             </Text>
 
             <PressableScale
@@ -260,6 +260,7 @@ export default function ToolsScreen() {
           overviewTools={overviewTools}
           visibleToolSlots={visibleToolSlots}
           replacementToolId={replacementToolId}
+          replacementTool={replacementTool}
           reorderMode={reorderMode}
           overviewToolIds={overviewToolIds}
           overviewStyles={styles}

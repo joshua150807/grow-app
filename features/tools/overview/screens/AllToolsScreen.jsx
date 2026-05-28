@@ -68,7 +68,6 @@ export default function AllToolsScreen() {
     [activeTools]
   );
 
-  const [editing, setEditing] = useState(false);
   const [selectedIds, setSelectedIds] = useState(defaultOverviewToolIds);
 
   useEffect(() => {
@@ -97,40 +96,26 @@ export default function AllToolsScreen() {
     };
   }, [activeTools, defaultOverviewToolIds]);
 
-  const handleSelectToolForReplacement = async (tool) => {
+  const handleToolPress = (tool) => {
     if (!tool || tool.disabled || !tool.route) return;
+    router.push(tool.route);
+  };
 
-    if (!editing) {
-      router.push(tool.route);
-      return;
-    }
+  const handleLongPressTool = async (tool) => {
+    if (!tool || tool.disabled || !tool.route) return;
 
     const alreadyOnOverview = selectedIds.includes(tool.id);
 
     if (alreadyOnOverview) {
       Alert.alert(
         'Schon auf der Startseite',
-        'Dieses Tool ist bereits auf deiner normalen Tools-Seite. Wähle ein anderes Tool aus, um es dort einzusetzen.'
+        'Dieses Tool ist bereits auf deiner 2x3-Tools-Seite. Halte ein anderes Tool gedrückt, um es dort einzusetzen.'
       );
       return;
     }
 
     await setPendingReplacementToolId(tool.id);
-
     router.back();
-  };
-
-  const handleToolPress = (tool) => {
-    handleSelectToolForReplacement(tool);
-  };
-
-  const handleLongPressTool = (tool) => {
-    if (!tool || tool.disabled || !tool.route) return;
-    setEditing(true);
-  };
-
-  const handleDone = () => {
-    setEditing(false);
   };
 
   return (
@@ -148,22 +133,10 @@ export default function AllToolsScreen() {
             <Text style={styles.backText}>Tools</Text>
           </PressableScale>
 
-          <PressableScale
-            onPress={editing ? handleDone : () => setEditing(true)}
-            style={styles.allToolsEditButton}
-            activeScale={0.96}
-            activeOpacity={0.8}
-            hitSlop={8}
-          >
-            <Feather
-              name={editing ? 'check' : 'edit-2'}
-              size={s(15)}
-              color={COLORS.toolsGold}
-            />
-            <Text style={styles.allToolsEditText}>
-              {editing ? 'Fertig' : 'Bearbeiten'}
-            </Text>
-          </PressableScale>
+          <View style={styles.allToolsEditButton} pointerEvents="none">
+            <Feather name="move" size={s(15)} color={COLORS.toolsGold} />
+            <Text style={styles.allToolsEditText}>Halten</Text>
+          </View>
         </View>
 
         <ScrollView
@@ -174,22 +147,9 @@ export default function AllToolsScreen() {
             <Text style={styles.title}>ALLE TOOLS</Text>
 
             <Text style={styles.sectionSubtitle}>
-              {editing
-                ? 'Wähle ein Tool aus, das du auf deiner Startseite einsetzen möchtest.'
-                : 'Öffne ein Tool oder halte es gedrückt, um deine Startseite zu bearbeiten.'}
+              Tippe ein Tool an, um es zu öffnen. Halte ein Tool gedrückt, um es auf deiner 2x3-Tools-Seite per Drag-and-Drop zu ersetzen.
             </Text>
           </View>
-
-          {editing && (
-            <View style={styles.editPanel}>
-              <Text style={styles.editPanelTitle}>Startseite bearbeiten</Text>
-
-              <Text style={styles.editPanelText}>
-                Tippe ein Tool an, das noch nicht auf deiner Startseite ist.
-                Danach wählst du auf der Tools-Seite den Slot aus, der ersetzt werden soll.
-              </Text>
-            </View>
-          )}
 
           <View
             style={[
@@ -221,7 +181,7 @@ export default function AllToolsScreen() {
                     description={tool.description}
                     disabled={tool.disabled}
                     selected={selected}
-                    editing={editing && !tool.disabled}
+                    editing={false}
                     onPress={() => handleToolPress(tool)}
                     onLongPress={() => handleLongPressTool(tool)}
                     cardStyle={{

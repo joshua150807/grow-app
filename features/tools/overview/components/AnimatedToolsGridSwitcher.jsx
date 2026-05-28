@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Text, View } from 'react-native';
+import { Animated, PanResponder, Text, View } from 'react-native';
 import { PinchGestureHandler, State } from 'react-native-gesture-handler';
 
 import ToolCard from './ToolCard';
@@ -72,11 +72,135 @@ function ReplacementWiggleWrapper({
   );
 }
 
+function ReplacementDragSource({
+  replacementTool,
+  overviewTools,
+  cardSize,
+  compactGap,
+  compactRowGap,
+  renderToolIcon,
+  onDropOnTool,
+}) {
+  const dragPosition = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const [isDragging, setIsDragging] = useState(false);
+
+  const sourceTop = 0;
+  const sourceLeft = 0;
+  const sourceBottomGap = 14;
+  const gridTop = cardSize + sourceBottomGap;
+
+  const getTargetTool = (dx, dy) => {
+    const fingerX = sourceLeft + cardSize / 2 + dx;
+    const fingerY = sourceTop + cardSize / 2 + dy;
+
+    return overviewTools.find((tool, index) => {
+      if (!tool || tool.placeholder || tool.disabled) return false;
+
+      const col = index % 3;
+      const row = Math.floor(index / 3);
+      const x = col * (cardSize + compactGap);
+      const y = gridTop + row * (cardSize + compactRowGap);
+
+      return (
+        fingerX >= x &&
+        fingerX <= x + cardSize &&
+        fingerY >= y &&
+        fingerY <= y + cardSize
+      );
+    });
+  };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderGrant: () => {
+        setIsDragging(true);
+        dragPosition.setValue({ x: 0, y: 0 });
+      },
+      onPanResponderMove: Animated.event(
+        [null, { dx: dragPosition.x, dy: dragPosition.y }],
+        { useNativeDriver: false }
+      ),
+      onPanResponderRelease: (_, gestureState) => {
+        const targetTool = getTargetTool(gestureState.dx, gestureState.dy);
+        setIsDragging(false);
+
+        if (targetTool) {
+          onDropOnTool(targetTool);
+          return;
+        }
+
+        Animated.spring(dragPosition, {
+          toValue: { x: 0, y: 0 },
+          useNativeDriver: true,
+          speed: 18,
+          bounciness: 4,
+        }).start();
+      },
+      onPanResponderTerminate: () => {
+        setIsDragging(false);
+        Animated.spring(dragPosition, {
+          toValue: { x: 0, y: 0 },
+          useNativeDriver: true,
+          speed: 18,
+          bounciness: 4,
+        }).start();
+      },
+    })
+  ).current;
+
+  if (!replacementTool || !cardSize) return null;
+
+  return (
+    <View
+      style={{
+        height: cardSize,
+        marginBottom: sourceBottomGap,
+        alignItems: 'flex-start',
+      }}
+    >
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={{
+          width: cardSize,
+          height: cardSize,
+          zIndex: 30,
+          elevation: 30,
+          opacity: isDragging ? 0.98 : 1,
+          transform: dragPosition.getTranslateTransform(),
+        }}
+      >
+        <ToolCard
+          icon={replacementTool.image ? undefined : renderToolIcon(replacementTool)}
+          image={replacementTool.image}
+          title={replacementTool.title}
+          description={replacementTool.description}
+          disabled={false}
+          selected={false}
+          editing={false}
+          size="normal"
+          onPress={() => {}}
+          onLongPress={() => {}}
+          cardStyle={{
+            width: '100%',
+            height: '100%',
+            marginBottom: 0,
+          }}
+        />
+      </Animated.View>
+    </View>
+  );
+}
+
 export default function AnimatedToolsGridSwitcher({
   mode,
   overviewTools,
   visibleToolSlots,
   replacementToolId,
+  replacementTool,
   reorderMode,
   overviewToolIds,
   overviewStyles,
@@ -121,6 +245,9 @@ export default function AnimatedToolsGridSwitcher({
 
   const moreToolsButtonMargin = 12;
   const compactTotalHeight = compactGridHeight + moreToolsButtonMargin + moreToolsButtonHeight;
+  const replacementTotalHeight = compactCardSize
+    ? compactCardSize + 14 + compactGridHeight
+    : compactTotalHeight;
 
   const expandedGridHeight = useMemo(() => {
     if (!expandedCardSize) return compactTotalHeight;
@@ -310,47 +437,59 @@ export default function AnimatedToolsGridSwitcher({
 
   const renderReplacementGrid = () => {
     return (
-      <View
-        style={[
-          overviewStyles.grid,
-          {
-            columnGap: compactGap,
-            rowGap: compactRowGap,
-          },
-        ]}
-      >
-        {overviewTools.map((tool, index) => {
-          const selected = overviewToolIds.includes(tool.id);
-          const isSecondRow = index >= 3;
+      <View>
+        <ReplacementDragSource
+          replacementTool={replacementTool}
+          overviewTools={overviewTools}
+          cardSize={compactCardSize}
+          compactGap={compactGap}
+          compactRowGap={compactRowGap}
+          renderToolIcon={renderToolIcon}
+          onDropOnTool={onToolPress}
+        />
 
-          return (
-            <ReplacementWiggleWrapper
-              key={tool.id}
-              active={!tool.placeholder && !tool.disabled}
-              cardSize={compactCardSize}
-              marginBottom={isSecondRow ? 0 : compactRowGap}
-            >
-              <ToolCard
-                icon={tool.image ? undefined : renderToolIcon(tool)}
-                image={tool.image}
-                onPress={() => onToolPress(tool)}
-                onLongPress={undefined}
-                title={tool.title}
-                description={tool.description}
-                disabled={tool.disabled}
-                placeholder={tool.placeholder}
-                selected={selected}
-                editing={false}
-                size="normal"
-                cardStyle={{
-                  width: '100%',
-                  height: '100%',
-                  marginBottom: 0,
-                }}
-              />
-            </ReplacementWiggleWrapper>
-          );
-        })}
+        <View
+          style={[
+            overviewStyles.grid,
+            {
+              columnGap: compactGap,
+              rowGap: compactRowGap,
+            },
+          ]}
+        >
+          {overviewTools.map((tool, index) => {
+            const selected = overviewToolIds.includes(tool.id);
+            const isSecondRow = index >= 3;
+
+            return (
+              <ReplacementWiggleWrapper
+                key={tool.id}
+                active={!tool.placeholder && !tool.disabled}
+                cardSize={compactCardSize}
+                marginBottom={isSecondRow ? 0 : compactRowGap}
+              >
+                <ToolCard
+                  icon={tool.image ? undefined : renderToolIcon(tool)}
+                  image={tool.image}
+                  onPress={() => onToolPress(tool)}
+                  onLongPress={undefined}
+                  title={tool.title}
+                  description={tool.description}
+                  disabled={tool.disabled}
+                  placeholder={tool.placeholder}
+                  selected={selected}
+                  editing={false}
+                  size="normal"
+                  cardStyle={{
+                    width: '100%',
+                    height: '100%',
+                    marginBottom: 0,
+                  }}
+                />
+              </ReplacementWiggleWrapper>
+            );
+          })}
+        </View>
       </View>
     );
   };
@@ -420,7 +559,7 @@ export default function AnimatedToolsGridSwitcher({
   if (replacementToolId) {
     return (
       <View
-        style={{ width: '100%' }}
+        style={{ width: '100%', minHeight: replacementTotalHeight }}
         onLayout={(event) => {
           const nextWidth = event.nativeEvent.layout.width;
           if (nextWidth > 0 && Math.abs(nextWidth - containerWidth) > 1) {
@@ -458,7 +597,6 @@ export default function AnimatedToolsGridSwitcher({
             overflow: 'hidden',
           }}
         >
-          {/* Compact 2x3 + Weitere Tools */}
           <Animated.View
             pointerEvents={isExpanded ? 'none' : 'auto'}
             style={{
@@ -476,7 +614,6 @@ export default function AnimatedToolsGridSwitcher({
             {renderCompactGrid()}
           </Animated.View>
 
-          {/* Expanded 4x4 */}
           <Animated.View
             pointerEvents={isExpanded ? 'auto' : 'none'}
             style={{
