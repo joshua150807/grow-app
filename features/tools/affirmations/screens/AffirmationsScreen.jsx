@@ -25,6 +25,8 @@ import {
   normalizeAffirmationText,
 } from '../utils/affirmationUtils';
 import { styles } from '../styles/affirmationsStyles';
+import PressableScale from '../../../../components/ui/PressableScale';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 
 const emptyForm = {
   text: '',
@@ -70,6 +72,7 @@ export default function AffirmationsScreen() {
     : Math.round((repeatedTodayCount / affirmations.length) * 100);
 
   const currentRepeatItem = affirmations[repeatIndex];
+  const showLoading = useDelayedLoading(loading);
 
   const openCreateModal = useCallback(() => {
     setEditingAffirmation(null);
@@ -170,23 +173,24 @@ export default function AffirmationsScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={8}>
+        <PressableScale onPress={() => router.back()} style={styles.backButton} hitSlop={8}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Tools</Text>
-        </Pressable>
+        </PressableScale>
 
         <View style={styles.topActions}>
-          <Pressable onPress={openCreateModal} style={styles.iconButton} hitSlop={8}>
+          <PressableScale onPress={openCreateModal} style={styles.iconButton} hitSlop={8} activeScale={0.94}>
             <Ionicons name="add" size={s(23)} color={COLORS.softGold} />
-          </Pressable>
+          </PressableScale>
 
-          <Pressable
+          <PressableScale
             onPress={() => setHelpModalVisible(true)}
             style={styles.helpButton}
             hitSlop={8}
+            activeScale={0.94}
           >
             <Ionicons name="help" size={s(18)} color={COLORS.softGold} />
-          </Pressable>
+          </PressableScale>
         </View>
       </View>
 
@@ -219,10 +223,10 @@ export default function AffirmationsScreen() {
             <View style={[styles.progressFill, { width: `${progressPercent}%` }]} />
           </View>
 
-          <Pressable onPress={startRepeatMode} style={styles.primaryButton} disabled={affirmations.length === 0}>
+          <PressableScale onPress={startRepeatMode} style={styles.primaryButton} disabled={affirmations.length === 0}>
             <Ionicons name="play" size={s(17)} color={COLORS.black} />
             <Text style={styles.primaryButtonText}>Fokus-Wiederholung starten</Text>
-          </Pressable>
+          </PressableScale>
         </View>
 
         {loadError ? (
@@ -238,9 +242,9 @@ export default function AffirmationsScreen() {
           <View style={styles.errorBanner}>
             <Ionicons name="alert-circle-outline" size={s(18)} color={COLORS.errorLight} />
             <Text style={styles.errorText}>{actionError}</Text>
-            <Pressable onPress={() => setActionError(null)} hitSlop={8}>
+            <PressableScale onPress={() => setActionError(null)} hitSlop={8} activeScale={0.94}>
               <Ionicons name="close" size={s(16)} color="rgba(255,241,210,0.45)" />
-            </Pressable>
+            </PressableScale>
           </View>
         ) : null}
 
@@ -248,11 +252,11 @@ export default function AffirmationsScreen() {
           <Text style={styles.sectionTitle}>Meine Überzeugungen</Text>
         </View>
 
-        {loading ? (
+        {showLoading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={COLORS.toolsGold ?? COLORS.gold} />
           </View>
-        ) : affirmations.length === 0 ? (
+        ) : !loading && affirmations.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons
               name="sparkles-outline"
@@ -264,7 +268,7 @@ export default function AffirmationsScreen() {
               Starte mit einem Satz, der dich an deinen Standard erinnert.
             </Text>
           </View>
-        ) : (
+        ) : !loading ? (
           affirmations.map((item) => {
             const repeatedToday = item.last_repeated_date === today;
 
@@ -294,17 +298,17 @@ export default function AffirmationsScreen() {
                   </View>
                 </Pressable>
 
-                <Pressable style={styles.cardActionButton} onPress={() => openEditModal(item)} hitSlop={8}>
+                <PressableScale style={styles.cardActionButton} onPress={() => openEditModal(item)} hitSlop={8} activeScale={0.94}>
                   <Ionicons name="create-outline" size={s(18)} color="rgba(255,241,210,0.45)" />
-                </Pressable>
+                </PressableScale>
 
-                <Pressable style={styles.cardActionButton} onPress={() => confirmDelete(item)} hitSlop={8}>
+                <PressableScale style={styles.cardActionButton} onPress={() => confirmDelete(item)} hitSlop={8} activeScale={0.94}>
                   <Ionicons name="trash-outline" size={s(18)} color="rgba(255,241,210,0.38)" />
-                </Pressable>
+                </PressableScale>
               </View>
             );
           })
-        )}
+        ) : null}
       </ScrollView>
 
       <Pressable style={styles.floatingButton} onPress={openCreateModal}>
@@ -381,13 +385,13 @@ export default function AffirmationsScreen() {
               })}
             </View>
 
-            <Pressable
+            <PressableScale
               onPress={handleSave}
               disabled={!canSave}
               style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
             >
               <Text style={styles.saveButtonText}>{saving ? 'Speichert ...' : 'Speichern'}</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -481,10 +485,10 @@ export default function AffirmationsScreen() {
               Lies den Satz bewusst. Dann bestätige ihn.
             </Text>
 
-            <Pressable onPress={completeCurrentRepeat} style={styles.primaryButton}>
+            <PressableScale onPress={completeCurrentRepeat} style={styles.primaryButton}>
               <Ionicons name="checkmark" size={s(20)} color={COLORS.black} />
               <Text style={styles.primaryButtonText}>Bewusst wiederholt</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </View>
       </Modal>

@@ -99,9 +99,10 @@ export default function DeepWorkSetupModal({
               {EXAMPLE_CATEGORIES.map((cat) => (
                 <Pressable
                   key={cat}
-                  style={[
+                  style={({ pressed }) => [
                     styles.chip,
                     selCategory === cat && !customCategory && styles.chipActive,
+                    pressed && styles.chipPressed,
                   ]}
                   onPress={() => {
                     setSelCategory(cat);
@@ -135,14 +136,21 @@ export default function DeepWorkSetupModal({
             />
 
             <View style={styles.modalButtons}>
-              <Pressable style={styles.cancelBtn} onPress={closeSetup}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.cancelBtn,
+                  pressed && styles.secondaryButtonPressed,
+                ]}
+                onPress={closeSetup}
+              >
                 <Text style={styles.cancelBtnText}>Abbrechen</Text>
               </Pressable>
 
               <Pressable
-                style={[
+                style={({ pressed }) => [
                   styles.confirmBtn,
                   !canStart && styles.confirmBtnDisabled,
+                  pressed && canStart && styles.primaryButtonPressed,
                 ]}
                 onPress={startSession}
                 disabled={!canStart}

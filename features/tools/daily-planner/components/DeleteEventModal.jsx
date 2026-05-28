@@ -23,7 +23,7 @@ export function DeleteEventModal({ event, onClose, onDelete, onEdit }) {
           </Text>
 
           <Pressable
-            style={styles.editBtn}
+            style={({ pressed }) => [styles.editBtn, pressed && styles.primaryPressed]}
             onPress={() => {
               if (event) onEdit?.(event);
             }}
@@ -33,7 +33,7 @@ export function DeleteEventModal({ event, onClose, onDelete, onEdit }) {
           </Pressable>
 
           <Pressable
-            style={styles.deleteBtn}
+            style={({ pressed }) => [styles.deleteBtn, pressed && styles.dangerPressed]}
             onPress={() => {
               if (event?.id) onDelete(event.id);
             }}
@@ -42,7 +42,7 @@ export function DeleteEventModal({ event, onClose, onDelete, onEdit }) {
             <Text style={styles.deleteBtnText}>Termin löschen</Text>
           </Pressable>
 
-          <Pressable style={styles.cancelBtn} onPress={onClose}>
+          <Pressable style={({ pressed }) => [styles.cancelBtn, pressed && styles.secondaryPressed]} onPress={onClose}>
             <Text style={styles.cancelBtnText}>Abbrechen</Text>
           </Pressable>
         </Pressable>
@@ -134,5 +134,17 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: sf(14),
     fontWeight: '800',
+  },
+  primaryPressed: {
+    opacity: 0.84,
+    transform: [{ scale: 0.985 }],
+  },
+  dangerPressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.985 }],
+  },
+  secondaryPressed: {
+    opacity: 0.78,
+    transform: [{ scale: 0.985 }],
   },
 });

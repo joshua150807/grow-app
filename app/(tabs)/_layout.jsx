@@ -5,7 +5,8 @@ import { Pressable, View } from 'react-native';
 import { COLORS } from '../../constants/colors';
 import { s, sv } from '../../constants/layout';
 
-import { getSavedDeepWorkSession } from '../../features/tools/deep-work/services/deepWorkStore'
+import { getSavedDeepWorkSession } from '../../features/tools/deep-work/services/deepWorkStore';
+import { triggerHaptic } from '../../lib/haptics';
 
 function TabIcon({ name, color, size, focused }) {
   return (
@@ -55,6 +56,7 @@ function CustomTabButton(props) {
       return;
     }
 
+    void triggerHaptic('selection');
     props.onPress?.(event);
   };
 
@@ -63,7 +65,16 @@ function CustomTabButton(props) {
       {...props}
       onPress={handlePress}
       hitSlop={{ top: 0, bottom: 2, left: 20, right: 20 }}
-      style={[props.style, { flex: 1, justifyContent: 'center', alignItems: 'center' }]}
+      style={({ pressed }) => [
+        typeof props.style === 'function' ? props.style({ pressed }) : props.style,
+        {
+          flex: 1,
+          justifyContent: 'center',
+          alignItems: 'center',
+          opacity: pressed ? 0.78 : 1,
+          transform: [{ scale: pressed ? 0.94 : 1 }],
+        },
+      ]}
     />
   );
 }
@@ -73,7 +84,9 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        animation: 'none',
         tabBarShowLabel: false,
+        sceneStyle: { backgroundColor: COLORS.background },
         tabBarActiveTintColor: COLORS.gold,
         tabBarInactiveTintColor: COLORS.goldBorder,
         tabBarStyle: {

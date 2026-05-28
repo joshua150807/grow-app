@@ -5,6 +5,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -91,14 +92,20 @@ export function AddEventModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? sv(10) : 0}
       >
         <Pressable style={styles.overlay} onPress={handleClose}>
           <Pressable style={styles.sheet} onPress={() => Keyboard.dismiss()}>
             <View style={styles.sheetHandle} />
 
-            <Text style={styles.sheetTitle}>{sheetTitle}</Text>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.formContent}
+            >
+              <Text style={styles.sheetTitle}>{sheetTitle}</Text>
 
             {!modalFromPlus && (
               <Text style={styles.sheetSub}>
@@ -109,9 +116,10 @@ export function AddEventModal({
             {modalFromPlus && (
               <>
                 <Pressable
-                  style={[
+                  style={({ pressed }) => [
                     styles.timeToggle,
                     modalStartMinutes !== null && styles.timeToggleActive,
+                    pressed && styles.pressedSubtle,
                   ]}
                   onPress={() => {
                     Keyboard.dismiss();
@@ -155,7 +163,7 @@ export function AddEventModal({
                     />
 
                     <Pressable
-                      style={styles.startTimeDoneBtn}
+                      style={({ pressed }) => [styles.startTimeDoneBtn, pressed && styles.pressedCircle]}
                       onPress={() => setModalShowPicker(false)}
                       hitSlop={s(8)}
                     >
@@ -203,12 +211,13 @@ export function AddEventModal({
                 return (
                   <Pressable
                     key={color.key}
-                    style={[
+                    style={({ pressed }) => [
                       styles.colorDot,
                       {
                         backgroundColor: color.value,
                         borderColor: isActive ? COLORS.white : 'rgba(255,255,255,0.18)',
                       },
+                      pressed && styles.pressedCircle,
                     ]}
                     onPress={() => {
                       Keyboard.dismiss();
@@ -225,14 +234,15 @@ export function AddEventModal({
             </View>
 
             <View style={styles.modalBtns}>
-              <Pressable style={styles.cancelBtn} onPress={handleClose}>
+              <Pressable style={({ pressed }) => [styles.cancelBtn, pressed && styles.pressedSecondary]} onPress={handleClose}>
                 <Text style={styles.cancelBtnText}>Abbrechen</Text>
               </Pressable>
 
               <Pressable
-                style={[
+                style={({ pressed }) => [
                   styles.confirmBtn,
                   !canSave && styles.confirmBtnDisabled,
+                  pressed && canSave && styles.pressedPrimary,
                 ]}
                 onPress={() => {
                   Keyboard.dismiss();
@@ -247,6 +257,7 @@ export function AddEventModal({
                 )}
               </Pressable>
             </View>
+            </ScrollView>
           </Pressable>
         </Pressable>
       </KeyboardAvoidingView>
@@ -255,21 +266,28 @@ export function AddEventModal({
 }
 
 const styles = StyleSheet.create({
+  keyboardView: {
+    flex: 1,
+    backgroundColor: COLORS.black,
+  },
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.58)',
+    backgroundColor: 'rgba(0,0,0,0.72)',
   },
   sheet: {
-    maxHeight: '92%',
+    maxHeight: '88%',
     backgroundColor: COLORS.background,
     borderTopLeftRadius: s(26),
     borderTopRightRadius: s(26),
     paddingHorizontal: s(20),
     paddingTop: sv(12),
-    paddingBottom: sv(26),
+    paddingBottom: Platform.OS === 'ios' ? sv(30) : sv(22),
     borderTopWidth: 1,
     borderColor: COLORS.goldBorder,
+  },
+  formContent: {
+    paddingBottom: Platform.OS === 'ios' ? sv(18) : sv(12),
   },
   sheetHandle: {
     width: s(42),
@@ -423,5 +441,21 @@ const styles = StyleSheet.create({
 
   datePicker: {
     alignSelf: 'stretch',
+  },
+  pressedSubtle: {
+    opacity: 0.84,
+    transform: [{ scale: 0.99 }],
+  },
+  pressedCircle: {
+    opacity: 0.82,
+    transform: [{ scale: 0.94 }],
+  },
+  pressedSecondary: {
+    opacity: 0.78,
+    transform: [{ scale: 0.985 }],
+  },
+  pressedPrimary: {
+    opacity: 0.86,
+    transform: [{ scale: 0.985 }],
   },
 });

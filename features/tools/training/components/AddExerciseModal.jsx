@@ -16,6 +16,15 @@ import { COLORS } from '../../../../constants/colors';
 import { s, sv } from '../../../../constants/layout';
 import { styles } from '../styles/trainingStyles';
 
+const softPress = (baseStyle, disabled = false) => ({ pressed }) => [
+  baseStyle,
+  pressed && !disabled && { opacity: 0.9, transform: [{ scale: 0.985 }] },
+];
+
+const iconPress = (disabled = false) => ({ pressed }) => [
+  pressed && !disabled && { opacity: 0.75, transform: [{ scale: 0.94 }] },
+];
+
 export function AddExerciseModal({ visible, onClose, onSave }) {
   const [name, setName] = useState('');
   const [weight, setWeight] = useState('');
@@ -55,19 +64,20 @@ export function AddExerciseModal({ visible, onClose, onSave }) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={handleClose}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: COLORS.black }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? sv(10) : 0}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Übung hinzufügen</Text>
-            <Pressable onPress={handleClose} hitSlop={s(10)} disabled={saving}>
+            <Pressable onPress={handleClose} style={iconPress(saving)} hitSlop={s(10)} disabled={saving}>
               <Ionicons name="close" size={s(24)} color={COLORS.textDim} />
             </Pressable>
           </View>
 
-          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: sv(16) }}>
             <Text style={styles.modalLabel}>ÜBUNGSNAME</Text>
             <TextInput
               style={styles.modalInput}
@@ -131,7 +141,7 @@ export function AddExerciseModal({ visible, onClose, onSave }) {
             {error ? <Text style={styles.modalError}>{error}</Text> : null}
 
             <Pressable
-              style={[styles.modalSaveBtn, !name.trim() && styles.saveBtnDisabled]}
+              style={softPress([styles.modalSaveBtn, !name.trim() && styles.saveBtnDisabled], !name.trim() || saving)}
               onPress={handleSave}
               disabled={!name.trim() || saving}
             >

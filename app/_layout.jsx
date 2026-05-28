@@ -10,6 +10,7 @@ import { Image, View } from 'react-native';
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Pedometer } from 'expo-sensors';
+import * as SplashScreen from 'expo-splash-screen';
 
 import { supabase } from '../services/supabaseClient';
 import { COLORS } from '../constants/colors';
@@ -17,7 +18,10 @@ import { preloadStartupImageAssets } from '../constants/toolAssets';
 import { loadProfileData } from '../features/profile/services/profiles';
 import { StartupProfileContext } from '../features/profile/context/ProfileContext';
 
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 const AuthContext = createContext(null);
+const STARTUP_LOGO = require('../assets/images/grow-loading.jpeg');
 
 export function useAuth() {
   return useContext(AuthContext);
@@ -109,6 +113,14 @@ export default function RootLayout() {
     };
   }, [session]);
 
+  const appIsReady = session !== undefined && startupReady;
+
+  useEffect(() => {
+    if (!appIsReady) return;
+
+    SplashScreen.hideAsync().catch(() => {});
+  }, [appIsReady]);
+
   const startupProfileValue = useMemo(
     () => ({
       profile: startupProfile,
@@ -150,11 +162,11 @@ export default function RootLayout() {
     };
   }, [startupReady, session?.user?.id]);
 
-  // undefined = noch nicht geprüft
-  // startupReady false = Session bekannt, aber Profil/Bilder werden vorbereitet
-  if (session === undefined || !startupReady) {
+  // Native Splash bleibt sichtbar, bis Auth/Startup fertig ist.
+  // Falls JS vorher rendert, ist der Fallback ebenfalls komplett schwarz mit Grow-Symbol.
+  if (!appIsReady) {
     return (
-      <GestureHandlerRootView style={{ flex: 1 }}>
+      <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
         <View
           style={{
             flex: 1,
@@ -164,7 +176,7 @@ export default function RootLayout() {
           }}
         >
           <Image
-            source={require('../assets/images/grow-loading.jpeg')}
+            source={STARTUP_LOGO}
             style={{
               width: 120,
               height: 120,
@@ -177,10 +189,15 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
       <AuthContext.Provider value={session}>
         <StartupProfileContext.Provider value={startupProfileValue}>
-          <Stack screenOptions={{ headerShown: false }} />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: COLORS.background },
+            }}
+          />
         </StartupProfileContext.Provider>
       </AuthContext.Provider>
     </GestureHandlerRootView>

@@ -3,7 +3,6 @@ import {
   View,
   Text,
   ScrollView,
-  Pressable,
   Alert,
   useWindowDimensions,
 } from 'react-native';
@@ -15,6 +14,7 @@ import { COLORS } from '../../../../constants/colors';
 import { s } from '../../../../constants/layout';
 
 import ToolCard from '../components/ToolCard';
+import PressableScale from '../../../../components/ui/PressableScale';
 import { allToolsStyles as styles } from '../styles/allToolsStyles';
 
 import {
@@ -137,18 +137,22 @@ export default function AllToolsScreen() {
     <View style={styles.screen}>
       <View style={styles.content}>
         <View style={styles.allToolsTopBar}>
-          <Pressable
+          <PressableScale
             onPress={() => router.back()}
             style={styles.backButton}
+            activeScale={0.96}
+            activeOpacity={0.78}
             hitSlop={8}
           >
             <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
             <Text style={styles.backText}>Tools</Text>
-          </Pressable>
+          </PressableScale>
 
-          <Pressable
+          <PressableScale
             onPress={editing ? handleDone : () => setEditing(true)}
             style={styles.allToolsEditButton}
+            activeScale={0.96}
+            activeOpacity={0.8}
             hitSlop={8}
           >
             <Feather
@@ -159,7 +163,7 @@ export default function AllToolsScreen() {
             <Text style={styles.allToolsEditText}>
               {editing ? 'Fertig' : 'Bearbeiten'}
             </Text>
-          </Pressable>
+          </PressableScale>
         </View>
 
         <ScrollView

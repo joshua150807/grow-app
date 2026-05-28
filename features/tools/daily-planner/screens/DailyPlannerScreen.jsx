@@ -31,6 +31,7 @@ import { AddEventModal } from '../components/AddEventModal';
 import { DeleteEventModal } from '../components/DeleteEventModal';
 import { PlannerCalendar } from '../components/PlannerCalendar';
 import { styles } from '../styles/dailyPlannerStyles';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 
 export default function DailyPlannerScreen() {
   const today = useRef(new Date()).current;
@@ -67,6 +68,7 @@ export default function DailyPlannerScreen() {
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const dayScrollRef = useRef(null);
+  const showDayLoading = useDelayedLoading(dayLoading);
 
   const eventsWithLayout = useMemo(() => {
     return applyEventOverlapLayout(events);
@@ -224,7 +226,11 @@ export default function DailyPlannerScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
-        <Pressable onPress={backToCalendar} style={styles.backBtn}>
+        <Pressable
+          onPress={backToCalendar}
+          style={({ pressed }) => [styles.backBtn, pressed && styles.pressedSoft]}
+          hitSlop={s(8)}
+        >
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Kalender</Text>
         </Pressable>
@@ -232,23 +238,30 @@ export default function DailyPlannerScreen() {
 
       <View style={styles.dayHeaderRow}>
         <Text style={styles.dayHeaderText}>{formatDayHeader(selectedDate)}</Text>
-        <Pressable onPress={openAddModalFromPlus} style={styles.addPlusBtn} hitSlop={s(10)}>
+        <Pressable
+          onPress={openAddModalFromPlus}
+          style={({ pressed }) => [styles.addPlusBtn, pressed && styles.pressedCircle]}
+          hitSlop={s(10)}
+        >
           <Ionicons name="add" size={s(22)} color={COLORS.gold} />
         </Pressable>
       </View>
 
-      {dayLoading ? (
+      {showDayLoading ? (
         <View style={styles.center}>
           <ActivityIndicator color={COLORS.gold} />
         </View>
-      ) : dayError ? (
+      ) : !dayLoading && dayError ? (
         <View style={styles.center}>
           <Text style={styles.errorText}>{dayError}</Text>
-          <Pressable onPress={() => loadDayEvents(selectedDate)} style={styles.retryBtn}>
+          <Pressable
+            onPress={() => loadDayEvents(selectedDate)}
+            style={({ pressed }) => [styles.retryBtn, pressed && styles.pressedButton]}
+          >
             <Text style={styles.retryBtnText}>Erneut versuchen</Text>
           </Pressable>
         </View>
-      ) : (
+      ) : !dayLoading ? (
         <ScrollView
           ref={dayScrollRef}
           showsVerticalScrollIndicator={false}
@@ -279,7 +292,7 @@ export default function DailyPlannerScreen() {
             ))}
           </View>
         </ScrollView>
-      )}
+      ) : null}
 
       <AddEventModal
         visible={modalVisible}

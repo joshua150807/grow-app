@@ -17,6 +17,11 @@ import { EditExerciseModal } from './EditExerciseModal';
 import { AddExerciseModal } from './AddExerciseModal';
 import { AddDayModal } from './AddDayModal';
 
+const softPress = (baseStyle) => ({ pressed }) => [
+  baseStyle,
+  pressed && { opacity: 0.9, transform: [{ scale: 0.985 }] },
+];
+
 export function TrainingPlanEditorView({
   plan,
   onAddExercise,
@@ -69,11 +74,11 @@ export function TrainingPlanEditorView({
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={() => router.back()} style={softPress(styles.backButton)} hitSlop={s(8)}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Tools</Text>
         </Pressable>
-        <Pressable onPress={handleDeletePlan} style={styles.deletePlanBtn} hitSlop={s(8)}>
+        <Pressable onPress={handleDeletePlan} style={softPress(styles.deletePlanBtn)} hitSlop={s(8)}>
           <Ionicons name="trash-outline" size={s(20)} color={COLORS.error} />
         </Pressable>
       </View>
@@ -113,7 +118,7 @@ export function TrainingPlanEditorView({
         )}
 
         <Pressable
-          style={styles.addDayBtn}
+          style={softPress(styles.addDayBtn)}
           onPress={() => setAddingDay(true)}
         >
           <Ionicons name="add-circle-outline" size={s(20)} color={COLORS.gold} />

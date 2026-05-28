@@ -6,6 +6,12 @@ import { COLORS } from '../../../../constants/colors';
 import { s } from '../../../../constants/layout';
 import { useTrainingPlan } from '../hooks/useTrainingPlan';
 import { styles } from '../styles/trainingStyles';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
+
+const softPress = (baseStyle, disabled = false) => ({ pressed }) => [
+  baseStyle,
+  pressed && !disabled && { opacity: 0.92, transform: [{ scale: 0.985 }] },
+];
 
 function getDayType(day) {
   if (day?.type === 'run' || day?.day_type === 'run') return 'run';
@@ -15,6 +21,7 @@ function getDayType(day) {
 
 export default function TrainingSessionSelectScreen() {
   const { plan, loading, error, loadPlan } = useTrainingPlan();
+  const showLoading = useDelayedLoading(loading);
 
   const handleSelectDay = (day) => {
     if (getDayType(day) === 'rest') return;
@@ -25,7 +32,7 @@ export default function TrainingSessionSelectScreen() {
     });
   };
 
-  if (loading) {
+  if (showLoading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={COLORS.gold} size="large" />
@@ -34,11 +41,15 @@ export default function TrainingSessionSelectScreen() {
     );
   }
 
+  if (loading) {
+    return <View style={styles.screen} />;
+  }
+
   if (error) {
     return (
       <View style={styles.centered}>
         <Text style={styles.errorText}>{error}</Text>
-        <Pressable onPress={loadPlan} style={styles.retryBtn}>
+        <Pressable onPress={loadPlan} style={softPress(styles.retryBtn)}>
           <Text style={styles.retryText}>Erneut versuchen</Text>
         </Pressable>
       </View>
@@ -49,7 +60,7 @@ export default function TrainingSessionSelectScreen() {
     return (
       <View style={styles.screen}>
         <View style={styles.topBar}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable onPress={() => router.back()} style={softPress(styles.backButton)} hitSlop={s(8)}>
             <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
             <Text style={styles.backText}>Zurück</Text>
           </Pressable>
@@ -65,7 +76,7 @@ export default function TrainingSessionSelectScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable onPress={() => router.back()} style={softPress(styles.backButton)} hitSlop={s(8)}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Zurück</Text>
         </Pressable>
@@ -91,8 +102,9 @@ export default function TrainingSessionSelectScreen() {
           return (
             <Pressable
               key={day.id}
-              style={[styles.trainingDaySelectCard, isRestDay && { opacity: 0.65 }]}
+              style={softPress([styles.trainingDaySelectCard, isRestDay && { opacity: 0.65 }], isRestDay)}
               onPress={() => handleSelectDay(day)}
+              disabled={isRestDay}
             >
               <View style={styles.trainingDaySelectIconWrap}>
                 <Ionicons

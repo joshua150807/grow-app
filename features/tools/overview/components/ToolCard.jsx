@@ -1,8 +1,9 @@
-import { ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
 import { s, sv, sf, SCREEN } from '../../../../constants/layout';
+import PressableScale from '../../../../components/ui/PressableScale';
 
 const compact = SCREEN.height < 900;
 const veryCompact = SCREEN.height < 760;
@@ -26,7 +27,9 @@ export default function ToolCard({
 
   if (placeholder) {
     return (
-      <Pressable
+      <PressableScale
+        activeScale={0.985}
+        activeOpacity={0.9}
         style={[
           styles.card,
           isSmall && styles.smallCard,
@@ -37,6 +40,7 @@ export default function ToolCard({
         onLongPress={onLongPress}
         disabled={disabled}
         delayLongPress={350}
+        haptic="light"
       >
         <View style={[styles.iconWrapper, isSmall && styles.smallIconWrapper]}>
           <Ionicons
@@ -49,25 +53,27 @@ export default function ToolCard({
         <Text style={[styles.title, isSmall && styles.smallTitle]} numberOfLines={1}>
           In Bearbeitung
         </Text>
-      </Pressable>
+      </PressableScale>
     );
   }
 
   return (
-    <Pressable
-      style={({ pressed }) => [
+    <PressableScale
+      activeScale={0.985}
+      activeOpacity={0.9}
+      style={[
         styles.card,
         isSmall && styles.smallCard,
         image && styles.imageCard,
         disabled && styles.cardDisabled,
         selected && editing && styles.cardSelected,
         cardStyle,
-        pressed && !disabled && styles.cardPressed,
       ]}
       onPress={onPress}
       onLongPress={onLongPress}
       disabled={disabled}
       delayLongPress={350}
+      haptic="light"
     >
       {editing && selected ? (
         <View style={styles.selectedBadge}>
@@ -155,7 +161,7 @@ export default function ToolCard({
           )}
         </>
       )}
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -205,10 +211,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(212,175,55,0.08)',
   },
 
-  cardPressed: {
-    transform: [{ scale: 0.985 }],
-    opacity: 0.9,
-  },
 
   selectedBadge: {
     position: 'absolute',

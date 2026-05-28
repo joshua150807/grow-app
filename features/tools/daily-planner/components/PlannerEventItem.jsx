@@ -42,7 +42,7 @@ export function PlannerEventItem({ event, onPress, timelineWidth }) {
 
   return (
     <Pressable
-      style={[
+      style={({ pressed }) => [
         styles.eventBlock,
         {
           top: topPx,
@@ -51,6 +51,7 @@ export function PlannerEventItem({ event, onPress, timelineWidth }) {
           width: eventWidth,
           backgroundColor: event.color || COLORS.gold,
         },
+        pressed && styles.eventBlockPressed,
       ]}
       onPress={() => onPress(event)}
     >
@@ -86,5 +87,10 @@ const styles = StyleSheet.create({
     fontSize: sf(9),
     fontWeight: '700',
     marginTop: sv(1),
+  },
+
+  eventBlockPressed: {
+    opacity: 0.86,
+    transform: [{ scale: 0.985 }],
   },
 });

@@ -4,6 +4,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -32,13 +33,19 @@ export function AddHabitModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? sv(10) : 0}
       >
         <Pressable style={styles.overlay} onPress={onClose}>
           <Pressable style={styles.sheet} onPress={() => {}}>
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>Neue Gewohnheit</Text>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.formContent}
+            >
+              <Text style={styles.sheetTitle}>Neue Gewohnheit</Text>
 
             <TextInput
               style={styles.input}
@@ -103,6 +110,7 @@ export function AddHabitModal({
                 )}
               </Pressable>
             </View>
+            </ScrollView>
           </Pressable>
         </Pressable>
       </KeyboardAvoidingView>
@@ -111,12 +119,17 @@ export function AddHabitModal({
 }
 
 const styles = StyleSheet.create({
+  keyboardView: {
+    flex: 1,
+    backgroundColor: COLORS.black,
+  },
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.58)',
   },
   sheet: {
+    maxHeight: '88%',
     backgroundColor: COLORS.background,
     borderTopLeftRadius: s(26),
     borderTopRightRadius: s(26),
@@ -125,6 +138,9 @@ const styles = StyleSheet.create({
     paddingBottom: sv(26),
     borderTopWidth: 1,
     borderColor: COLORS.goldBorder,
+  },
+  formContent: {
+    paddingBottom: Platform.OS === 'ios' ? sv(18) : sv(12),
   },
   sheetHandle: {
     width: s(42),

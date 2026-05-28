@@ -4,6 +4,7 @@ import { COLORS } from '../../../../constants/colors';
 import { useTrainingPlan } from '../hooks/useTrainingPlan';
 import { TrainingPlanEditorView } from '../components/TrainingPlanEditorView';
 import { styles } from '../styles/trainingStyles';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 
 export default function TrainingPlanEditorScreen() {
   const {
@@ -19,13 +20,19 @@ export default function TrainingPlanEditorScreen() {
     addDay,
   } = useTrainingPlan();
 
-  if (loading) {
+  const showLoading = useDelayedLoading(loading);
+
+  if (showLoading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={COLORS.gold} size="large" />
         <Text style={styles.loadingText}>Trainingsplan wird geladen...</Text>
       </View>
     );
+  }
+
+  if (loading) {
+    return <View style={styles.screen} />;
   }
 
   if (error) {

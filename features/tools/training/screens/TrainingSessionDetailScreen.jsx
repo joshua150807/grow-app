@@ -14,6 +14,7 @@ import { s } from '../../../../constants/layout';
 import { styles } from '../styles/trainingStyles';
 import { fetchTrainingSessionDetail } from '../services/trainingSessionService';
 import { formatTrainingSessionDate } from '../utils/trainingDateUtils';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 
 export default function TrainingSessionDetailScreen() {
   const { sessionId } = useLocalSearchParams();
@@ -39,17 +40,23 @@ export default function TrainingSessionDetailScreen() {
     }
   }, [sessionId]);
 
+  const showLoading = useDelayedLoading(loading);
+
   useEffect(() => {
     loadSession();
   }, [loadSession]);
 
-  if (loading) {
+  if (showLoading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={COLORS.gold} size="large" />
         <Text style={styles.loadingText}>Training wird geladen...</Text>
       </View>
     );
+  }
+
+  if (loading) {
+    return <View style={styles.screen} />;
   }
 
   if (error) {

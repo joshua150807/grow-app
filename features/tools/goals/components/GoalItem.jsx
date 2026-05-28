@@ -2,13 +2,20 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
+import PressableScale from '../../../../components/ui/PressableScale';
+import { triggerHaptic } from '../../../../lib/haptics';
 import { s, sv, sf } from '../../../../constants/layout';
 
 export function GoalItem({ goal, onToggle, onDelete, onEdit }) {
+  const handleToggle = () => {
+    void triggerHaptic(goal.completed ? 'selection' : 'success');
+    onToggle(goal.id, goal.completed);
+  };
+
   return (
     <Pressable
       style={[styles.goalCard, goal.completed && styles.goalCardDone]}
-      onPress={() => onToggle(goal.id, goal.completed)}
+      onPress={handleToggle}
       onLongPress={() => onEdit?.(goal)}
       delayLongPress={280}
       pressRetentionOffset={{
@@ -48,16 +55,19 @@ export function GoalItem({ goal, onToggle, onDelete, onEdit }) {
       </View>
 
       {goal.completed && (
-        <Pressable
+        <PressableScale
           style={styles.trashBtn}
           onPress={(event) => {
             event.stopPropagation();
+            void triggerHaptic('medium');
             onDelete(goal.id);
           }}
           hitSlop={s(8)}
+          activeScale={0.9}
+          activeOpacity={0.78}
         >
           <Ionicons name="trash-outline" size={s(16)} color={COLORS.white} />
-        </Pressable>
+        </PressableScale>
       )}
     </Pressable>
   );

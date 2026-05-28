@@ -3,6 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
 import { s, sv, sf } from '../../../../constants/layout';
+import PressableScale from '../../../../components/ui/PressableScale';
+import { triggerHaptic } from '../../../../lib/haptics';
 import {
   isUrgent,
   isOverdue,
@@ -10,6 +12,11 @@ import {
 } from '../utils/todoUtils';
 
 export function TodoItem({ todo, onToggle, onDelete, onEdit }) {
+  const handleToggle = () => {
+    void triggerHaptic(todo.completed ? 'selection' : 'light');
+    onToggle(todo.id, todo.completed);
+  };
+
   const urgent = isUrgent(todo.due_at, todo.completed);
   const overdue = isOverdue(todo.due_at, todo.completed);
   const dueLabel = formatDueLabel(todo.due_at, todo.completed);
@@ -25,24 +32,37 @@ export function TodoItem({ todo, onToggle, onDelete, onEdit }) {
         ]}
       >
         <View style={styles.todoLeft}>
-          <Pressable
-            style={[
-              styles.checkbox,
-              todo.completed && styles.checkboxDone,
-              urgent && styles.checkboxUrgent,
-              overdue && styles.checkboxOverdue,
-            ]}
-            onPress={() => onToggle(todo.id, todo.completed)}
-            hitSlop={s(10)}
+          <PressableScale
+            style={styles.checkboxTapArea}
+            activeScale={0.92}
+            activeOpacity={0.86}
+            onPressIn={handleToggle}
+            hitSlop={{ top: s(8), bottom: s(8), left: s(8), right: s(8) }}
+            pressRetentionOffset={{ top: s(24), bottom: s(24), left: s(24), right: s(24) }}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: !!todo.completed }}
           >
-            {todo.completed && (
-              <Ionicons name="checkmark" size={s(13)} color={COLORS.black} />
-            )}
-          </Pressable>
+            <View
+              pointerEvents="none"
+              style={[
+                styles.checkbox,
+                todo.completed && styles.checkboxDone,
+                urgent && styles.checkboxUrgent,
+                overdue && styles.checkboxOverdue,
+              ]}
+            >
+              {todo.completed && (
+                <Ionicons name="checkmark" size={s(13)} color={COLORS.black} />
+              )}
+            </View>
+          </PressableScale>
 
           <Pressable
-            style={styles.todoTextWrap}
-            onPress={() => onToggle(todo.id, todo.completed)}
+            style={({ pressed }) => [
+              styles.todoTextWrap,
+              pressed && styles.todoTextPressed,
+            ]}
+            onPress={handleToggle}
           >
             <Text
               style={[
@@ -69,22 +89,29 @@ export function TodoItem({ todo, onToggle, onDelete, onEdit }) {
             )}
           </Pressable>
 
-          <Pressable
+          <PressableScale
             style={styles.editButton}
+            activeScale={0.92}
+            activeOpacity={0.84}
             onPress={() => onEdit(todo)}
             hitSlop={s(10)}
           >
             <Ionicons name="create-outline" size={s(20)} color={COLORS.gold} />
-          </Pressable>
+          </PressableScale>
 
           {todo.completed && (
-            <Pressable
+            <PressableScale
               style={styles.completedDeleteButton}
-              onPress={() => onDelete(todo.id)}
+              activeScale={0.92}
+              activeOpacity={0.82}
+              onPress={() => {
+                void triggerHaptic('medium');
+                onDelete(todo.id);
+              }}
               hitSlop={s(10)}
             >
               <Ionicons name="trash-outline" size={s(21)} color={COLORS.white} />
-            </Pressable>
+            </PressableScale>
           )}
         </View>
       </View>
@@ -125,6 +152,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: s(14),
   },
+  checkboxTapArea: {
+    width: s(44),
+    height: s(44),
+    marginVertical: sv(-10),
+    marginRight: s(-6),
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
   checkbox: {
     width: s(24),
     height: s(24),
@@ -147,6 +183,11 @@ const styles = StyleSheet.create({
   },
   todoTextWrap: {
     flex: 1,
+    borderRadius: s(10),
+    paddingVertical: sv(3),
+  },
+  todoTextPressed: {
+    opacity: 0.72,
   },
   todoTitle: {
     color: COLORS.white ?? '#F4E7C5',

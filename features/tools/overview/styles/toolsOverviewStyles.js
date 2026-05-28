@@ -145,7 +145,7 @@ export const styles = StyleSheet.create({
 
   menuBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(0,0,0,0.10)',
     zIndex: 900,
     elevation: 900,
   },
@@ -159,30 +159,39 @@ export const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.toolsCardBorder,
     borderRadius: s(10),
-    paddingVertical: sv(10),
-    paddingHorizontal: s(14),
+    paddingVertical: sv(8),
+    paddingHorizontal: s(8),
     zIndex: 1000,
     elevation: 1000,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.24,
+    shadowRadius: 22,
+  },
+
+  menuAction: {
+    minHeight: sv(36),
+    borderRadius: s(8),
+    justifyContent: 'center',
+    paddingHorizontal: s(8),
   },
 
   menuItem: {
     color: COLORS.toolsText,
     fontSize: sf(14),
     fontWeight: '400',
-    paddingVertical: 8,
   },
 
   logoutItem: {
     color: COLORS.error,
     fontSize: sf(14),
     fontWeight: '400',
-    paddingVertical: 8,
   },
 
   line: {
     height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(255,255,255,0.12)',
-    marginVertical: 6,
+    marginVertical: sv(5),
   },
 
   sectionHeader: {

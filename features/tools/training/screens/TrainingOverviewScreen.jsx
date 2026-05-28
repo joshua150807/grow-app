@@ -7,6 +7,7 @@ import { SetupView } from '../components/SetupView';
 import { OverviewView } from '../components/OverviewView';
 import { styles } from '../styles/trainingStyles';
 import { useFocusEffect } from 'expo-router';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 
 export default function TrainingOverviewScreen() {
   const {
@@ -18,6 +19,7 @@ export default function TrainingOverviewScreen() {
   } = useTrainingPlan();
 
   const [showSetup, setShowSetup] = useState(false);
+  const showLoading = useDelayedLoading(loading);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,13 +38,17 @@ export default function TrainingOverviewScreen() {
     [savePlan, loadPlan]
   );
 
-  if (loading) {
+  if (showLoading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={COLORS.gold} size="large" />
         <Text style={styles.loadingText}>Trainingsplan wird geladen...</Text>
       </View>
     );
+  }
+
+  if (loading) {
+    return <View style={styles.screen} />;
   }
 
   if (error) {

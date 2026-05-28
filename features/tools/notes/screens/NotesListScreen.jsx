@@ -21,6 +21,8 @@ import {
   getNoteTitle,
 } from '../utils/noteTextUtils';
 import { styles } from '../styles/notesStyles';
+import PressableScale from '../../../../components/ui/PressableScale';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 
 export default function NotesListScreen() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -83,18 +85,19 @@ export default function NotesListScreen() {
   };
 
   const hasSearchQuery = searchQuery.trim().length > 0;
+  const showLoading = useDelayedLoading(loading);
 
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={8}>
+        <PressableScale onPress={() => router.back()} style={styles.backButton} hitSlop={8}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Tools</Text>
-        </Pressable>
+        </PressableScale>
 
-        <Pressable onPress={handleCreateNote} style={styles.iconButton} hitSlop={8}>
+        <PressableScale onPress={handleCreateNote} style={styles.iconButton} hitSlop={8}>
           <Ionicons name="add" size={s(23)} color={COLORS.softGold} />
-        </Pressable>
+        </PressableScale>
       </View>
 
       <ScrollView
@@ -127,13 +130,14 @@ export default function NotesListScreen() {
           />
 
           {hasSearchQuery ? (
-            <Pressable
+            <PressableScale
               onPress={() => setSearchQuery('')}
               style={styles.searchClearButton}
               hitSlop={8}
+              activeScale={0.94}
             >
               <Ionicons name="close" size={s(15)} color="rgba(255,241,210,0.48)" />
-            </Pressable>
+            </PressableScale>
           ) : null}
         </View>
 
@@ -151,17 +155,17 @@ export default function NotesListScreen() {
             <Ionicons name="alert-circle-outline" size={s(18)} color={COLORS.errorLight} />
             <Text style={styles.errorText}>{actionError}</Text>
 
-            <Pressable onPress={() => setActionError(null)} hitSlop={8}>
+            <PressableScale onPress={() => setActionError(null)} hitSlop={8} activeScale={0.94}>
               <Ionicons name="close" size={s(16)} color="rgba(255,241,210,0.45)" />
-            </Pressable>
+            </PressableScale>
           </View>
         ) : null}
 
-        {loading ? (
+        {showLoading ? (
           <View style={styles.loadingBox}>
             <ActivityIndicator color={COLORS.toolsGold ?? COLORS.gold} />
           </View>
-        ) : notes.length === 0 ? (
+        ) : !loading && notes.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons
               name="document-text-outline"
@@ -175,7 +179,7 @@ export default function NotesListScreen() {
               Tippe oben rechts auf Plus, um deine erste Notiz zu erstellen.
             </Text>
           </View>
-        ) : filteredNotes.length === 0 ? (
+        ) : !loading && filteredNotes.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons
               name="search-outline"
@@ -189,7 +193,7 @@ export default function NotesListScreen() {
               Für deine Suche gibt es aktuell keine passende Notiz.
             </Text>
           </View>
-        ) : (
+        ) : !loading ? (
           <View style={styles.notesList}>
             {filteredNotes.map((note, index) => {
               const isLast = index === filteredNotes.length - 1;
@@ -255,7 +259,7 @@ export default function NotesListScreen() {
               );
             })}
           </View>
-        )}
+        ) : null}
       </ScrollView>
     </View>
   );

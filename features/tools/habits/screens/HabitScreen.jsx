@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   Pressable,
-  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +21,8 @@ import { useHabits } from '../hooks/useHabits';
 import { HabitItem } from '../components/HabitItem';
 import { AddHabitModal } from '../components/AddHabitModal';
 import { styles } from '../styles/habitStyles';
+import ToolStateCard from '../../../../components/ui/ToolStateCard';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 
 export default function HabitsScreen() {
   const [selectedDay, setSelectedDay] = useState(getTodayIndex());
@@ -48,6 +49,7 @@ export default function HabitsScreen() {
   const [allDays, setAllDays] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState(null);
+  const showLoading = useDelayedLoading(loading);
 
   const handleAdd = useCallback(async () => {
     if (!inputName.trim()) return;
@@ -164,17 +166,15 @@ export default function HabitsScreen() {
         </View>
 
         {/* Liste */}
-        {loading ? (
-          <View style={styles.emptyState}>
-            <ActivityIndicator color={COLORS.gold} />
-          </View>
-        ) : total === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="flame-outline" size={s(48)} color={COLORS.textDim} />
-            <Text style={styles.emptyText}>Noch keine Gewohnheiten.</Text>
-            <Text style={styles.emptySubText}>Füge deine erste Gewohnheit hinzu.</Text>
-          </View>
-        ) : (
+        {showLoading ? (
+          <ToolStateCard loading title="Gewohnheiten werden geladen" subtitle="Dein heutiger Fortschritt wird vorbereitet." />
+        ) : !loading && total === 0 ? (
+          <ToolStateCard
+            icon="flame-outline"
+            title="Noch keine Gewohnheiten."
+            subtitle="Füge deine erste Gewohnheit hinzu und baue Momentum auf."
+          />
+        ) : !loading ? (
           <View style={styles.list}>
             {visibleHabits.map((habit) => (
               <HabitItem
@@ -187,7 +187,7 @@ export default function HabitsScreen() {
               />
             ))}
           </View>
-        )}
+        ) : null}
 
         {/* Hinzufügen */}
         <Pressable style={styles.addButton} onPress={() => setModalVisible(true)}>

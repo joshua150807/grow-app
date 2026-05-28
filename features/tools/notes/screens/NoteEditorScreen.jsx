@@ -24,6 +24,8 @@ import {
   isEmptyNote,
 } from '../utils/noteTextUtils';
 import { styles } from '../styles/notesStyles';
+import PressableScale from '../../../../components/ui/PressableScale';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 
 const TITLE_PASTE_LIMIT = 70;
 
@@ -177,6 +179,8 @@ export default function NoteEditorScreen({ noteId }) {
     flushSave,
     removeCurrentNote,
   } = useNoteEditor(noteId);
+
+  const showLoading = useDelayedLoading(loading);
 
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', () => {
@@ -456,15 +460,15 @@ export default function NoteEditorScreen({ noteId }) {
       keyboardVerticalOffset={0}
     >
       <View style={styles.topBar}>
-        <Pressable onPress={handleBack} style={styles.backButton} hitSlop={8}>
+        <PressableScale onPress={handleBack} style={styles.backButton} hitSlop={8}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Notizen</Text>
-        </Pressable>
+        </PressableScale>
 
         <View style={styles.topActions}>
           {saving ? <Text style={styles.savingText}>Speichert...</Text> : null}
 
-          <Pressable
+          <PressableScale
             onPress={() => {
               Keyboard.dismiss();
               setActiveField(null);
@@ -472,17 +476,18 @@ export default function NoteEditorScreen({ noteId }) {
             }}
             style={styles.iconButton}
             hitSlop={8}
+            activeScale={0.94}
           >
             <Ionicons
               name="ellipsis-horizontal"
               size={s(20)}
               color={COLORS.softGold}
             />
-          </Pressable>
+          </PressableScale>
 
-          <Pressable onPress={handleDone} hitSlop={8}>
+          <PressableScale onPress={handleDone} hitSlop={8} activeScale={0.96}>
             <Text style={styles.doneText}>Fertig</Text>
-          </Pressable>
+          </PressableScale>
         </View>
       </View>
 
@@ -494,7 +499,7 @@ export default function NoteEditorScreen({ noteId }) {
           />
 
           <View style={styles.editorMenu}>
-            <Pressable
+            <PressableScale
               style={styles.menuItem}
               onPress={() => {
                 setMenuOpen(false);
@@ -507,16 +512,16 @@ export default function NoteEditorScreen({ noteId }) {
                 color={COLORS.errorLight}
               />
               <Text style={styles.menuDangerText}>Notiz löschen</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </>
       ) : null}
 
-      {loading ? (
+      {showLoading ? (
         <View style={styles.loadingBox}>
           <ActivityIndicator color={COLORS.toolsGold ?? COLORS.gold} />
         </View>
-      ) : (
+      ) : !loading ? (
         <ScrollView
           style={styles.editorScroll}
           contentContainerStyle={styles.editorContent}
@@ -544,7 +549,7 @@ export default function NoteEditorScreen({ noteId }) {
           {renderTitleField()}
           {renderBodyField()}
         </ScrollView>
-      )}
+      ) : null}
     </KeyboardAvoidingView>
   );
 }

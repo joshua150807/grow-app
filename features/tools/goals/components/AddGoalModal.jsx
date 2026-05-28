@@ -4,6 +4,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -13,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
 import { s, sv, sf } from '../../../../constants/layout';
+import PressableScale from '../../../../components/ui/PressableScale';
 
 export function AddGoalModal({
   visible,
@@ -30,64 +32,74 @@ export function AddGoalModal({
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? sv(10) : 0}
       >
         <Pressable style={styles.overlay} onPress={onClose}>
           <Pressable style={styles.sheet} onPress={() => {}}>
 
             <View style={styles.sheetHandle} />
-            <Text style={styles.sheetTitle}>
-              {isEditing ? 'Ziel bearbeiten' : 'Neues Ziel'}
-            </Text>
 
-            <TextInput
-              style={[styles.input, styles.nameInput]}
-              placeholder="Mein Ziel"
-              placeholderTextColor={COLORS.textDim}
-              value={inputName}
-              onChangeText={setInputName}
-              autoFocus
-              multiline
-              textAlignVertical="top"
-              returnKeyType="next"
-            />
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.formContent}
+            >
+              <Text style={styles.sheetTitle}>
+                {isEditing ? 'Ziel bearbeiten' : 'Neues Ziel'}
+              </Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Deadline (optional, z.B. 31.12.2026)"
-              placeholderTextColor={COLORS.textDim}
-              value={inputDeadline}
-              onChangeText={setInputDeadline}
-              returnKeyType="done"
-            />
+              <TextInput
+                style={[styles.input, styles.nameInput]}
+                placeholder="Mein Ziel"
+                placeholderTextColor={COLORS.textDim}
+                value={inputName}
+                onChangeText={setInputName}
+                autoFocus
+                multiline
+                textAlignVertical="top"
+                returnKeyType="next"
+              />
 
-            {addError && (
-              <View style={styles.modalErrorRow}>
-                <Ionicons name="alert-circle-outline" size={s(15)} color="#FF6B6B" />
-                <Text style={styles.modalErrorText}>{addError}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Deadline (optional, z.B. 31.12.2026)"
+                placeholderTextColor={COLORS.textDim}
+                value={inputDeadline}
+                onChangeText={setInputDeadline}
+                returnKeyType="done"
+              />
+
+              {addError && (
+                <View style={styles.modalErrorRow}>
+                  <Ionicons name="alert-circle-outline" size={s(15)} color="#FF6B6B" />
+                  <Text style={styles.modalErrorText}>{addError}</Text>
+                </View>
+              )}
+
+              <View style={styles.modalButtons}>
+                <PressableScale style={styles.cancelBtn} onPress={onClose} activeScale={0.97} activeOpacity={0.86}>
+                  <Text style={styles.cancelBtnText}>Abbrechen</Text>
+                </PressableScale>
+
+                <PressableScale
+                  style={[styles.confirmBtn, (!canAdd || adding) && styles.confirmBtnDisabled]}
+                  onPress={onAdd}
+                  disabled={!canAdd || adding}
+                  activeScale={0.97}
+                  activeOpacity={0.9}
+                >
+                  {adding ? (
+                    <ActivityIndicator color={COLORS.black} />
+                  ) : (
+                    <Text style={styles.confirmBtnText}>
+                      {isEditing ? 'Speichern' : 'Hinzufügen'}
+                    </Text>
+                  )}
+                </PressableScale>
               </View>
-            )}
-
-            <View style={styles.modalButtons}>
-              <Pressable style={styles.cancelBtn} onPress={onClose}>
-                <Text style={styles.cancelBtnText}>Abbrechen</Text>
-              </Pressable>
-
-              <Pressable
-                style={[styles.confirmBtn, (!canAdd || adding) && styles.confirmBtnDisabled]}
-                onPress={onAdd}
-                disabled={!canAdd || adding}
-              >
-                {adding ? (
-                  <ActivityIndicator color={COLORS.black} />
-                ) : (
-                  <Text style={styles.confirmBtnText}>
-                    {isEditing ? 'Speichern' : 'Hinzufügen'}
-                  </Text>
-                )}
-              </Pressable>
-            </View>
+            </ScrollView>
 
           </Pressable>
         </Pressable>
@@ -97,20 +109,28 @@ export function AddGoalModal({
 }
 
 const styles = StyleSheet.create({
+  keyboardView: {
+    flex: 1,
+    backgroundColor: COLORS.black,
+  },
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.58)',
+    backgroundColor: 'rgba(0,0,0,0.72)',
   },
   sheet: {
+    maxHeight: '88%',
     backgroundColor: COLORS.background,
     borderTopLeftRadius: s(26),
     borderTopRightRadius: s(26),
     paddingHorizontal: s(20),
     paddingTop: sv(12),
-    paddingBottom: sv(26),
+    paddingBottom: Platform.OS === 'ios' ? sv(30) : sv(22),
     borderTopWidth: 1,
     borderColor: COLORS.goldBorder,
+  },
+  formContent: {
+    paddingBottom: Platform.OS === 'ios' ? sv(18) : sv(12),
   },
   sheetHandle: {
     width: s(42),

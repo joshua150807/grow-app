@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   Image,
   ImageBackground,
   Pressable,
+  Animated,
+  Easing,
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
@@ -26,6 +28,7 @@ import { useToolsOverviewPreferences } from '../hooks/useToolsOverviewPreference
 import { getToolsOverviewLayout } from '../utils/getToolsOverviewLayout';
 
 import { styles } from '../styles/toolsOverviewStyles';
+import PressableScale from '../../../../components/ui/PressableScale';
 
 const GROW_AVATAR = require('../../../../assets/images/grow_avatar.png');
 
@@ -52,6 +55,7 @@ export default function ToolsScreen() {
   const layout = getToolsOverviewLayout({ width, height });
 
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuAnimation = useRef(new Animated.Value(0)).current;
 
   const { username, growPoints, isCeo } = useProfile();
   const { trackerItems } = useToolsTrackerData();
@@ -73,6 +77,38 @@ export default function ToolsScreen() {
     handleToolPress,
     handleScreenPress,
   } = useToolsOverviewPreferences();
+
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    menuAnimation.setValue(0);
+
+    Animated.timing(menuAnimation, {
+      toValue: 1,
+      duration: 145,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [menuOpen, menuAnimation]);
+
+  const dropdownAnimatedStyle = {
+    opacity: menuAnimation,
+    transform: [
+      {
+        translateY: menuAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [-6, 0],
+        }),
+      },
+      {
+        scale: menuAnimation.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.97, 1],
+        }),
+      },
+    ],
+  };
 
   const handleLogout = async () => {
     setMenuOpen(false);
@@ -153,16 +189,18 @@ export default function ToolsScreen() {
               <Text style={styles.pointsLabel}>GROW Points</Text>
             </View>
 
-            <Pressable
+            <PressableScale
               onPress={(event) => {
                 event.stopPropagation();
                 setMenuOpen((previous) => !previous);
               }}
+              activeScale={0.92}
+              activeOpacity={0.78}
               style={styles.menuButton}
-              hitSlop={8}
+              hitSlop={10}
             >
               <Feather name="more-vertical" size={s(20)} color={COLORS.softGold} />
-            </Pressable>
+            </PressableScale>
           </View>
         </View>
 
@@ -180,15 +218,17 @@ export default function ToolsScreen() {
           <Text style={styles.sectionTitle}>TOOLS</Text>
 
           <View style={styles.sectionActions}>
-            <Pressable
+            <PressableScale
               style={styles.sectionSmallButton}
               onPress={handleToggleToolsViewMode}
+              activeScale={0.96}
+              activeOpacity={0.84}
               hitSlop={8}
             >
               <Text style={styles.sectionSmallButtonText}>
                 {isExpandedTools ? '2x3' : '4x4'}
               </Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </View>
 
@@ -203,12 +243,14 @@ export default function ToolsScreen() {
                 : 'Wähle ein Tool aus, das ersetzt werden soll.'}
             </Text>
 
-            <Pressable
+            <PressableScale
               style={styles.replaceCancelButton}
               onPress={handleCancelReplacement}
+              activeScale={0.97}
+              activeOpacity={0.84}
             >
               <Text style={styles.replaceCancelText}>Abbrechen</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         )}
 
@@ -241,8 +283,10 @@ export default function ToolsScreen() {
         />
 
         {/* KI Mentor Card */}
-        <ImageBackground
-          source={MENTOR_BG}
+        <PressableScale
+          onPress={() => router.push('/tools/mentor')}
+          activeScale={0.985}
+          activeOpacity={0.9}
           style={[
             styles.mentorCard,
             {
@@ -251,27 +295,31 @@ export default function ToolsScreen() {
               height: layout.mentorCardHeight,
             },
           ]}
-          imageStyle={styles.mentorCardImage}
-          resizeMode="stretch"
+          accessibilityRole="button"
+          accessibilityLabel="KI Mentor öffnen"
         >
-          <View style={styles.mentorOverlay}>
-            <View style={styles.mentorLeft}>
-              <View style={styles.mentorTextBox}>
-                <Text style={styles.mentorTitle}>KI Mentor</Text>
-                <Text style={styles.mentorDescription} numberOfLines={2}>
-                  Dein persönlicher Mentor. Klare Tipps & Motivation.
-                </Text>
+          <ImageBackground
+            source={MENTOR_BG}
+            style={{ flex: 1 }}
+            imageStyle={styles.mentorCardImage}
+            resizeMode="stretch"
+          >
+            <View style={styles.mentorOverlay}>
+              <View style={styles.mentorLeft}>
+                <View style={styles.mentorTextBox}>
+                  <Text style={styles.mentorTitle}>KI Mentor</Text>
+                  <Text style={styles.mentorDescription} numberOfLines={2}>
+                    Dein persönlicher Mentor. Klare Tipps & Motivation.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.mentorButton} pointerEvents="none">
+                <Text style={styles.mentorButtonText}>Erfahre mehr!</Text>
               </View>
             </View>
-
-            <Pressable
-              style={styles.mentorButton}
-              onPress={() => router.push('/mentor')}
-            >
-              <Text style={styles.mentorButtonText}>Erfahre mehr!</Text>
-            </Pressable>
-          </View>
-        </ImageBackground>
+          </ImageBackground>
+        </PressableScale>
 
         {/* Tracker */}
         <View
@@ -315,40 +363,65 @@ export default function ToolsScreen() {
             onPress={handleOutsideMenuPress}
           />
 
-          <Pressable
+          <Animated.View
             style={[
               styles.dropdown,
               {
                 top: layout.contentPaddingTop + sv(46),
                 right: layout.horizontalPadding,
               },
+              dropdownAnimatedStyle,
             ]}
-            onPress={(event) => event.stopPropagation()}
           >
-            <Pressable onPress={() => navigateFromMenu('/tools/saved-videos')}>
+            <PressableScale
+              style={styles.menuAction}
+              activeScale={0.985}
+              activeOpacity={0.72}
+              onPress={() => navigateFromMenu('/tools/saved-videos')}
+            >
               <Text style={styles.menuItem}>Gespeicherte Videos</Text>
-            </Pressable>
+            </PressableScale>
 
-            <Pressable onPress={() => navigateFromMenu('/tools/privacy')}>
+            <PressableScale
+              style={styles.menuAction}
+              activeScale={0.985}
+              activeOpacity={0.72}
+              onPress={() => navigateFromMenu('/tools/privacy')}
+            >
               <Text style={styles.menuItem}>Datenschutz</Text>
-            </Pressable>
+            </PressableScale>
 
-            <Pressable onPress={() => navigateFromMenu('/tools/imprint')}>
+            <PressableScale
+              style={styles.menuAction}
+              activeScale={0.985}
+              activeOpacity={0.72}
+              onPress={() => navigateFromMenu('/tools/imprint')}
+            >
               <Text style={styles.menuItem}>Impressum</Text>
-            </Pressable>
+            </PressableScale>
 
             {isCeo && (
-              <Pressable onPress={() => navigateFromMenu('/admin-dashboard')}>
+              <PressableScale
+                style={styles.menuAction}
+                activeScale={0.985}
+                activeOpacity={0.72}
+                onPress={() => navigateFromMenu('/admin-dashboard')}
+              >
                 <Text style={styles.menuItem}>CEO Dashboard</Text>
-              </Pressable>
+              </PressableScale>
             )}
 
             <View style={styles.line} />
 
-            <Pressable onPress={handleLogout}>
+            <PressableScale
+              style={styles.menuAction}
+              activeScale={0.985}
+              activeOpacity={0.72}
+              onPress={handleLogout}
+            >
               <Text style={styles.logoutItem}>Logout</Text>
-            </Pressable>
-          </Pressable>
+            </PressableScale>
+          </Animated.View>
         </>
       )}
     </View>

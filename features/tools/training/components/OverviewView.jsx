@@ -12,8 +12,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../../constants/colors';
 import { s } from '../../../../constants/layout';
 import { styles } from '../styles/trainingStyles';
+
+const softPress = (baseStyle) => ({ pressed }) => [
+  baseStyle,
+  pressed && { opacity: 0.92, transform: [{ scale: 0.985 }] },
+];
 import { useLatestTrainingSessions } from '../hooks/useLatestTrainingSessions';
 import { formatTrainingSessionDate } from '../utils/trainingDateUtils';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 
 const MUSCLE_GROUPS = [
   { id: 'chest', label: 'Brust', icon: 'body-outline' },
@@ -31,6 +37,7 @@ export function OverviewView({ plan, onChangePlan }) {
     sessionsError,
     loadSessions,
   } = useLatestTrainingSessions();
+  const showSessionsLoading = useDelayedLoading(loadingSessions);
 
   useFocusEffect(
     useCallback(() => {
@@ -66,7 +73,7 @@ export function OverviewView({ plan, onChangePlan }) {
       <View style={styles.topBar}>
         <Pressable
           onPress={handleGoBack}
-          style={styles.backButton}
+          style={softPress(styles.backButton)}
           hitSlop={8}
         >
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
@@ -87,7 +94,7 @@ export function OverviewView({ plan, onChangePlan }) {
         </View>
 
         <Pressable
-          style={styles.startTrainingBanner}
+          style={softPress(styles.startTrainingBanner)}
           onPress={handleOpenTrainingSession}
           hitSlop={8}
           android_ripple={{ color: 'rgba(212,175,55,0.12)' }}
@@ -107,7 +114,7 @@ export function OverviewView({ plan, onChangePlan }) {
         </Pressable>
 
         <Pressable
-          style={styles.trainingMainBanner}
+          style={softPress(styles.trainingMainBanner)}
           onPress={handleOpenPlanEditor}
           hitSlop={8}
           android_ripple={{ color: 'rgba(212,175,55,0.12)' }}
@@ -127,7 +134,7 @@ export function OverviewView({ plan, onChangePlan }) {
         </Pressable>
 
         <Pressable
-          style={localStyles.changePlanBanner}
+          style={softPress(localStyles.changePlanBanner)}
           onPress={onChangePlan}
           hitSlop={8}
           android_ripple={{ color: 'rgba(212,175,55,0.12)' }}
@@ -157,9 +164,9 @@ export function OverviewView({ plan, onChangePlan }) {
             {MUSCLE_GROUPS.map((group) => (
               <Pressable
                 key={group.id}
-                style={styles.muscleGroupItem}
+                style={softPress(styles.muscleGroupItem)}
                 onPress={() => handleOpenMuscleGroup(group.id)}
-                hitslop={8}
+                hitSlop={8}
               >
                 <View style={styles.muscleGroupImagePlaceholder}>
                   <Ionicons name={group.icon} size={s(24)} color={COLORS.gold} />
@@ -172,7 +179,7 @@ export function OverviewView({ plan, onChangePlan }) {
         </View>
 
         <Pressable
-          style={styles.lastSessionsBanner}
+          style={softPress(styles.lastSessionsBanner)}
           onPress={handleOpenTrainingSessions}
           hitSlop={8}
           android_ripple={{ color: 'rgba(212,175,55,0.12)' }}
@@ -188,7 +195,7 @@ export function OverviewView({ plan, onChangePlan }) {
               </Text>
             </View>
 
-            {loadingSessions ? (
+            {showSessionsLoading ? (
               <ActivityIndicator color={COLORS.gold} />
             ) : (
               <Ionicons name="time-outline" size={s(24)} color={COLORS.textDim} />

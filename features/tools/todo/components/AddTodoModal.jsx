@@ -4,6 +4,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -14,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
 import { s, sf, sv } from '../../../../constants/layout';
+import PressableScale from '../../../../components/ui/PressableScale';
 
 export function AddTodoModal({
   visible,
@@ -31,26 +33,34 @@ export function AddTodoModal({
   onAdd,
   isEditing = false,
 }) {
+  const submitDisabled = !inputTitle.trim() || adding;
+
   return (
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? sv(10) : 0}
       >
         <Pressable style={styles.overlay} onPress={onClose}>
           <Pressable style={styles.sheet} onPress={() => {}}>
             <View style={styles.sheetHandle} />
 
-            <Text style={styles.sheetTitle}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.formContent}
+            >
+              <Text style={styles.sheetTitle}>
               {isEditing ? 'Aufgabe bearbeiten' : 'Neue Aufgabe'}
-            </Text>
+              </Text>
 
-            <TextInput
+              <TextInput
               style={styles.input}
               placeholder="Was willst du erledigen?"
               placeholderTextColor={COLORS.textDim}
@@ -61,8 +71,10 @@ export function AddTodoModal({
               onSubmitEditing={onAdd}
             />
 
-            <Pressable
+            <PressableScale
               style={[styles.dateToggle, showDatePicker && styles.dateToggleActive]}
+              activeScale={0.985}
+              activeOpacity={0.88}
               onPress={() => {
                 if (!showDatePicker) {
                   setSelectedDate(selectedDate ?? new Date(Date.now() + 60 * 60 * 1000));
@@ -87,7 +99,7 @@ export function AddTodoModal({
               {showDatePicker && (
                 <Ionicons name="close-circle" size={s(16)} color={COLORS.textDim} />
               )}
-            </Pressable>
+            </PressableScale>
 
             {showDatePicker && (
               <DateTimePicker
@@ -119,24 +131,36 @@ export function AddTodoModal({
             )}
 
             <View style={styles.modalButtons}>
-              <Pressable style={styles.cancelBtn} onPress={onClose}>
-                <Text style={styles.cancelBtnText}>Abbrechen</Text>
-              </Pressable>
+              <View style={styles.modalButtonSlot}>
+                <PressableScale
+                  style={styles.cancelBtn}
+                  activeScale={0.975}
+                  activeOpacity={0.84}
+                  onPress={onClose}
+                >
+                  <Text style={styles.cancelBtnText}>Abbrechen</Text>
+                </PressableScale>
+              </View>
 
-              <Pressable
-                style={[styles.confirmBtn, (!inputTitle.trim() || adding) && styles.confirmBtnDisabled]}
-                onPress={onAdd}
-                disabled={!inputTitle.trim() || adding}
-              >
-                {adding ? (
-                  <ActivityIndicator color={COLORS.black} size="small" />
-                ) : (
-                  <Text style={styles.confirmBtnText}>
-                    {isEditing ? 'Speichern' : 'Hinzufügen'}
-                  </Text>
-                )}
-              </Pressable>
+              <View style={styles.modalButtonSlot}>
+                <PressableScale
+                  style={[styles.confirmBtn, submitDisabled && styles.confirmBtnDisabled]}
+                  activeScale={0.975}
+                  activeOpacity={0.86}
+                  onPress={onAdd}
+                  disabled={submitDisabled}
+                >
+                  {adding ? (
+                    <ActivityIndicator color={COLORS.black} size="small" />
+                  ) : (
+                    <Text style={styles.confirmBtnText}>
+                      {isEditing ? 'Speichern' : 'Hinzufügen'}
+                    </Text>
+                  )}
+                </PressableScale>
+              </View>
             </View>
+            </ScrollView>
           </Pressable>
         </Pressable>
       </KeyboardAvoidingView>
@@ -145,28 +169,37 @@ export function AddTodoModal({
 }
 
 const styles = StyleSheet.create({
+  keyboardView: {
+    flex: 1,
+    backgroundColor: COLORS.black,
+  },
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.58)',
+    backgroundColor: 'rgba(0,0,0,0.66)',
   },
   sheet: {
+    maxHeight: '88%',
     backgroundColor: COLORS.background,
-    borderTopLeftRadius: s(26),
-    borderTopRightRadius: s(26),
+    borderTopLeftRadius: s(28),
+    borderTopRightRadius: s(28),
     paddingHorizontal: s(20),
     paddingTop: sv(12),
-    paddingBottom: sv(26),
+    paddingBottom: Platform.OS === 'ios' ? sv(30) : sv(22),
     borderTopWidth: 1,
     borderColor: COLORS.goldBorder,
   },
+  formContent: {
+    paddingBottom: Platform.OS === 'ios' ? sv(18) : sv(12),
+  },
   sheetHandle: {
-    width: s(42),
+    width: s(44),
     height: sv(4),
     borderRadius: s(999),
     backgroundColor: COLORS.goldBorder,
     alignSelf: 'center',
     marginBottom: sv(16),
+    opacity: 0.85,
   },
   sheetTitle: {
     color: COLORS.white,
@@ -176,7 +209,7 @@ const styles = StyleSheet.create({
   },
   input: {
     minHeight: sv(52),
-    borderRadius: s(14),
+    borderRadius: s(15),
     borderWidth: 1,
     borderColor: COLORS.goldBorder,
     backgroundColor: COLORS.darkCard,
@@ -187,7 +220,7 @@ const styles = StyleSheet.create({
   },
   dateToggle: {
     minHeight: sv(48),
-    borderRadius: s(14),
+    borderRadius: s(15),
     borderWidth: 1,
     borderColor: 'rgba(212,175,55,0.18)',
     backgroundColor: 'rgba(255,255,255,0.035)',
@@ -218,10 +251,12 @@ const styles = StyleSheet.create({
     gap: s(10),
     marginTop: sv(16),
   },
-  cancelBtn: {
+  modalButtonSlot: {
     flex: 1,
+  },
+  cancelBtn: {
     minHeight: sv(48),
-    borderRadius: s(14),
+    borderRadius: s(15),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.darkCard,
@@ -234,9 +269,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   confirmBtn: {
-    flex: 1,
     minHeight: sv(48),
-    borderRadius: s(14),
+    borderRadius: s(15),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: COLORS.gold,

@@ -24,7 +24,14 @@ export function DeepWorkDoneModal({ visible, onClose, totalMinutes }) {
             {totalMinutes} Min. fokussierte Arbeit. Starke Leistung.
           </Text>
 
-          <Pressable style={[styles.confirmBtn, { marginTop: sv(8) }]} onPress={onClose}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.confirmBtn,
+              { marginTop: sv(8) },
+              pressed && styles.confirmBtnPressed,
+            ]}
+            onPress={onClose}
+          >
             <Text style={styles.confirmBtnText}>Weiter</Text>
           </Pressable>
         </Pressable>
@@ -85,6 +92,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: COLORS.gold,
     paddingHorizontal: s(22),
+  },
+  confirmBtnPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.985 }],
   },
   confirmBtnText: {
     color: COLORS.black,

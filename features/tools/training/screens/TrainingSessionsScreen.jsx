@@ -14,6 +14,7 @@ import { s } from '../../../../constants/layout';
 import { styles } from '../styles/trainingStyles';
 import { useLatestTrainingSessions } from '../hooks/useLatestTrainingSessions';
 import { formatTrainingSessionDate } from '../utils/trainingDateUtils';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 
 export default function TrainingSessionsScreen() {
   const {
@@ -22,6 +23,7 @@ export default function TrainingSessionsScreen() {
     sessionsError,
     loadSessions,
   } = useLatestTrainingSessions();
+  const showLoading = useDelayedLoading(loadingSessions);
 
   useFocusEffect(
     useCallback(() => {
@@ -47,7 +49,7 @@ export default function TrainingSessionsScreen() {
           <Text style={styles.subtitle}>Deine gespeicherten Einheiten</Text>
         </View>
 
-        {loadingSessions ? (
+        {showLoading ? (
           <View style={styles.centered}>
             <ActivityIndicator color={COLORS.gold} size="large" />
             <Text style={styles.loadingText}>Trainings werden geladen...</Text>

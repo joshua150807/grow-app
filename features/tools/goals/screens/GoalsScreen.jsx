@@ -4,7 +4,6 @@ import {
   Text,
   ScrollView,
   Pressable,
-  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +17,9 @@ import { useGoals } from '../hooks/useGoals';
 import { GoalItem } from '../components/GoalItem';
 import { AddGoalModal } from '../components/AddGoalModal';
 import { styles } from '../styles/goalsStyles';
+import PressableScale from '../../../../components/ui/PressableScale';
+import ToolStateCard from '../../../../components/ui/ToolStateCard';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 import { GOAL_CATEGORIES } from '../utils/goalUtils';
 
 export default function GoalsScreen() {
@@ -45,6 +47,7 @@ export default function GoalsScreen() {
   const [inputDeadline, setInputDeadline] = useState('');
   const [saving, setSaving] = useState(false);
   const [addError, setAddError] = useState(null);
+  const showLoading = useDelayedLoading(loading);
 
   const openAddModal = useCallback(() => {
     setEditingGoal(null);
@@ -101,10 +104,10 @@ export default function GoalsScreen() {
     <View style={styles.screen}>
 
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <PressableScale onPress={() => router.back()} style={styles.backButton} activeScale={0.97} activeOpacity={0.82}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Tools</Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -123,9 +126,9 @@ export default function GoalsScreen() {
           <View style={styles.errorCard}>
             <Ionicons name="alert-circle-outline" size={s(20)} color={styles.errorIcon.color} />
             <Text style={styles.errorText}>{loadError}</Text>
-            <Pressable onPress={loadGoals} style={styles.retryBtn}>
+            <PressableScale onPress={loadGoals} style={styles.retryBtn} activeScale={0.97} activeOpacity={0.86}>
               <Text style={styles.retryText}>Erneut versuchen</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         )}
 
@@ -134,9 +137,9 @@ export default function GoalsScreen() {
           <View style={styles.errorBanner}>
             <Ionicons name="alert-circle-outline" size={s(16)} color={styles.errorIcon.color} />
             <Text style={styles.errorBannerText}>{actionError}</Text>
-            <Pressable onPress={() => setActionError(null)} hitSlop={s(8)}>
+            <PressableScale onPress={() => setActionError(null)} hitSlop={s(8)} activeScale={0.9} activeOpacity={0.75}>
               <Ionicons name="close" size={s(16)} color={COLORS.textDim} />
-            </Pressable>
+            </PressableScale>
           </View>
         )}
 
@@ -167,17 +170,15 @@ export default function GoalsScreen() {
         </View>
 
         {/* Liste */}
-        {loading ? (
-          <View style={styles.emptyState}>
-            <ActivityIndicator color={COLORS.gold} />
-          </View>
-        ) : total === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="trophy-outline" size={s(48)} color={COLORS.textDim} />
-            <Text style={styles.emptyText}>Noch keine Ziele.</Text>
-            <Text style={styles.emptySubText}>Füge dein erstes Ziel hinzu.</Text>
-          </View>
-        ) : (
+        {showLoading ? (
+          <ToolStateCard loading title="Ziele werden geladen" subtitle="Dein Fortschritt wird vorbereitet." />
+        ) : !loading && total === 0 ? (
+          <ToolStateCard
+            icon="trophy-outline"
+            title="Noch keine Ziele."
+            subtitle="Füge dein erstes Ziel hinzu und mach es messbar."
+          />
+        ) : !loading ? (
           <View style={styles.list}>
             {goals.map(goal => (
               <GoalItem
@@ -189,13 +190,13 @@ export default function GoalsScreen() {
               />
             ))}
           </View>
-        )}
+        ) : null}
 
         {/* Hinzufügen */}
-        <Pressable style={styles.addButton} onPress={openAddModal}>
+        <PressableScale style={styles.addButton} onPress={openAddModal} activeScale={0.975} activeOpacity={0.88}>
           <Ionicons name="add-circle-outline" size={s(22)} color={COLORS.gold} />
           <Text style={styles.addText}>Ziel hinzufügen</Text>
-        </Pressable>
+        </PressableScale>
 
       </ScrollView>
 

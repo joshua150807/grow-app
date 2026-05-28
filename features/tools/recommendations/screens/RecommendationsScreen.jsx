@@ -17,6 +17,7 @@ import {
   toggleIdInList,
 } from '../utils/recommendationUtils';
 import { styles } from '../styles/recommendationsStyles';
+import PressableScale from '../../../../components/ui/PressableScale';
 
 export default function RecommendationsScreen() {
   const [activeType, setActiveType] = useState('book');
@@ -86,10 +87,10 @@ export default function RecommendationsScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backButton} hitSlop={8}>
+        <PressableScale onPress={() => router.back()} style={styles.backButton} hitSlop={8}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Tools</Text>
-        </Pressable>
+        </PressableScale>
 
       </View>
 
@@ -103,13 +104,14 @@ export default function RecommendationsScreen() {
             </Text>
           </View>
 
-          <Pressable
+          <PressableScale
             onPress={() => setActiveType('saved')}
             style={styles.headerIconWrap}
             hitSlop={8}
+            activeScale={0.94}
           >
             <Ionicons name="bookmark-outline" size={s(24)} color={COLORS.toolsGold ?? COLORS.gold} />
-          </Pressable>
+          </PressableScale>
         </View>
 
         <View style={styles.heroCard}>
@@ -155,13 +157,13 @@ export default function RecommendationsScreen() {
         </View>
 
         {activeType === 'saved' ? (  
-          <Pressable
+          <PressableScale
             onPress={() => setActiveType('book')}
             style={styles.backToOverviewButton}
           >
             <Ionicons name="chevron-back" size={17} color={COLORS.gold} />
             <Text style={styles.backToOverviewText}>Zurück zur Übersicht</Text>
-          </Pressable>
+          </PressableScale>
         ) : null}
 
         <View style={styles.sectionHeaderRow}>
@@ -205,17 +207,18 @@ export default function RecommendationsScreen() {
                     />
                   </View>
 
-                  <Pressable
+                  <PressableScale
                     onPress={() => toggleSaved(item.id)}
                     style={[styles.saveCircle, saved && styles.saveCircleActive]}
                     hitSlop={8}
+                    activeScale={0.9}
                   >
                     <Ionicons
                       name={saved ? 'bookmark' : 'bookmark-outline'}
                       size={s(18)}
                       color={saved ? COLORS.black : COLORS.toolsGold ?? COLORS.gold}
                     />
-                  </Pressable>
+                  </PressableScale>
                 </View>
 
                 <Text style={styles.cardCategory}>{item.category}</Text>
@@ -265,7 +268,7 @@ export default function RecommendationsScreen() {
             <Text style={styles.modalSectionTitle}>Kurz gesagt</Text>
             <Text style={styles.modalText}>{selectedItem?.tagline}</Text>
 
-            <Pressable
+            <PressableScale
               onPress={() => selectedItem && toggleSaved(selectedItem.id)}
               style={styles.fullWidthSaveButton}
             >
@@ -279,7 +282,7 @@ export default function RecommendationsScreen() {
                   ? 'Aus Gemerkt entfernen'
                   : 'Empfehlung merken'}
               </Text>
-            </Pressable>
+            </PressableScale>
           </View>
         </View>
       </Modal>

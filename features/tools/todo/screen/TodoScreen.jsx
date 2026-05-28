@@ -3,12 +3,13 @@ import {
   View,
   Text,
   ScrollView,
-  Pressable,
-  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import PressableScale from '../../../../components/ui/PressableScale';
+import ToolStateCard from '../../../../components/ui/ToolStateCard';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 import { COLORS } from '../../../../constants/colors';
 import { s } from '../../../../constants/layout';
 import { useTodos } from '../hooks/useTodos';
@@ -39,6 +40,7 @@ export default function TodoScreen() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [androidStep, setAndroidStep] = useState('date');
   const [saving, setSaving] = useState(false);
+  const showLoading = useDelayedLoading(loading);
 
   const resetModalState = () => {
     setInputTitle('');
@@ -110,9 +112,14 @@ export default function TodoScreen() {
       <View style={styles.centerContainer}>
         <Text style={styles.errorText}>{error}</Text>
 
-        <Pressable onPress={loadTodos} style={styles.retryButton}>
+        <PressableScale
+          onPress={loadTodos}
+          style={styles.retryButton}
+          activeScale={0.975}
+          activeOpacity={0.88}
+        >
           <Text style={styles.retryText}>Erneut versuchen</Text>
-        </Pressable>
+        </PressableScale>
       </View>
     );
   }
@@ -120,10 +127,16 @@ export default function TodoScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <PressableScale
+          onPress={() => router.back()}
+          style={styles.backButton}
+          hitSlop={s(10)}
+          activeScale={0.975}
+          activeOpacity={0.82}
+        >
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Tools</Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       <ScrollView
@@ -149,17 +162,15 @@ export default function TodoScreen() {
           </View>
         </View>
 
-        {loading ? (
-          <View style={styles.emptyState}>
-            <ActivityIndicator color={COLORS.gold} />
-          </View>
-        ) : todos.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="checkmark-circle-outline" size={s(48)} color={COLORS.textDim} />
-            <Text style={styles.emptyText}>Noch keine Aufgaben.</Text>
-            <Text style={styles.emptySubText}>Füge deine erste Aufgabe hinzu.</Text>
-          </View>
-        ) : (
+        {showLoading ? (
+          <ToolStateCard loading title="Aufgaben werden geladen" subtitle="Einen Moment, deine Liste wird vorbereitet." />
+        ) : !loading && todos.length === 0 ? (
+          <ToolStateCard
+            icon="checkmark-circle-outline"
+            title="Noch keine Aufgaben."
+            subtitle="Füge deine erste Aufgabe hinzu und starte sauber in den Tag."
+          />
+        ) : !loading ? (
           <View style={styles.list}>
             {todos.map((todo) => (
               <TodoItem
@@ -171,12 +182,17 @@ export default function TodoScreen() {
               />
             ))}
           </View>
-        )}
+        ) : null}
 
-        <Pressable style={styles.addButton} onPress={openAddModal}>
+        <PressableScale
+          style={styles.addButton}
+          onPress={openAddModal}
+          activeScale={0.975}
+          activeOpacity={0.88}
+        >
           <Ionicons name="add-circle-outline" size={s(22)} color={COLORS.gold} />
           <Text style={styles.addText}>Neue Aufgabe hinzufügen</Text>
-        </Pressable>
+        </PressableScale>
       </ScrollView>
 
       <AddTodoModal

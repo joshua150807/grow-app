@@ -14,8 +14,29 @@ export const styles = StyleSheet.create({
   },
 
   // ─── Day view ──────────────────────────────────────────────────────────────
+  topBar: {
+    position: 'absolute',
+    top: sv(54),
+    left: s(16),
+    zIndex: 10,
+  },
+
+  backBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(4),
+    paddingVertical: sv(6),
+    paddingRight: s(10),
+  },
+
+  backText: {
+    color: COLORS.softGold,
+    fontSize: sf(16),
+    fontWeight: '700',
+  },
+
   dayHeaderRow: {
-    paddingTop: sv(100),
+    paddingTop: sv(108),
     paddingHorizontal: s(20),
     paddingBottom: sv(14),
     borderBottomWidth: 1,
@@ -102,5 +123,20 @@ export const styles = StyleSheet.create({
   retryBtnText: {
     color: COLORS.black,
     fontWeight: '600',
+  },
+
+  pressedSoft: {
+    opacity: 0.72,
+    transform: [{ scale: 0.985 }],
+  },
+
+  pressedCircle: {
+    opacity: 0.82,
+    transform: [{ scale: 0.94 }],
+  },
+
+  pressedButton: {
+    opacity: 0.84,
+    transform: [{ scale: 0.985 }],
   },
 });

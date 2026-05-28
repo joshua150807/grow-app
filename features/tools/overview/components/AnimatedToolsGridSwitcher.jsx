@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
+import { Animated, Text, View } from 'react-native';
 import { PinchGestureHandler, State } from 'react-native-gesture-handler';
 
 import ToolCard from './ToolCard';
 import DraggableSixToolGrid from './DraggableSixToolGrid';
+import PressableScale from '../../../../components/ui/PressableScale';
 
 function ReplacementWiggleWrapper({
   active,
@@ -288,11 +289,13 @@ export default function AnimatedToolsGridSwitcher({
     if (reorderMode) return null;
 
     return (
-      <Pressable
+      <PressableScale
         onPress={(event) => {
           event.stopPropagation?.();
           onOpenAllTools?.();
         }}
+        activeScale={0.975}
+        activeOpacity={0.84}
         style={[
           overviewStyles.moreToolsButton,
           {
@@ -301,7 +304,7 @@ export default function AnimatedToolsGridSwitcher({
         ]}
       >
         <Text style={overviewStyles.moreToolsText}>Weitere Tools</Text>
-      </Pressable>
+      </PressableScale>
     );
   };
 

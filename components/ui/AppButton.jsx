@@ -1,21 +1,20 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 import { COLORS } from '../../constants/colors';
 import { s, sv, sf } from '../../constants/layout';
+import PressableScale from './PressableScale';
  
-export default function AppButton({ title, onPress, disabled = false, style, textStyle }) {
+export default function AppButton({ title, onPress, disabled = false, style, textStyle, haptic = null }) {
   return (
-    <Pressable
+    <PressableScale
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => [
-        styles.button,
-        disabled && styles.disabled,
-        pressed && !disabled && styles.pressed,
-        style,
-      ]}
+      activeScale={0.975}
+      activeOpacity={0.88}
+      haptic={haptic}
+      style={[styles.button, disabled && styles.disabled, style]}
     >
       <Text style={[styles.text, textStyle]}>{title}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
  
@@ -30,7 +29,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: s(16),
   },
-  pressed: { opacity: 0.88 },
   disabled: { opacity: 0.65 },
   text: {
     color: COLORS.lightGold,

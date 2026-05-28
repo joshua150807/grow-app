@@ -24,7 +24,11 @@ export function PlannerCalendar({
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [styles.backBtn, pressed && styles.pressedSoft]}
+          hitSlop={s(8)}
+        >
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Tools</Text>
         </Pressable>
@@ -40,7 +44,11 @@ export function PlannerCalendar({
         </View>
 
         <View style={styles.monthNav}>
-          <Pressable onPress={onPrevMonth} style={styles.monthArrow} hitSlop={s(12)}>
+          <Pressable
+            onPress={onPrevMonth}
+            style={({ pressed }) => [styles.monthArrow, pressed && styles.pressedCircle]}
+            hitSlop={s(12)}
+          >
             <Ionicons name="chevron-back" size={s(22)} color={COLORS.softGold} />
           </Pressable>
 
@@ -48,7 +56,11 @@ export function PlannerCalendar({
             {MONTH_NAMES[currentMonth]} {currentYear}
           </Text>
 
-          <Pressable onPress={onNextMonth} style={styles.monthArrow} hitSlop={s(12)}>
+          <Pressable
+            onPress={onNextMonth}
+            style={({ pressed }) => [styles.monthArrow, pressed && styles.pressedCircle]}
+            hitSlop={s(12)}
+          >
             <Ionicons name="chevron-forward" size={s(22)} color={COLORS.softGold} />
           </Pressable>
         </View>
@@ -76,7 +88,11 @@ export function PlannerCalendar({
             return (
               <Pressable
                 key={dateStr}
-                style={[styles.calCell, isToday && styles.calCellToday]}
+                style={({ pressed }) => [
+                  styles.calCell,
+                  isToday && styles.calCellToday,
+                  pressed && styles.calCellPressed,
+                ]}
                 onPress={() => onOpenDay(dateStr)}
               >
                 <Text style={[styles.calDayNum, isToday && styles.calDayNumToday]}>
@@ -216,5 +232,16 @@ const styles = StyleSheet.create({
   },
   dotToday: {
     backgroundColor: COLORS.gold,
+  },
+  pressedSoft: {
+    opacity: 0.72,
+    transform: [{ scale: 0.985 }],
+  },
+  pressedCircle: {
+    opacity: 0.82,
+    transform: [{ scale: 0.94 }],
+  },
+  calCellPressed: {
+    backgroundColor: 'rgba(212,175,55,0.08)',
   },
 });

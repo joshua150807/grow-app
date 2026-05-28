@@ -25,6 +25,22 @@ export const styles = StyleSheet.create({
     fontSize: sf(16),
     fontWeight: '600',
   },
+  subtlePressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.98 }],
+  },
+  primaryButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.985 }],
+  },
+  secondaryButtonPressed: {
+    opacity: 0.76,
+    transform: [{ scale: 0.985 }],
+  },
+  chipPressed: {
+    opacity: 0.78,
+    transform: [{ scale: 0.97 }],
+  },
   idleContent: {
     paddingTop: sv(110),
     paddingHorizontal: s(20),
@@ -313,6 +329,11 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(212,175,55,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pauseButtonPressed: {
+    opacity: 0.84,
+    transform: [{ scale: 0.96 }],
+    backgroundColor: 'rgba(212,175,55,0.14)',
   },
   bottomArea: {
     paddingHorizontal: s(20),

@@ -7,6 +7,15 @@ import { s, sv } from '../../../../constants/layout';
 import { styles } from '../styles/trainingStyles';
 import { formatWeight, formatSetsReps } from '../utils/trainingUtils';
 
+const softPress = (baseStyle) => ({ pressed }) => [
+  baseStyle,
+  pressed && { opacity: 0.92, transform: [{ scale: 0.985 }] },
+];
+
+const iconPress = ({ pressed }) => [
+  pressed && { opacity: 0.75, transform: [{ scale: 0.94 }] },
+];
+
 function getDayType(day) {
   if (day?.type === 'run' || day?.day_type === 'run') return 'run';
   if (day?.type === 'rest' || day?.day_type === 'rest') return 'rest';
@@ -50,7 +59,7 @@ export function TrainingDayCard({ day, onExercisePress, onAddExercise, onRenameD
             returnKeyType="done"
             onSubmitEditing={handleConfirmRename}
           />
-          <Pressable onPress={handleConfirmRename} hitSlop={s(8)}>
+          <Pressable onPress={handleConfirmRename} style={iconPress} hitSlop={s(10)}>
             <Ionicons name="checkmark-circle" size={s(22)} color={COLORS.gold} />
           </Pressable>
         </View>
@@ -66,7 +75,7 @@ export function TrainingDayCard({ day, onExercisePress, onAddExercise, onRenameD
             ) : null}
           </View>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: s(10) }}>
-            <Pressable onPress={() => setIsRenaming(true)} hitSlop={s(8)}>
+            <Pressable onPress={() => setIsRenaming(true)} style={iconPress} hitSlop={s(10)}>
               <Ionicons name="pencil-outline" size={s(16)} color={COLORS.textDim} />
             </Pressable>
             {isGymDay ? (
@@ -95,7 +104,7 @@ export function TrainingDayCard({ day, onExercisePress, onAddExercise, onRenameD
           {exercises.map(exercise => (
             <Pressable
               key={exercise.id}
-              style={styles.exerciseItem}
+              style={softPress(styles.exerciseItem)}
               onPress={() => onExercisePress(exercise)}
             >
               <View style={styles.exerciseItemMain}>
@@ -119,7 +128,7 @@ export function TrainingDayCard({ day, onExercisePress, onAddExercise, onRenameD
       )}
 
       {isGymDay ? (
-        <Pressable style={styles.addExerciseToDayBtn} onPress={onAddExercise}>
+        <Pressable style={softPress(styles.addExerciseToDayBtn)} onPress={onAddExercise}>
           <Ionicons name="add-outline" size={s(16)} color={COLORS.softGold} />
           <Text style={styles.addExerciseToDayBtnText}>Übung hinzufügen</Text>
         </Pressable>

@@ -5,6 +5,7 @@ import { COLORS } from '../../../../constants/colors';
 import { s } from '../../../../constants/layout';
 import { formatTime } from '../utils/deepWorkUtils';
 import { styles } from '../styles/deepWorkStyles';
+import { triggerHaptic } from '../../../../lib/haptics';
 
 export default function DeepWorkSessionView({
   router,
@@ -25,9 +26,11 @@ export default function DeepWorkSessionView({
             router.back();
           }
         }}
-        style={[
+        hitSlop={10}
+        style={({ pressed }) => [
           styles.sessionBackButton,
           phase === 'running' && styles.sessionBackButtonHidden,
+          pressed && phase !== 'running' && styles.subtlePressed,
         ]}
         disabled={phase === 'running'}
       >
@@ -63,7 +66,17 @@ export default function DeepWorkSessionView({
             { transform: [{ scale: pulseAnim }] },
           ]}
         >
-          <Pressable style={styles.pauseButton} onPress={togglePause}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.pauseButton,
+              pressed && styles.pauseButtonPressed,
+            ]}
+            onPress={() => {
+              void triggerHaptic('selection');
+              togglePause();
+            }}
+            hitSlop={8}
+          >
             <Ionicons
               name={phase === 'running' ? 'pause' : 'play'}
               size={s(38)}
@@ -74,7 +87,16 @@ export default function DeepWorkSessionView({
       </View>
 
       <View style={styles.bottomArea}>
-        <Pressable style={styles.endButton} onPress={endSession}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.endButton,
+            pressed && styles.secondaryButtonPressed,
+          ]}
+          onPress={() => {
+            void triggerHaptic('medium');
+            endSession();
+          }}
+        >
           <Text style={styles.endButtonText}>Session beenden</Text>
         </Pressable>
       </View>

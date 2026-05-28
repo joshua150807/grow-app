@@ -4,7 +4,7 @@ import { s, sv, sf } from '../../../../constants/layout';
 export const trainingModalStyles = {
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: COLORS.black,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: s(20),
@@ -12,6 +12,7 @@ export const trainingModalStyles = {
 
   modalContainer: {
     width: '100%',
+    maxHeight: '86%',
     backgroundColor: COLORS.darkCard2,
     borderRadius: s(18),
     borderWidth: 1,

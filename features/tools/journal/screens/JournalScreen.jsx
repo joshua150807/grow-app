@@ -21,6 +21,8 @@ import {
   isJournalEntryValid,
 } from '../utils/journalUtils';
 import { styles } from '../styles/journalStyles';
+import PressableScale from '../../../../components/ui/PressableScale';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 
 const emptyForm = {
   gratitude: '',
@@ -52,6 +54,7 @@ export default function JournalScreen() {
   } = useJournalEntries(selectedDate);
 
   const selectedDay = days.find(day => day.iso === selectedDate);
+  const showLoading = useDelayedLoading(loading);
 
   const updateForm = useCallback((key, value) => {
     setForm(prev => ({ ...prev, [key]: value }));
@@ -122,10 +125,10 @@ export default function JournalScreen() {
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <PressableScale onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Tools</Text>
-        </Pressable>
+        </PressableScale>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -147,9 +150,9 @@ export default function JournalScreen() {
         {loadError && (
           <View style={styles.errorCard}>
             <Text style={styles.errorText}>{loadError}</Text>
-            <Pressable onPress={loadEntries} style={styles.retryBtn}>
+            <PressableScale onPress={loadEntries} style={styles.retryBtn}>
               <Text style={styles.retryText}>Erneut versuchen</Text>
-            </Pressable>
+            </PressableScale>
           </View>
         )}
 
@@ -157,9 +160,9 @@ export default function JournalScreen() {
           <View style={styles.errorBanner}>
             <Ionicons name="alert-circle-outline" size={s(16)} color={COLORS.errorLight} />
             <Text style={styles.errorText}>{actionError}</Text>
-            <Pressable onPress={() => setActionError(null)} hitSlop={s(8)}>
+            <PressableScale onPress={() => setActionError(null)} hitSlop={s(8)} activeScale={0.94}>
               <Ionicons name="close" size={s(16)} color={COLORS.textDim} />
-            </Pressable>
+            </PressableScale>
           </View>
         )}
 
@@ -190,9 +193,9 @@ export default function JournalScreen() {
               {editingEntry ? 'Eintrag bearbeiten' : `${selectedDay?.label || 'Tag'} reflektieren`}
             </Text>
             {editingEntry && (
-              <Pressable onPress={resetForm} hitSlop={s(8)}>
+              <PressableScale onPress={resetForm} hitSlop={s(8)} activeScale={0.96}>
                 <Text style={styles.cancelText}>Abbrechen</Text>
-              </Pressable>
+              </PressableScale>
             )}
           </View>
 
@@ -260,7 +263,7 @@ export default function JournalScreen() {
 
           {formError && <Text style={styles.errorText}>{formError}</Text>}
 
-          <Pressable
+          <PressableScale
             style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
             onPress={handleSave}
             disabled={!canSave}
@@ -270,7 +273,7 @@ export default function JournalScreen() {
             ) : (
               <Text style={styles.saveText}>{editingEntry ? 'Änderungen speichern' : 'Journal speichern'}</Text>
             )}
-          </Pressable>
+          </PressableScale>
         </View>
 
         <View style={styles.sectionRow}>
@@ -278,29 +281,29 @@ export default function JournalScreen() {
           <Text style={styles.sectionCount}>{visibleEntries.length} gespeichert</Text>
         </View>
 
-        {loading ? (
+        {showLoading ? (
           <View style={styles.emptyState}>
             <ActivityIndicator color={COLORS.gold} />
           </View>
-        ) : visibleEntries.length === 0 ? (
+        ) : !loading && visibleEntries.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="journal-outline" size={s(42)} color={COLORS.textDim} />
             <Text style={styles.emptyText}>Noch kein Eintrag.</Text>
             <Text style={styles.emptySubText}>Schreibe kurz auf, was heute zählt.</Text>
           </View>
-        ) : (
+        ) : !loading ? (
           <View style={styles.list}>
             {visibleEntries.map(entry => (
               <View key={entry.id} style={styles.entryCard}>
                 <View style={styles.entryHeaderRow}>
                   <Text style={styles.entryTime}>{formatEntryTime(entry.created_at)}</Text>
                   <View style={styles.entryActions}>
-                    <Pressable onPress={() => handleEdit(entry)} hitSlop={s(8)}>
+                    <PressableScale onPress={() => handleEdit(entry)} hitSlop={s(8)} activeScale={0.94}>
                       <Ionicons name="create-outline" size={s(20)} color={COLORS.softGold} />
-                    </Pressable>
-                    <Pressable onPress={() => remove(entry.id)} hitSlop={s(8)}>
+                    </PressableScale>
+                    <PressableScale onPress={() => remove(entry.id)} hitSlop={s(8)} activeScale={0.94}>
                       <Ionicons name="trash-outline" size={s(20)} color={COLORS.errorLight} />
-                    </Pressable>
+                    </PressableScale>
                   </View>
                 </View>
 
@@ -335,7 +338,7 @@ export default function JournalScreen() {
               </View>
             ))}
           </View>
-        )}
+        ) : null}
       </ScrollView>
     </View>
   );

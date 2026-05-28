@@ -9,13 +9,17 @@ export default function DeepWorkIdleView({ router, openSetup, phase }) {
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
-        <Pressable 
-            onPress={() => {
-                if (phase !== 'running') {
-                  router.back();
-                }
-            }} 
-            style={styles.backButton}
+        <Pressable
+          onPress={() => {
+            if (phase !== 'running') {
+              router.back();
+            }
+          }}
+          hitSlop={10}
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && styles.subtlePressed,
+          ]}
         >
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Tools</Text>
@@ -45,7 +49,13 @@ export default function DeepWorkIdleView({ router, openSetup, phase }) {
           </Text>
         </View>
 
-        <Pressable style={styles.startButton} onPress={openSetup}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.startButton,
+            pressed && styles.primaryButtonPressed,
+          ]}
+          onPress={openSetup}
+        >
           <Ionicons name="play" size={s(20)} color={COLORS.black} />
           <Text style={styles.startButtonText}>Session starten</Text>
         </Pressable>

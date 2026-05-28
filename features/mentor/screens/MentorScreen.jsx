@@ -100,7 +100,17 @@ export default function KIMentorScreen() {
         },
       ]}
     >
-      <Pressable onPress={() => router.replace('/(tabs)/tools')} style={styles.backButton}>
+      <Pressable
+        onPress={() => {
+          if (router.canGoBack?.()) {
+            router.back();
+            return;
+          }
+
+          router.replace('/tools');
+        }}
+        style={styles.backButton}
+      >
         <Ionicons name="chevron-back" size={s(22)} color={COLORS.softGold} />
         <Text style={styles.backText}>Tools</Text>
       </Pressable>

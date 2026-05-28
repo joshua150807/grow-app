@@ -19,6 +19,13 @@ import { supabase } from '../../../../services/supabaseClient';
 import { useTrainingPlan } from '../hooks/useTrainingPlan';
 import { createTrainingSession } from '../services/trainingSessionService';
 import { styles } from '../styles/trainingStyles';
+import { triggerHaptic } from '../../../../lib/haptics';
+import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
+
+const softPress = (baseStyle, disabled = false) => ({ pressed }) => [
+  baseStyle,
+  pressed && !disabled && { opacity: 0.9, transform: [{ scale: 0.985 }] },
+];
 
 function safeText(value) {
   if (value === null || value === undefined) return '';
@@ -49,6 +56,7 @@ function parsePositiveInt(value) {
 export default function TrainingSessionActiveScreen() {
   const { dayId } = useLocalSearchParams();
   const { plan, loading, error, loadPlan } = useTrainingPlan();
+  const showLoading = useDelayedLoading(loading);
 
   const [exerciseValues, setExerciseValues] = useState({});
   const [sessionNote, setSessionNote] = useState('');
@@ -97,6 +105,8 @@ export default function TrainingSessionActiveScreen() {
 
   const handleSaveSession = async () => {
     if (!plan || !selectedDay || saving || isRestDay) return;
+
+    void triggerHaptic('medium');
 
     setSaving(true);
     setSaveError(null);
@@ -163,7 +173,7 @@ export default function TrainingSessionActiveScreen() {
     }
   };
 
-  if (loading) {
+  if (showLoading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator color={COLORS.gold} size="large" />
@@ -172,11 +182,15 @@ export default function TrainingSessionActiveScreen() {
     );
   }
 
+  if (loading) {
+    return <View style={styles.screen} />;
+  }
+
   if (error) {
     return (
       <View style={styles.centered}>
         <Text style={styles.errorText}>{error}</Text>
-        <Pressable onPress={loadPlan} style={styles.retryBtn}>
+        <Pressable onPress={loadPlan} style={softPress(styles.retryBtn)}>
           <Text style={styles.retryText}>Erneut versuchen</Text>
         </Pressable>
       </View>
@@ -187,7 +201,7 @@ export default function TrainingSessionActiveScreen() {
     return (
       <View style={styles.screen}>
         <View style={styles.topBar}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable onPress={() => router.back()} style={softPress(styles.backButton)} hitSlop={s(8)}>
             <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
             <Text style={styles.backText}>Zurück</Text>
           </Pressable>
@@ -204,7 +218,7 @@ export default function TrainingSessionActiveScreen() {
     return (
       <View style={styles.screen}>
         <View style={styles.topBar}>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
+          <Pressable onPress={() => router.back()} style={softPress(styles.backButton)} hitSlop={s(8)}>
             <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
             <Text style={styles.backText}>Zurück</Text>
           </Pressable>
@@ -225,7 +239,7 @@ export default function TrainingSessionActiveScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={styles.backButton} disabled={saving}>
+        <Pressable onPress={() => router.back()} style={softPress(styles.backButton, saving)} hitSlop={s(8)} disabled={saving}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Zurück</Text>
         </Pressable>
@@ -384,7 +398,7 @@ export default function TrainingSessionActiveScreen() {
         ) : null}
 
         <Pressable
-          style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
+          style={softPress([styles.saveBtn, saving && styles.saveBtnDisabled], saving)}
           onPress={handleSaveSession}
           disabled={saving}
         >
