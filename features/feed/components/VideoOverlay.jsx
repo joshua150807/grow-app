@@ -3,6 +3,7 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { s, sv, sf, SCREEN } from '../../../constants/layout';
 import { RATINGS } from '../hooks/useVideoRating';
+import TourTarget from '../../onboarding/components/TourTarget';
  
 const { height } = Dimensions.get('window');
  
@@ -16,46 +17,53 @@ export default function VideoOverlay({
   showPointReward = false,
   activeRating = null,
   onRate = () => {},
+  isActive = false,
 }) {
   return (
     <View style={styles.container} pointerEvents="box-none">
       <Text style={styles.logo}>GROW</Text>
  
       <View style={styles.rightSide} pointerEvents="box-none">
-        {RATINGS.map(({ key, emoji }) => {
-          const isActive = activeRating === key;
-          return (
-            <TouchableOpacity
-              key={key}
-              style={[styles.circle, isActive && styles.circleActive]}
-              activeOpacity={0.75}
-              onPress={() => onRate(key)}
-            >
-              <Text style={[styles.emoji, isActive && styles.emojiActive]}>
-                {emoji}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
- 
-        <TouchableOpacity
-          style={styles.saveButton}
-          onPress={onToggleSaved}
-          activeOpacity={0.8}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        <TourTarget
+          id={isActive ? 'feed-actions' : null}
+          style={styles.actionsTarget}
+          pointerEvents="box-none"
         >
-          {saved ? (
-            <Ionicons name="bookmark" size={s(31)} color={COLORS.gold} />
-          ) : (
-            <Feather name="bookmark" size={s(31)} color={COLORS.gold} />
+          {RATINGS.map(({ key, emoji }) => {
+            const isActiveRating = activeRating === key;
+            return (
+              <TouchableOpacity
+                key={key}
+                style={[styles.circle, isActiveRating && styles.circleActive]}
+                activeOpacity={0.75}
+                onPress={() => onRate(key)}
+              >
+                <Text style={[styles.emoji, isActiveRating && styles.emojiActive]}>
+                  {emoji}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+
+          <TouchableOpacity
+            style={styles.saveButton}
+            onPress={onToggleSaved}
+            activeOpacity={0.8}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            {saved ? (
+              <Ionicons name="bookmark" size={s(31)} color={COLORS.gold} />
+            ) : (
+              <Feather name="bookmark" size={s(31)} color={COLORS.gold} />
+            )}
+          </TouchableOpacity>
+
+          {showPointReward && (
+            <View style={styles.pointBubble} pointerEvents="none">
+              <Text style={styles.pointBubbleText}>+1</Text>
+            </View>
           )}
-        </TouchableOpacity>
- 
-        {showPointReward && (
-          <View style={styles.pointBubble} pointerEvents="none">
-            <Text style={styles.pointBubbleText}>+1</Text>
-          </View>
-        )}
+        </TourTarget>
       </View>
  
       {isPaused && (
@@ -105,6 +113,9 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: s(10),
     top: SCREEN.height * 0.38,
+    alignItems: 'center',
+  },
+  actionsTarget: {
     alignItems: 'center',
   },
   circle: {

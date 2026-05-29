@@ -30,6 +30,7 @@ import { getToolsOverviewLayout } from '../utils/getToolsOverviewLayout';
 import { styles } from '../styles/toolsOverviewStyles';
 import PressableScale from '../../../../components/ui/PressableScale';
 import { useOnboarding } from '../../../onboarding/context/OnboardingContext';
+import TourTarget from '../../../onboarding/components/TourTarget';
 
 const GROW_AVATAR = require('../../../../assets/images/grow_avatar.png');
 
@@ -182,7 +183,7 @@ export default function ToolsScreen() {
           </View>
 
           <View style={styles.rightHeader}>
-            <View style={styles.pointsBox}>
+            <TourTarget id="grow-points-box" style={styles.pointsBox}>
               <View style={styles.pointsRow}>
                 <View style={styles.coinPlaceholder}>
                   <Text style={styles.coinStar}>★</Text>
@@ -194,7 +195,7 @@ export default function ToolsScreen() {
               </View>
 
               <Text style={styles.pointsLabel}>GROW Points</Text>
-            </View>
+            </TourTarget>
 
             <PressableScale
               onPress={(event) => {
@@ -262,24 +263,26 @@ export default function ToolsScreen() {
         )}
 
         {/* Tools Grid */}
-        <AnimatedToolsGridSwitcher
-          mode={toolsViewMode}
-          overviewTools={overviewTools}
-          visibleToolSlots={visibleToolSlots}
-          replacementToolId={replacementToolId}
-          replacementTool={replacementTool}
-          reorderMode={reorderMode}
-          overviewToolIds={overviewToolIds}
-          overviewStyles={styles}
-          overviewLayout={layout}
-          renderToolIcon={renderToolIcon}
-          onToolPress={handleToolPress}
-          onReorder={handleReorderOverviewTools}
-          onReorderModeChange={setReorderMode}
-          onExitReorderMode={() => setReorderMode(false)}
-          onModeChange={handleSetToolsViewMode}
-          onOpenAllTools={() => router.push('/tools/all-tools')}
-        />
+        <TourTarget id="tools-grid">
+          <AnimatedToolsGridSwitcher
+            mode={toolsViewMode}
+            overviewTools={overviewTools}
+            visibleToolSlots={visibleToolSlots}
+            replacementToolId={replacementToolId}
+            replacementTool={replacementTool}
+            reorderMode={reorderMode}
+            overviewToolIds={overviewToolIds}
+            overviewStyles={styles}
+            overviewLayout={layout}
+            renderToolIcon={renderToolIcon}
+            onToolPress={handleToolPress}
+            onReorder={handleReorderOverviewTools}
+            onReorderModeChange={setReorderMode}
+            onExitReorderMode={() => setReorderMode(false)}
+            onModeChange={handleSetToolsViewMode}
+            onOpenAllTools={() => router.push('/tools/all-tools')}
+          />
+        </TourTarget>
 
         {/* Abstand nach Grid */}
         <View
@@ -291,7 +294,8 @@ export default function ToolsScreen() {
         />
 
         {/* KI Mentor Card */}
-        <PressableScale
+        <TourTarget id="mentor-card">
+          <PressableScale
           onPress={() => router.push('/tools/mentor')}
           activeScale={0.985}
           activeOpacity={0.9}
@@ -327,7 +331,8 @@ export default function ToolsScreen() {
               </View>
             </View>
           </ImageBackground>
-        </PressableScale>
+          </PressableScale>
+        </TourTarget>
 
         {/* Tracker */}
         <View

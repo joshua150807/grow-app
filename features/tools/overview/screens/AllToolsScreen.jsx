@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,8 @@ import { s } from '../../../../constants/layout';
 import ToolCard from '../components/ToolCard';
 import PressableScale from '../../../../components/ui/PressableScale';
 import { allToolsStyles as styles } from '../styles/allToolsStyles';
+import { useOnboarding } from '../../../onboarding/context/OnboardingContext';
+import TourTarget from '../../../onboarding/components/TourTarget';
 
 import {
   getSelectedOverviewToolIds,
@@ -59,6 +61,8 @@ function getAllToolsLayout(width) {
 
 export default function AllToolsScreen() {
   const { width } = useWindowDimensions();
+  const scrollRef = useRef(null);
+  const { currentStep, isTourActive } = useOnboarding();
   const layout = useMemo(() => getAllToolsLayout(width), [width]);
 
   const activeTools = useMemo(() => getActiveTools(), []);
@@ -95,6 +99,29 @@ export default function AllToolsScreen() {
       mounted = false;
     };
   }, [activeTools, defaultOverviewToolIds]);
+
+
+  useEffect(() => {
+    if (!isTourActive || !currentStep?.targetId?.startsWith('tool-')) return;
+
+    const targetToolId = currentStep.targetId.replace('tool-', '');
+    const targetIndex = tools.findIndex((tool) => tool.id === targetToolId);
+
+    if (targetIndex < 0) return;
+
+    const rowIndex = Math.floor(targetIndex / 3);
+    const estimatedHeaderOffset = 120;
+    const targetOffset = Math.max(
+      0,
+      estimatedHeaderOffset + rowIndex * (layout.cardSize + layout.gap) - 24
+    );
+
+    const timer = setTimeout(() => {
+      scrollRef.current?.scrollTo({ y: targetOffset, animated: true });
+    }, 120);
+
+    return () => clearTimeout(timer);
+  }, [currentStep?.targetId, isTourActive, layout.cardSize, layout.gap]);
 
   const handleToolPress = (tool) => {
     if (!tool || tool.disabled || !tool.route) return;
@@ -140,6 +167,7 @@ export default function AllToolsScreen() {
         </View>
 
         <ScrollView
+          ref={scrollRef}
           contentContainerStyle={styles.allToolsContent}
           showsVerticalScrollIndicator={false}
         >
@@ -164,8 +192,9 @@ export default function AllToolsScreen() {
               const selected = selectedIds.includes(tool.id);
 
               return (
-                <View
+                <TourTarget
                   key={tool.id}
+                  id={`tool-${tool.id}`}
                   style={[
                     styles.cardSlot,
                     {
@@ -189,7 +218,7 @@ export default function AllToolsScreen() {
                       height: '100%',
                     }}
                   />
-                </View>
+                </TourTarget>
               );
             })}
           </View>

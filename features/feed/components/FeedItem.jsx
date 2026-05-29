@@ -4,6 +4,7 @@ import { VideoView, useVideoPlayer } from 'expo-video';
  
 import VideoOverlay from './VideoOverlay';
 import FeedProgressBar from './FeedProgressBar';
+import TourTarget from '../../onboarding/components/TourTarget';
 import { useWatchReward } from '../hooks/useWatchReward';
 import { useVideoProgress } from '../hooks/useVideoProgress';
 import { useVideoRating } from '../hooks/useVideoRating';
@@ -116,6 +117,14 @@ export default function FeedItem({
  
   return (
     <View style={styles.page}>
+      {isActive && (
+        <TourTarget
+          id="feed-video-area"
+          style={styles.videoTourTarget}
+          pointerEvents="none"
+        />
+      )}
+
       <VideoView
         style={styles.video}
         player={player}
@@ -158,6 +167,7 @@ export default function FeedItem({
             setIsMuted((prev) => !prev);
             setIsPausedByUser(false);
           }}
+          isActive={isActive}
         />
       </View>
  
@@ -185,6 +195,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: '100%',
     height: '100%',
+  },
+  videoTourTarget: {
+    position: 'absolute',
+    left: s(20),
+    right: s(68),
+    top: SCREEN.height * 0.22,
+    height: SCREEN.height * 0.42,
+    zIndex: 3,
   },
   touchLayer: {
     position: 'absolute',

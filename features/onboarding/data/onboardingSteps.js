@@ -10,6 +10,7 @@ export const BASE_ONBOARDING_STEPS = [
   {
     id: 'feed-swipe',
     route: '/(tabs)',
+    targetId: 'feed-video-area',
     eyebrow: 'Feed',
     title: 'Swipe durch kurze Videos',
     text: 'Im Feed bekommst du kurze Motivationsvideos. Swipe nach oben, um zum nächsten Video zu wechseln.',
@@ -18,6 +19,7 @@ export const BASE_ONBOARDING_STEPS = [
   {
     id: 'feed-pause',
     route: '/(tabs)',
+    targetId: 'feed-video-area',
     eyebrow: 'Feed',
     title: 'Video steuern',
     text: 'Tippe auf das Video, um es zu pausieren oder weiterlaufen zu lassen. Halten pausiert das Video nur kurz.',
@@ -26,6 +28,7 @@ export const BASE_ONBOARDING_STEPS = [
   {
     id: 'feed-actions',
     route: '/(tabs)',
+    targetId: 'feed-actions',
     eyebrow: 'Feed',
     title: 'Speichern und bewerten',
     text: 'Rechts kannst du Videos speichern und bewerten. So findest du starke Videos wieder und Grow versteht besser, was dich motiviert.',
@@ -34,6 +37,7 @@ export const BASE_ONBOARDING_STEPS = [
   {
     id: 'tools-overview',
     route: '/tools',
+    targetId: 'tools-grid',
     eyebrow: 'Tools',
     title: 'Motivation wird zu Umsetzung',
     text: 'In den Tools findest du To-dos, Ziele, Gewohnheiten, Deep Work, Training und weitere Bereiche für deinen Alltag.',
@@ -42,6 +46,7 @@ export const BASE_ONBOARDING_STEPS = [
   {
     id: 'grow-points',
     route: '/tools',
+    targetId: 'grow-points-box',
     eyebrow: 'Fortschritt',
     title: 'Grow Points zeigen Aktivität',
     text: 'Oben in der Tools-Übersicht siehst du deine Grow Points. Sie sollen dir zeigen, dass du dranbleibst.',
@@ -50,6 +55,7 @@ export const BASE_ONBOARDING_STEPS = [
   {
     id: 'mentor-placeholder',
     route: '/tools',
+    targetId: 'mentor-card',
     eyebrow: 'KI Mentor',
     title: 'Der KI Mentor kommt später',
     text: 'Der Mentor ist vorbereitet, wird aber erst nach der Beta vollständig ausgebaut. Für jetzt liegt der Fokus auf Feed, Tools und Feedback.',
@@ -58,6 +64,7 @@ export const BASE_ONBOARDING_STEPS = [
   {
     id: 'feedback',
     route: '/feedback',
+    targetId: 'feedback-form',
     eyebrow: 'Beta',
     title: 'Feedback ist extrem wichtig',
     text: 'Wenn du Bugs findest, Ideen hast oder etwas schlecht ist: schick es über Feedback. Genau dadurch wird Grow besser.',
@@ -79,6 +86,7 @@ export const TOOL_ONBOARDING_STEPS = [
   {
     id: 'tool-todo',
     route: '/tools/all-tools',
+    targetId: 'tool-todo',
     eyebrow: 'Tool 1',
     title: 'To-Do',
     text: 'Hier sammelst du konkrete Aufgaben. Das Tool ist für alles gedacht, was du wirklich erledigen willst — nicht nur für Ideen.',
@@ -87,6 +95,7 @@ export const TOOL_ONBOARDING_STEPS = [
   {
     id: 'tool-training-plan',
     route: '/tools/all-tools',
+    targetId: 'tool-training-plan',
     eyebrow: 'Tool 2',
     title: 'Trainingsplan',
     text: 'Hier planst und trackst du dein Training. Ziel ist Struktur im Gym und später auch Übersicht über deine letzten Einheiten.',
@@ -95,6 +104,7 @@ export const TOOL_ONBOARDING_STEPS = [
   {
     id: 'tool-goals',
     route: '/tools/all-tools',
+    targetId: 'tool-goals',
     eyebrow: 'Tool 3',
     title: 'Ziele',
     text: 'Hier hältst du größere Ziele fest. Das Tool soll dir helfen, nicht nur den Tag, sondern auch deine Richtung im Blick zu behalten.',
@@ -103,6 +113,7 @@ export const TOOL_ONBOARDING_STEPS = [
   {
     id: 'tool-habits',
     route: '/tools/all-tools',
+    targetId: 'tool-habits',
     eyebrow: 'Tool 4',
     title: 'Gewohnheiten',
     text: 'Hier baust du Routinen auf. Kleine Wiederholungen sollen langfristig zu sichtbarem Fortschritt werden.',
@@ -111,6 +122,7 @@ export const TOOL_ONBOARDING_STEPS = [
   {
     id: 'tool-deep-work',
     route: '/tools/all-tools',
+    targetId: 'tool-deep-work',
     eyebrow: 'Tool 5',
     title: 'Deep Work',
     text: 'Hier startest du fokussierte Arbeitsphasen. Das Tool ist für Lernen, Programmieren, Arbeiten oder jede Aufgabe gedacht, die echte Konzentration braucht.',
@@ -119,6 +131,7 @@ export const TOOL_ONBOARDING_STEPS = [
   {
     id: 'tool-daily-planner',
     route: '/tools/all-tools',
+    targetId: 'tool-daily-planner',
     eyebrow: 'Tool 6',
     title: 'Tagesplaner',
     text: 'Hier strukturierst du deinen Tag. Besonders sinnvoll, wenn du Motivation direkt in einen klaren Tagesablauf übersetzen willst.',
@@ -127,6 +140,7 @@ export const TOOL_ONBOARDING_STEPS = [
   {
     id: 'tool-affirmations',
     route: '/tools/all-tools',
+    targetId: 'tool-affirmations',
     eyebrow: 'Tool 7',
     title: 'Affirmationen',
     text: 'Hier trainierst du dein Mindset. Das Tool soll kurze mentale Impulse geben, die dich wieder auf Kurs bringen.',
@@ -135,6 +149,7 @@ export const TOOL_ONBOARDING_STEPS = [
   {
     id: 'tool-recommendations',
     route: '/tools/all-tools',
+    targetId: 'tool-recommendations',
     eyebrow: 'Tool 8',
     title: 'Empfehlungen',
     text: 'Hier findest du später Bücher, Podcasts, Produkte oder Inhalte, die zu Selbstverbesserung und Disziplin passen.',
@@ -143,6 +158,7 @@ export const TOOL_ONBOARDING_STEPS = [
   {
     id: 'tool-journal',
     route: '/tools/all-tools',
+    targetId: 'tool-journal',
     eyebrow: 'Tool 9',
     title: 'Journal',
     text: 'Hier reflektierst du deinen Tag. Das ist für Gedanken, Rückblicke, Erkenntnisse und persönliche Entwicklung gedacht.',
@@ -151,6 +167,7 @@ export const TOOL_ONBOARDING_STEPS = [
   {
     id: 'tool-notes',
     route: '/tools/all-tools',
+    targetId: 'tool-notes',
     eyebrow: 'Tool 10',
     title: 'Notizen',
     text: 'Hier hältst du schnelle Gedanken fest. Alles, was nicht direkt eine Aufgabe oder ein Ziel ist, kann erstmal in die Notizen.',
@@ -158,7 +175,7 @@ export const TOOL_ONBOARDING_STEPS = [
   },
   {
     id: 'tools-finish',
-    route: '/(tabs)',
+    route: '/tools',
     eyebrow: 'Fertig',
     title: 'Du bist bereit',
     text: 'Das war die vollständige Erklärung. Du kannst das Tutorial später jederzeit über die drei Punkte in der Tools-Übersicht erneut starten.',

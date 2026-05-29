@@ -18,6 +18,7 @@ import ImportanceButton from '../components/ImportanceButton';
 import { useFeedbackForm } from '../hooks/useFeedbackForm';
 import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout'
+import TourTarget from '../../onboarding/components/TourTarget';
  
 const feedbackTypes = ['Idee / Vorschlag', 'Bug melden', 'Lob & Dank'];
  
@@ -83,7 +84,7 @@ export default function FeedbackScreen() {
  
         <Text style={styles.sectionTitle}>WIE KÖNNEN WIR GROW VERBESSERN?</Text>
  
-        <View style={styles.inputContainer}>
+        <TourTarget id="feedback-form" style={styles.inputContainer}>
           <TextInput
             style={styles.input}
             multiline
@@ -97,7 +98,7 @@ export default function FeedbackScreen() {
             placeholderTextColor={COLORS.textDim}
           />
           <Text style={styles.counter}>{text.length}/500</Text>
-        </View>
+        </TourTarget>
  
         <Text style={styles.sectionTitle}>WIE WICHTIG IST DIR DAS?</Text>
         <Text style={styles.smallDescription}>

@@ -5,30 +5,66 @@ import { COLORS } from '../../../constants/colors';
 import { s, sv, sf, SCREEN } from '../../../constants/layout';
 import { useOnboarding } from '../context/OnboardingContext';
 
-function getBubblePosition(targetRect) {
+const BUBBLE_MARGIN = s(16);
+const BUBBLE_MAX_WIDTH = Math.min(SCREEN.width - BUBBLE_MARGIN * 2, s(344));
+const ESTIMATED_BUBBLE_HEIGHT = sv(224);
+const TARGET_GAP = sv(18);
+const ARROW_SIZE = s(16);
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(value, max));
+}
+
+function getBubbleLayout(targetRect) {
   if (!targetRect) {
     return {
-      left: s(18),
-      right: s(18),
-      bottom: sv(94),
+      bubbleStyle: {
+        left: BUBBLE_MARGIN,
+        width: SCREEN.width - BUBBLE_MARGIN * 2,
+        top: clamp(SCREEN.height * 0.54, sv(120), SCREEN.height - ESTIMATED_BUBBLE_HEIGHT - sv(34)),
+      },
+      arrowStyle: null,
+      arrowDirection: null,
     };
   }
 
+  const targetCenterX = targetRect.x + targetRect.width / 2;
   const targetCenterY = targetRect.y + targetRect.height / 2;
-  const shouldShowBelow = targetCenterY < SCREEN.height * 0.48;
+  const shouldShowBelow = targetCenterY < SCREEN.height * 0.5;
 
-  if (shouldShowBelow) {
-    return {
-      left: s(18),
-      right: s(18),
-      top: Math.min(targetRect.y + targetRect.height + sv(18), SCREEN.height - sv(285)),
-    };
-  }
+  const bubbleWidth = BUBBLE_MAX_WIDTH;
+  const bubbleLeft = clamp(
+    targetCenterX - bubbleWidth / 2,
+    BUBBLE_MARGIN,
+    SCREEN.width - bubbleWidth - BUBBLE_MARGIN
+  );
+
+  const preferredTop = shouldShowBelow
+    ? targetRect.y + targetRect.height + TARGET_GAP
+    : targetRect.y - ESTIMATED_BUBBLE_HEIGHT - TARGET_GAP;
+
+  const bubbleTop = clamp(
+    preferredTop,
+    sv(52),
+    SCREEN.height - ESTIMATED_BUBBLE_HEIGHT - sv(28)
+  );
+
+  const arrowLeft = clamp(
+    targetCenterX - bubbleLeft - ARROW_SIZE,
+    s(26),
+    bubbleWidth - s(26) - ARROW_SIZE * 2
+  );
 
   return {
-    left: s(18),
-    right: s(18),
-    bottom: Math.min(SCREEN.height - targetRect.y + sv(18), SCREEN.height - sv(140)),
+    bubbleStyle: {
+      left: bubbleLeft,
+      width: bubbleWidth,
+      top: bubbleTop,
+    },
+    arrowStyle: {
+      left: arrowLeft,
+    },
+    arrowDirection: shouldShowBelow ? 'up' : 'down',
   };
 }
 
@@ -50,7 +86,7 @@ export default function GuidedTourOverlay() {
   if (!isTourActive || !currentStep) return null;
 
   const targetRect = currentStep.targetId ? targets[currentStep.targetId] : null;
-  const bubbleStyle = getBubblePosition(targetRect);
+  const { bubbleStyle, arrowStyle, arrowDirection } = getBubbleLayout(targetRect);
   const progressLabel = `${currentStepIndex + 1} von ${steps.length}`;
   const isToolsChoiceStep = currentStep.actionType === 'toolsChoice';
 
@@ -73,6 +109,16 @@ export default function GuidedTourOverlay() {
 
 
       <View style={[styles.bubble, bubbleStyle]}>
+        {arrowDirection && (
+          <View
+            pointerEvents="none"
+            style={[
+              styles.arrow,
+              arrowStyle,
+              arrowDirection === 'up' ? styles.arrowUp : styles.arrowDown,
+            ]}
+          />
+        )}
         <View style={styles.topRow}>
           <Text style={styles.eyebrow}>{currentStep.eyebrow}</Text>
           <Text style={styles.progress}>{progressLabel}</Text>
@@ -149,6 +195,30 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.32,
     shadowRadius: 22,
     elevation: 18,
+  },
+  arrow: {
+    position: 'absolute',
+    width: 0,
+    height: 0,
+    borderLeftWidth: ARROW_SIZE,
+    borderRightWidth: ARROW_SIZE,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    shadowColor: COLORS.toolsGold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.95,
+    shadowRadius: 10,
+    elevation: 28,
+  },
+  arrowUp: {
+    top: -ARROW_SIZE,
+    borderBottomWidth: ARROW_SIZE,
+    borderBottomColor: COLORS.toolsGold,
+  },
+  arrowDown: {
+    bottom: -ARROW_SIZE,
+    borderTopWidth: ARROW_SIZE,
+    borderTopColor: COLORS.toolsGold,
   },
   topRow: {
     flexDirection: 'row',

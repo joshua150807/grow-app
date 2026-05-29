@@ -125,8 +125,18 @@ export function OnboardingProvider({ children, isAuthenticated = false }) {
     setIsTourActive(false);
     setIncludeToolsTour(false);
     setCurrentStepIndex(0);
-    navigateToTourRoute('/(tabs)');
-  }, [navigateToTourRoute]);
+
+    // Wenn die optionale Tool-Erklärung auf /tools/all-tools lief, merkt sich der Tools-Tab
+    // sonst diese Unterseite. Deshalb setzen wir den Tools-Stack kurz auf die Overview zurück
+    // und springen danach final in den Feed. Für den Nutzer soll das Tutorial im Feed enden.
+    requestAnimationFrame(() => {
+      router.navigate('/tools');
+
+      setTimeout(() => {
+        router.navigate('/');
+      }, 80);
+    });
+  }, []);
 
   const skipTutorial = useCallback(() => {
     finishTutorial();

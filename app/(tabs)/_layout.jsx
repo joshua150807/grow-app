@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+import { Tabs, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, View } from 'react-native';
  
@@ -132,6 +132,11 @@ export default function TabsLayout() {
       />
       <Tabs.Screen
         name="tools"
+        listeners={{
+          tabPress: () => {
+            router.navigate('/tools');
+          },
+        }}
         options={{
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="grid-outline" color={color} size={s(26)} focused={focused} />
