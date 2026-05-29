@@ -25,6 +25,7 @@ export default function FeedItem({
   onVideoReady,
   onScrubStart,
   onScrubEnd,
+  isInteractionDisabled = false,
 }) {
   const [isHolding, setIsHolding] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -130,6 +131,8 @@ export default function FeedItem({
  
       <Pressable
         style={styles.touchLayer}
+        pointerEvents={isInteractionDisabled ? 'none' : 'auto'}
+        disabled={isInteractionDisabled}
         onPress={() => setIsPausedByUser((prev) => !prev)}
         onLongPress={() => setIsHolding(true)}
         delayLongPress={LONG_PRESS_DELAY}
@@ -138,7 +141,10 @@ export default function FeedItem({
  
       <View style={styles.overlayDark} pointerEvents="none" />
  
-      <View style={styles.overlayContent} pointerEvents="box-none">
+      <View
+        style={styles.overlayContent}
+        pointerEvents={isInteractionDisabled ? 'none' : 'box-none'}
+      >
         <VideoOverlay
           saved={item.saved}
           onToggleSaved={onToggleSaved}

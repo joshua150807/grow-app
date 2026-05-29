@@ -35,6 +35,7 @@ export default function VideoFeed({
   reloadOnFocus = false,
   syncSavedStateOnFocus = false,
   removeUnsavedVideos = false,
+  isDisabled = false,
 }) {
   const [feedData, setFeedData] = useState([]);
   const [activeVideoId, setActiveVideoId] = useState(null);
@@ -305,7 +306,8 @@ export default function VideoFeed({
       <FeedItem
         item={item}
         isActive={item.id === activeVideoId}
-        isFeedFocused={isFocused}
+        isFeedFocused={isFocused && !isDisabled}
+        isInteractionDisabled={isDisabled}
         isMuted={isMuted}
         setIsMuted={setIsMuted}
         onToggleSaved={() => handleToggleSaved(item.id)}
@@ -316,7 +318,7 @@ export default function VideoFeed({
         }
       />
     ),
-    [activeVideoId, handleInitialVideoReady, handleToggleSaved, isFocused, isMuted]
+    [activeVideoId, handleInitialVideoReady, handleToggleSaved, isDisabled, isFocused, isMuted]
   );
 
   if (feedError) {
@@ -359,7 +361,7 @@ export default function VideoFeed({
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           extraData={feedData}
-          scrollEnabled={isFeedScrollEnabled}
+          scrollEnabled={!isDisabled && isFeedScrollEnabled}
           decelerationRate="fast"
           bounces={false}
           overScrollMode="never"

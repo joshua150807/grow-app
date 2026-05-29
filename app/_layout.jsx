@@ -17,6 +17,8 @@ import { COLORS } from '../constants/colors';
 import { preloadStartupImageAssets } from '../constants/toolAssets';
 import { loadProfileData } from '../features/profile/services/profiles';
 import { StartupProfileContext } from '../features/profile/context/ProfileContext';
+import { OnboardingProvider } from '../features/onboarding/context/OnboardingContext';
+import OnboardingLayer from '../features/onboarding/components/OnboardingLayer';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -177,13 +179,16 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1, backgroundColor: COLORS.background }}>
       <AuthContext.Provider value={session}>
         <StartupProfileContext.Provider value={startupProfileValue}>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: COLORS.background },
-              animation: 'none',
-            }}
-          />
+          <OnboardingProvider isAuthenticated={Boolean(session?.user?.id)}>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: COLORS.background },
+                animation: 'none',
+              }}
+            />
+            <OnboardingLayer />
+          </OnboardingProvider>
         </StartupProfileContext.Provider>
       </AuthContext.Provider>
     </GestureHandlerRootView>

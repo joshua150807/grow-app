@@ -29,6 +29,7 @@ import { getToolsOverviewLayout } from '../utils/getToolsOverviewLayout';
 
 import { styles } from '../styles/toolsOverviewStyles';
 import PressableScale from '../../../../components/ui/PressableScale';
+import { useOnboarding } from '../../../onboarding/context/OnboardingContext';
 
 const GROW_AVATAR = require('../../../../assets/images/grow_avatar.png');
 
@@ -58,6 +59,7 @@ export default function ToolsScreen() {
   const menuAnimation = useRef(new Animated.Value(0)).current;
 
   const { username, growPoints, isCeo } = useProfile();
+  const { startTutorial } = useOnboarding();
   const { trackerItems } = useToolsTrackerData();
 
   const {
@@ -130,6 +132,11 @@ export default function ToolsScreen() {
   const navigateFromMenu = (route) => {
     setMenuOpen(false);
     router.push(route);
+  };
+
+  const handleStartTutorialFromMenu = () => {
+    setMenuOpen(false);
+    startTutorial();
   };
 
   return (
@@ -381,6 +388,15 @@ export default function ToolsScreen() {
               onPress={() => navigateFromMenu('/tools/saved-videos')}
             >
               <Text style={styles.menuItem}>Gespeicherte Videos</Text>
+            </PressableScale>
+
+            <PressableScale
+              style={styles.menuAction}
+              activeScale={0.985}
+              activeOpacity={0.72}
+              onPress={handleStartTutorialFromMenu}
+            >
+              <Text style={styles.menuItem}>Tutorial starten</Text>
             </PressableScale>
 
             <PressableScale
