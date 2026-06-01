@@ -38,7 +38,7 @@ export const styles = StyleSheet.create({
   avatar: {
     width: veryCompact ? s(48) : compact ? s(52) : s(56),
     height: veryCompact ? s(48) : compact ? s(52) : s(56),
-    borderRadius: veryCompact ? s(24) : compact ? s(26) : s(28),
+    borderRadius: 0,
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
@@ -48,7 +48,7 @@ export const styles = StyleSheet.create({
   avatarImageClip: {
     width: '100%',
     height: '100%',
-    borderRadius: veryCompact ? s(24) : compact ? s(26) : s(28),
+    borderRadius: 0,
     overflow: 'hidden',
   },
 
@@ -91,37 +91,20 @@ export const styles = StyleSheet.create({
     marginRight: compact ? s(8) : s(12),
   },
 
-  pointsRow: {
+  pointsContentRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: sv(2),
   },
 
-  coinPlaceholder: {
-    width: compact ? s(21) : s(24),
-    height: compact ? s(21) : s(24),
-    borderRadius: compact ? s(10.5) : s(12),
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(231,201,138,0.42)',
-    backgroundColor: 'rgba(231,201,138,0.055)',
+  pointsTextStack: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: s(6),
-
-    shadowColor: COLORS.toolsGold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 3,
   },
 
-  coinStar: {
-    color: COLORS.toolsGold,
-    fontSize: compact ? sf(10) : sf(11),
-    fontWeight: '500',
-    textShadowColor: 'rgba(231,201,138,0.45)',
-    textShadowRadius: 7,
-    textShadowOffset: { width: 0, height: 0 },
+  coinImage: {
+    width: veryCompact ? s(32) : compact ? s(34) : s(38),
+    height: veryCompact ? s(32) : compact ? s(34) : s(38),
+    marginRight: compact ? s(6) : s(7),
   },
 
   pointsValue: {
@@ -260,8 +243,13 @@ export const styles = StyleSheet.create({
   },
 
   sectionActions: {
+    position: 'absolute',
+    left: '50%',
+    right: s(2),
+    marginLeft: veryCompact ? s(34) : compact ? s(38) : s(42),
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: s(8),
   },
 

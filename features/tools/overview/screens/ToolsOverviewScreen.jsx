@@ -16,7 +16,7 @@ import { router } from 'expo-router';
 
 import { COLORS } from '../../../../constants/colors';
 import { s, sv } from '../../../../constants/layout';
-import { MENTOR_BG, preloadToolPageBackgroundAssets } from '../../../../constants/toolAssets';
+import { GROW_COIN, MENTOR_BG, preloadToolPageBackgroundAssets } from '../../../../constants/toolAssets';
 
 import { useProfile } from '../../../profile/hooks/useProfile';
 import { supabase } from '../../../../services/supabaseClient';
@@ -33,7 +33,7 @@ import PressableScale from '../../../../components/ui/PressableScale';
 import { useOnboarding } from '../../../onboarding/context/OnboardingContext';
 import TourTarget from '../../../onboarding/components/TourTarget';
 
-const GROW_AVATAR = require('../../../../assets/images/grow_avatar.png');
+const GROW_AVATAR = require('../../../../assets/images/grow_avatar.webp');
 
 function renderToolIcon(tool) {
   const iconColor = tool.disabled ? COLORS.toolsTextDim : COLORS.toolsGold;
@@ -236,7 +236,7 @@ export default function ToolsScreen() {
                 <Image
                   source={GROW_AVATAR}
                   style={styles.avatarImage}
-                  resizeMode="cover"
+                  resizeMode="contain"
                 />
               </View>
             </View>
@@ -251,17 +251,21 @@ export default function ToolsScreen() {
 
           <View style={styles.rightHeader}>
             <TourTarget id="grow-points-box" style={styles.pointsBox}>
-              <View style={styles.pointsRow}>
-                <View style={styles.coinPlaceholder}>
-                  <Text style={styles.coinStar}>★</Text>
+              <View style={styles.pointsContentRow}>
+                <Image
+                  source={GROW_COIN}
+                  style={styles.coinImage}
+                  resizeMode="contain"
+                />
+
+                <View style={styles.pointsTextStack}>
+                  <Text style={styles.pointsValue}>
+                    {growPoints.toLocaleString('de-DE')}
+                  </Text>
+
+                  <Text style={styles.pointsLabel}>GROW Points</Text>
                 </View>
-
-                <Text style={styles.pointsValue}>
-                  {growPoints.toLocaleString('de-DE')}
-                </Text>
               </View>
-
-              <Text style={styles.pointsLabel}>GROW Points</Text>
             </TourTarget>
 
             <PressableScale
@@ -288,8 +292,6 @@ export default function ToolsScreen() {
             },
           ]}
         >
-          <View style={styles.sectionHeaderSpacer} />
-
           <Text style={styles.sectionTitle}>TOOLS</Text>
 
           <View style={styles.sectionActions}>

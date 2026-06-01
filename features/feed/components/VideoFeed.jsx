@@ -480,7 +480,7 @@ export default function VideoFeed({
       {isInitialLoading && (
         <View style={styles.loadingOverlay}>
           <Image
-            source={require("../../../assets/images/grow-loading.jpeg")}
+            source={require("../../../assets/images/grow-loading.webp")}
             style={styles.loadingLogo}
             resizeMode="contain"
           />
