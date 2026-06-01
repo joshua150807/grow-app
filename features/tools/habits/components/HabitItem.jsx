@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
     borderRadius: s(14),
     borderWidth: 1,
     borderColor: COLORS.goldBorder,
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(10,10,12,0.72)',
     paddingHorizontal: s(14),
     paddingVertical: sv(12),
     flexDirection: 'row',
@@ -76,7 +76,7 @@ const styles = StyleSheet.create({
     gap: s(12),
   },
   habitCardDone: {
-    backgroundColor: 'rgba(212,175,55,0.05)',
+    backgroundColor: 'rgba(212,175,55,0.08)',
     borderColor: 'rgba(212,175,55,0.28)',
   },
   habitLeft: {

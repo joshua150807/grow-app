@@ -8,6 +8,9 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  deepWorkPageBackgroundImage: {
+    opacity: 0.72,
+  },
 
   topBar: {
     position: 'absolute',

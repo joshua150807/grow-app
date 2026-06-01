@@ -1,13 +1,19 @@
-import { View, Text, Pressable, ScrollView } from 'react-native';
+import { ImageBackground, View, Text, Pressable, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
+import { DEEPWORK_PAGE_BG } from '../../../../constants/toolAssets';
 import { s } from '../../../../constants/layout';
 import { styles } from '../styles/deepWorkStyles';
 
 export default function DeepWorkIdleView({ router, openSetup, phase }) {
   return (
-    <View style={styles.screen}>
+    <ImageBackground
+      source={DEEPWORK_PAGE_BG}
+      style={styles.screen}
+      imageStyle={styles.deepWorkPageBackgroundImage}
+      resizeMode="cover"
+    >
       <View style={styles.topBar}>
         <Pressable
           onPress={() => {
@@ -60,6 +66,6 @@ export default function DeepWorkIdleView({ router, openSetup, phase }) {
           <Text style={styles.startButtonText}>Session starten</Text>
         </Pressable>
       </ScrollView>
-    </View>
+    </ImageBackground>
   );
 }

@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
     borderRadius: s(14),
     borderWidth: 1,
     borderColor: COLORS.goldBorder,
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(12,10,14,0.74)',
     paddingHorizontal: s(14),
     paddingVertical: sv(12),
     flexDirection: 'row',
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     gap: s(12),
   },
   goalCardDone: {
-    backgroundColor: 'rgba(212,175,55,0.05)',
+    backgroundColor: 'rgba(212,175,55,0.10)',
     borderColor: 'rgba(212,175,55,0.28)',
   },
   goalLeft: {

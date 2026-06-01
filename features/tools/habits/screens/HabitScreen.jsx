@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
   ScrollView,
   Pressable,
+  ImageBackground,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +24,7 @@ import { AddHabitModal } from '../components/AddHabitModal';
 import { styles } from '../styles/habitStyles';
 import ToolStateCard from '../../../../components/ui/ToolStateCard';
 import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
+import { HABITS_PAGE_BG } from '../../../../constants/toolAssets';
 
 export default function HabitsScreen() {
   const [selectedDay, setSelectedDay] = useState(getTodayIndex());
@@ -49,16 +51,7 @@ export default function HabitsScreen() {
   const [allDays, setAllDays] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState(null);
-  const mountedRef = useRef(true);
   const showLoading = useDelayedLoading(loading);
-
-  useEffect(() => {
-    mountedRef.current = true;
-
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
 
   const handleAdd = useCallback(async () => {
     if (!inputName.trim()) return;
@@ -71,17 +64,11 @@ export default function HabitsScreen() {
 
     try {
       await add(inputName.trim(), days);
-      if (mountedRef.current) {
-        closeModal();
-      }
+      closeModal();
     } catch (e) {
-      if (mountedRef.current) {
-        setAddError('Gewohnheit konnte nicht gespeichert werden. Bitte versuche es erneut.');
-      }
+      setAddError('Gewohnheit konnte nicht gespeichert werden. Bitte versuche es erneut.');
     } finally {
-      if (mountedRef.current) {
-        setAdding(false);
-      }
+      setAdding(false);
     }
   }, [inputName, modalDays, allDays, add]);
 
@@ -112,7 +99,13 @@ export default function HabitsScreen() {
   const canAdd = inputName.trim().length > 0 && (allDays || modalDays.size > 0);
 
   return (
-    <View style={styles.screen}>
+    <ImageBackground
+      source={HABITS_PAGE_BG}
+      style={styles.screen}
+      imageStyle={styles.backgroundImage}
+      resizeMode="cover"
+    >
+      <View style={styles.pageOverlay} pointerEvents="none" />
 
       <View style={styles.topBar}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
@@ -227,6 +220,6 @@ export default function HabitsScreen() {
         adding={adding}
         onAdd={handleAdd}
       />
-    </View>
+    </ImageBackground>
   );
 }

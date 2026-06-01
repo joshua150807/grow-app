@@ -1,7 +1,8 @@
-import { View, Text, Pressable, Animated } from 'react-native';
+import { ImageBackground, View, Text, Pressable, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
+import { DEEPWORK_PAGE_BG } from '../../../../constants/toolAssets';
 import { s } from '../../../../constants/layout';
 import { formatTime } from '../utils/deepWorkUtils';
 import { styles } from '../styles/deepWorkStyles';
@@ -17,10 +18,14 @@ export default function DeepWorkSessionView({
   pulseAnim,
   togglePause,
   endSession,
-  isEnding = false,
 }) {
   return (
-    <View style={styles.screen}>
+    <ImageBackground
+      source={DEEPWORK_PAGE_BG}
+      style={styles.screen}
+      imageStyle={styles.deepWorkPageBackgroundImage}
+      resizeMode="cover"
+    >
       <Pressable
         onPress={() => {
           if (phase !== 'running') {
@@ -73,11 +78,9 @@ export default function DeepWorkSessionView({
               pressed && styles.pauseButtonPressed,
             ]}
             onPress={() => {
-              if (isEnding) return;
               void triggerHaptic('selection');
               togglePause();
             }}
-            disabled={isEnding}
             hitSlop={8}
           >
             <Ionicons
@@ -96,15 +99,13 @@ export default function DeepWorkSessionView({
             pressed && styles.secondaryButtonPressed,
           ]}
           onPress={() => {
-            if (isEnding) return;
             void triggerHaptic('medium');
             endSession();
           }}
-          disabled={isEnding}
         >
           <Text style={styles.endButtonText}>Session beenden</Text>
         </Pressable>
       </View>
-    </View>
+    </ImageBackground>
   );
 }

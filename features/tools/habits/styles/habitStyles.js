@@ -7,6 +7,13 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  backgroundImage: {
+    opacity: 1,
+  },
+  pageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.43)',
+  },
   topBar: {
     position: 'absolute',
     top: sv(54),
@@ -41,7 +48,7 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: sv(16),
-    backgroundColor: 'rgba(212,175,55,0.08)',
+    backgroundColor: 'rgba(212,175,55,0.1)',
   },
   title: {
     color: COLORS.paleGold,
@@ -56,7 +63,7 @@ export const styles = StyleSheet.create({
     marginTop: sv(8),
   },
   errorCard: {
-    backgroundColor: 'rgba(180,30,30,0.12)',
+    backgroundColor: 'rgba(180,30,30,0.16)',
     borderWidth: 1,
     borderColor: 'rgba(220,50,50,0.35)',
     borderRadius: s(12),
@@ -90,7 +97,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: s(8),
-    backgroundColor: 'rgba(180,30,30,0.10)',
+    backgroundColor: 'rgba(180,30,30,0.12)',
     borderWidth: 1,
     borderColor: 'rgba(220,50,50,0.3)',
     borderRadius: s(10),
@@ -118,7 +125,7 @@ export const styles = StyleSheet.create({
     borderColor: COLORS.goldBorder,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(10,10,12,0.68)',
   },
   dayBtnActive: {
     backgroundColor: COLORS.gold,
@@ -152,7 +159,7 @@ export const styles = StyleSheet.create({
   progressCard: {
     borderWidth: 1,
     borderColor: COLORS.goldBorder,
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(10,10,12,0.68)',
     borderRadius: s(12),
     padding: s(12),
     marginBottom: sv(20),
@@ -196,7 +203,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: s(10),
     marginTop: sv(20),
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(10,10,12,0.7)',
   },
   addText: {
     color: COLORS.softGold,

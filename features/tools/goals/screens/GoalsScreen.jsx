@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   Pressable,
+  ImageBackground,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +22,7 @@ import PressableScale from '../../../../components/ui/PressableScale';
 import ToolStateCard from '../../../../components/ui/ToolStateCard';
 import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 import { GOAL_CATEGORIES } from '../utils/goalUtils';
+import { GOALS_PAGE_BG } from '../../../../constants/toolAssets';
 
 export default function GoalsScreen() {
   const [selectedCategory, setSelectedCategory] = useState(0);
@@ -101,7 +103,13 @@ export default function GoalsScreen() {
   const canAdd = inputName.trim().length > 0;
 
   return (
-    <View style={styles.screen}>
+    <ImageBackground
+      source={GOALS_PAGE_BG}
+      style={styles.screen}
+      imageStyle={styles.backgroundImage}
+      resizeMode="cover"
+    >
+      <View style={styles.pageOverlay} pointerEvents="none" />
 
       <View style={styles.topBar}>
         <PressableScale onPress={() => router.back()} style={styles.backButton} activeScale={0.97} activeOpacity={0.82}>
@@ -213,6 +221,6 @@ export default function GoalsScreen() {
         onAdd={handleSave}
         isEditing={!!editingGoal}
       />
-    </View>
+    </ImageBackground>
   );
 }

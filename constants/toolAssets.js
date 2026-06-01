@@ -17,19 +17,23 @@ export const MENTOR_BG = require('../assets/tool-icons/mentor-bg.webp');
 export const TRACKER_BG = require('../assets/tool-icons/active-tracker-bg.webp');
 export const TODO_PAGE_BG = require('../assets/tool-icons/backgrounds/todo-page-bg.webp');
 export const TRAINING_PAGE_BG = require('../assets/tool-icons/backgrounds/training-page-bg.webp');
-export const GROW_COIN = require('../assets/images/grow_coin.webp');
+export const DEEPWORK_PAGE_BG = require('../assets/tool-icons/backgrounds/deepwork-page-bg.webp');
+export const GOALS_PAGE_BG = require('../assets/tool-icons/backgrounds/goals-page-bg.webp');
+export const HABITS_PAGE_BG = require('../assets/tool-icons/backgrounds/habits-page-bg.webp')
 
 export const STARTUP_IMAGE_ASSETS = [
   ...Object.values(TOOL_IMAGES),
   MENTOR_BG,
   TRACKER_BG,
-  GROW_COIN,
 ];
 
 export const TOOL_PAGE_BACKGROUND_ASSETS = [
   TODO_PAGE_BG,
   TRAINING_PAGE_BG,
-];
+  DEEPWORK_PAGE_BG,
+  GOALS_PAGE_BG,
+  HABITS_PAGE_BG,
+];  
 
 let toolPageBackgroundsPreloaded = false;
 

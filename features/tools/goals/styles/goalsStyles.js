@@ -6,7 +6,14 @@ import { s, sv, sf } from '../../../../constants/layout';
 export const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.background ?? '#050505',
+  },
+  backgroundImage: {
+    opacity: 1,
+  },
+  pageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.46)',
   },
   topBar: {
     position: 'absolute',
@@ -119,7 +126,7 @@ export const styles = StyleSheet.create({
     borderColor: COLORS.goldBorder,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(12,10,14,0.72)',
   },
   catBtnActive: {
     backgroundColor: COLORS.gold,
@@ -153,7 +160,7 @@ export const styles = StyleSheet.create({
   progressCard: {
     borderWidth: 1,
     borderColor: COLORS.goldBorder,
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(12,10,14,0.72)',
     borderRadius: s(12),
     padding: s(12),
     marginBottom: sv(20),
@@ -197,7 +204,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: s(10),
     marginTop: sv(20),
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(12,10,14,0.72)',
   },
   addText: {
     color: COLORS.softGold,
