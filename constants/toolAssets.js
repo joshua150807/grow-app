@@ -14,12 +14,36 @@ export const TOOL_IMAGES = {
 };
 
 export const MENTOR_BG = require('../assets/tool-icons/mentor-bg.webp');
+export const TRACKER_BG = require('../assets/tool-icons/active-tracker-bg.webp');
+export const TODO_PAGE_BG = require('../assets/tool-icons/backgrounds/todo-page-bg.webp');
+export const TRAINING_PAGE_BG = require('../assets/tool-icons/backgrounds/training-page-bg.webp');
 
 export const STARTUP_IMAGE_ASSETS = [
   ...Object.values(TOOL_IMAGES),
   MENTOR_BG,
+  TRACKER_BG,
 ];
+
+export const TOOL_PAGE_BACKGROUND_ASSETS = [
+  TODO_PAGE_BG,
+  TRAINING_PAGE_BG,
+];
+
+let toolPageBackgroundsPreloaded = false;
 
 export async function preloadStartupImageAssets() {
   await Asset.loadAsync(STARTUP_IMAGE_ASSETS);
+}
+
+export async function preloadToolPageBackgroundAssets() {
+  if (toolPageBackgroundsPreloaded) return;
+
+  toolPageBackgroundsPreloaded = true;
+
+  try {
+    await Asset.loadAsync(TOOL_PAGE_BACKGROUND_ASSETS);
+  } catch (err) {
+    toolPageBackgroundsPreloaded = false;
+    throw err;
+  }
 }

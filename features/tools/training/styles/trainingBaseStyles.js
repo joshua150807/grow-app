@@ -4,13 +4,13 @@ import { s, sv, sf } from '../../../../constants/layout';
 export const trainingBaseStyles = {
   screen: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
   },
 
   // ── Loading / Error ───────────────────────────────────────────────────────
   centered: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     gap: sv(16),

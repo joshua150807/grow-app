@@ -3,6 +3,7 @@ import {
   View,
   Text,
   ScrollView,
+  ImageBackground,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +16,7 @@ import { s } from '../../../../constants/layout';
 import { useTodos } from '../hooks/useTodos';
 import { TodoItem } from '../components/TodoItem';
 import { AddTodoModal } from '../components/AddTodoModal';
+import { TODO_PAGE_BG } from '../../../../constants/toolAssets';
 import { styles } from '../styles/todoStyles';
 
 export default function TodoScreen() {
@@ -109,23 +111,37 @@ export default function TodoScreen() {
 
   if (error) {
     return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>{error}</Text>
+      <ImageBackground
+        source={TODO_PAGE_BG}
+        style={styles.screen}
+        imageStyle={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.pageOverlay} pointerEvents="none" />
+        <View style={styles.centerContainer}>
+          <Text style={styles.errorText}>{error}</Text>
 
-        <PressableScale
-          onPress={loadTodos}
-          style={styles.retryButton}
-          activeScale={0.975}
-          activeOpacity={0.88}
-        >
-          <Text style={styles.retryText}>Erneut versuchen</Text>
-        </PressableScale>
-      </View>
+          <PressableScale
+            onPress={loadTodos}
+            style={styles.retryButton}
+            activeScale={0.975}
+            activeOpacity={0.88}
+          >
+            <Text style={styles.retryText}>Erneut versuchen</Text>
+          </PressableScale>
+        </View>
+      </ImageBackground>
     );
   }
 
   return (
-    <View style={styles.screen}>
+    <ImageBackground
+      source={TODO_PAGE_BG}
+      style={styles.screen}
+      imageStyle={styles.backgroundImage}
+      resizeMode="cover"
+    >
+      <View style={styles.pageOverlay} pointerEvents="none" />
       <View style={styles.topBar}>
         <PressableScale
           onPress={() => router.back()}
@@ -211,6 +227,6 @@ export default function TodoScreen() {
         onAdd={handleSubmit}
         isEditing={!!editingTodo}
       />
-    </View>
+    </ImageBackground>
   );
 }

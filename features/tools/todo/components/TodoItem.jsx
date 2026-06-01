@@ -129,23 +129,23 @@ const styles = StyleSheet.create({
     borderRadius: s(14),
     borderWidth: 1,
     borderColor: COLORS.goldBorder ?? 'rgba(212,175,55,0.22)',
-    backgroundColor: COLORS.darkCard ?? 'rgba(255,255,255,0.035)',
+    backgroundColor: 'rgba(5,5,8,0.66)',
     paddingHorizontal: s(16),
     paddingVertical: sv(12),
     justifyContent: 'center',
   },
   todoCardDone: {
     borderColor: 'rgba(212,175,55,0.15)',
-    backgroundColor: 'rgba(212,175,55,0.04)',
+    backgroundColor: 'rgba(212,175,55,0.08)',
     opacity: 0.65,
   },
   todoCardUrgent: {
     borderColor: 'rgba(220,60,60,0.6)',
-    backgroundColor: 'rgba(220,60,60,0.08)',
+    backgroundColor: 'rgba(70,20,24,0.58)',
   },
   todoCardOverdue: {
     borderColor: 'rgba(180,40,40,0.5)',
-    backgroundColor: 'rgba(180,40,40,0.07)',
+    backgroundColor: 'rgba(70,18,22,0.58)',
   },
   todoLeft: {
     flexDirection: 'row',

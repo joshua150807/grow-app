@@ -8,6 +8,13 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background ?? '#050505',
   },
+  backgroundImage: {
+    opacity: 1,
+  },
+  pageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.42)',
+  },
   topBar: {
     position: 'absolute',
     top: sv(54),
@@ -77,7 +84,7 @@ export const styles = StyleSheet.create({
   progressCard: {
     borderWidth: 1,
     borderColor: COLORS.goldBorder ?? 'rgba(212,175,55,0.35)',
-    backgroundColor: COLORS.darkCard ?? 'rgba(255,255,255,0.03)',
+    backgroundColor: 'rgba(5,5,8,0.62)',
     borderRadius: s(12),
     padding: s(12),
     marginBottom: sv(20),
@@ -121,7 +128,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: s(10),
     marginTop: sv(20),
-    backgroundColor: COLORS.darkCard ?? 'rgba(255,255,255,0.025)',
+    backgroundColor: 'rgba(5,5,8,0.62)',
   },
   addText: {
     color: COLORS.softGold ?? '#F2D48A',
@@ -133,7 +140,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: s(20),
-    backgroundColor: COLORS.background ?? '#050505',
+    backgroundColor: 'transparent',
   },
   errorText: {
     color: COLORS.textPrimary ?? '#fff',

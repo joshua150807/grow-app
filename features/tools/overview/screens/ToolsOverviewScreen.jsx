@@ -4,6 +4,7 @@ import {
   Text,
   Image,
   ImageBackground,
+  InteractionManager,
   Pressable,
   Animated,
   Easing,
@@ -15,7 +16,7 @@ import { router } from 'expo-router';
 
 import { COLORS } from '../../../../constants/colors';
 import { s, sv } from '../../../../constants/layout';
-import { MENTOR_BG } from '../../../../constants/toolAssets';
+import { MENTOR_BG, preloadToolPageBackgroundAssets } from '../../../../constants/toolAssets';
 
 import { useProfile } from '../../../profile/hooks/useProfile';
 import { supabase } from '../../../../services/supabaseClient';
@@ -80,6 +81,18 @@ export default function ToolsScreen() {
     handleToolPress,
     handleScreenPress,
   } = useToolsOverviewPreferences();
+
+  useEffect(() => {
+    const preloadTask = InteractionManager.runAfterInteractions(() => {
+      preloadToolPageBackgroundAssets().catch((err) => {
+        console.log('Tool-Seiten-Hintergründe konnten nicht vorgeladen werden:', err);
+      });
+    });
+
+    return () => {
+      preloadTask?.cancel?.();
+    };
+  }, []);
 
 
   useEffect(() => {
