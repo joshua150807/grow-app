@@ -3,22 +3,66 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const KEY = '@deep_work_session';
 const HISTORY_KEY = '@deep_work_history';
 const DEEP_WORK_HISTORY_RETENTION_DAYS = 7;
+const MAX_HISTORY_ENTRIES = 250;
 
-function getTodayRange() {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
+function getSafeNumber(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
 
-  const end = new Date();
-  end.setHours(23, 59, 59, 999);
+function normalizeSession(session) {
+  if (!session || typeof session !== 'object') return null;
+
+  const phase = session.phase === 'running' || session.phase === 'paused'
+    ? session.phase
+    : 'paused';
+  const remaining = Math.max(getSafeNumber(session.remaining), 0);
+  const totalSeconds = Math.max(
+    getSafeNumber(session.totalSeconds, remaining),
+    remaining
+  );
+  const updatedAt = getSafeNumber(session.updatedAt, Date.now());
+
+  if (remaining <= 0 && totalSeconds <= 0) return null;
 
   return {
-    startTime: start.getTime(),
-    endTime: end.getTime(),
+    phase,
+    remaining,
+    totalSeconds,
+    taskName: typeof session.taskName === 'string' && session.taskName.trim()
+      ? session.taskName
+      : 'Deep Work',
+    category: typeof session.category === 'string' && session.category.trim()
+      ? session.category
+      : 'Fokus',
+    updatedAt,
+  };
+}
+
+function normalizeHistoryEntry(entry) {
+  if (!entry || typeof entry !== 'object') return null;
+
+  const durationSeconds = Math.max(getSafeNumber(entry.durationSeconds), 0);
+  const completedTime = new Date(entry.completedAt).getTime();
+
+  if (durationSeconds <= 0 || Number.isNaN(completedTime)) return null;
+
+  return {
+    id: entry.id ? String(entry.id) : `${completedTime}`,
+    durationSeconds,
+    completedAt: new Date(completedTime).toISOString(),
   };
 }
 
 export async function saveDeepWorkSession(session) {
-  await AsyncStorage.setItem(KEY, JSON.stringify(session));
+  const normalized = normalizeSession(session);
+
+  if (!normalized) {
+    await clearDeepWorkSession();
+    return;
+  }
+
+  await AsyncStorage.setItem(KEY, JSON.stringify(normalized));
 }
 
 export async function clearDeepWorkSession() {
@@ -30,13 +74,19 @@ export async function getSavedDeepWorkSession() {
     const raw = await AsyncStorage.getItem(KEY);
     if (!raw) return null;
 
-    const session = JSON.parse(raw);
+    const session = normalizeSession(JSON.parse(raw));
+
+    if (!session) {
+      await clearDeepWorkSession();
+      return null;
+    }
 
     if (session.phase === 'running') {
       const elapsed = Math.floor((Date.now() - session.updatedAt) / 1000);
-      const left = Math.max((session.remaining || 0) - elapsed, 0);
+      const left = Math.max(session.remaining - elapsed, 0);
 
       if (left <= 0) {
+        await addCompletedDeepWorkSession(session.totalSeconds || session.remaining);
         await clearDeepWorkSession();
         return null;
       }
@@ -49,6 +99,11 @@ export async function getSavedDeepWorkSession() {
 
     return session;
   } catch {
+    try {
+      await clearDeepWorkSession();
+    } catch {
+      // ignore cleanup failure
+    }
     return null;
   }
 }
@@ -68,24 +123,34 @@ export async function getDeepWorkHistory() {
     if (!raw) return [];
 
     const history = JSON.parse(raw);
-    return Array.isArray(history) ? history : [];
+    if (!Array.isArray(history)) return [];
+
+    return history
+      .map(normalizeHistoryEntry)
+      .filter(Boolean);
   } catch {
     return [];
   }
 }
 
 export async function saveDeepWorkHistory(history) {
-  await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+  const safeHistory = Array.isArray(history)
+    ? history.map(normalizeHistoryEntry).filter(Boolean)
+    : [];
+
+  const limitedHistory = safeHistory.slice(-MAX_HISTORY_ENTRIES);
+  await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(limitedHistory));
 }
 
 export async function addCompletedDeepWorkSession(durationSeconds) {
-  if (!durationSeconds || durationSeconds <= 0) return;
+  const safeDuration = Math.max(getSafeNumber(durationSeconds), 0);
+  if (safeDuration <= 0) return;
 
   const history = await getDeepWorkHistory();
 
   const newEntry = {
-    id: `${Date.now()}`,
-    durationSeconds,
+    id: `${Date.now()}-${Math.round(safeDuration)}`,
+    durationSeconds: Math.round(safeDuration),
     completedAt: new Date().toISOString(),
   };
 

@@ -17,7 +17,7 @@ export async function getTodos() {
     .order('created_at', { ascending: false });
 
   if (error) throw error;
-  return data;
+  return Array.isArray(data) ? data : [];
 }
 
 export async function addTodo(title, dueAt) {
@@ -31,6 +31,7 @@ export async function addTodo(title, dueAt) {
     .single();
 
   if (error) throw error;
+  if (!data) throw new Error('Todo konnte nicht gespeichert werden.');
   return data;
 }
 
@@ -43,6 +44,7 @@ export async function toggleTodo(id, completed) {
     .single();
 
   if (error) throw error;
+  if (!data) throw new Error('Todo konnte nicht aktualisiert werden.');
   return data;
 }
 
@@ -67,5 +69,6 @@ export async function updateTodo(id, title, dueAt) {
     .single();
 
   if (error) throw error;
+  if (!data) throw new Error('Todo konnte nicht aktualisiert werden.');
   return data;
 }

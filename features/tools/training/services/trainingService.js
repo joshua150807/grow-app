@@ -100,6 +100,75 @@ function validateTrainingDays(days) {
   });
 }
 
+
+function isMissingColumnError(error, columnName) {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+  return Boolean(
+    columnName
+    && error
+    && (
+      error.code === 'PGRST204'
+      || error.code === '42703'
+      || message.includes('column')
+    )
+    && message.includes(columnName.toLowerCase())
+  );
+}
+
+function requiresDayTypeColumn(days) {
+  return (days || []).some((day) => normalizeDayType(day?.type) !== 'gym');
+}
+
+function throwMissingTrainingSchemaError() {
+  throw new Error('Die Trainings-Datenbank ist noch nicht vollständig migriert. Lauf- und Resttage brauchen die neue Spalte day_type. Bitte Supabase-Migration ausführen und danach erneut versuchen.');
+}
+
+async function insertTrainingDay(planId, day) {
+  const payload = { plan_id: planId, name: day.name, day_type: day.type };
+  const { data, error } = await supabase
+    .from('training_days')
+    .insert(payload)
+    .select()
+    .single();
+
+  if (!error) return data;
+
+  if (!isMissingColumnError(error, 'day_type')) {
+    throw error;
+  }
+
+  if (normalizeDayType(day.type) !== 'gym') {
+    throwMissingTrainingSchemaError();
+  }
+
+  console.warn('[Training] day_type column missing. Falling back to legacy gym day insert.');
+
+  const { data: legacyData, error: legacyError } = await supabase
+    .from('training_days')
+    .insert({ plan_id: planId, name: day.name })
+    .select()
+    .single();
+
+  if (legacyError) throw legacyError;
+  return legacyData;
+}
+
+async function updateTrainingDayType(dayId, dayType) {
+  const { error } = await supabase
+    .from('training_days')
+    .update({ day_type: normalizeDayType(dayType) })
+    .eq('id', dayId);
+
+  if (!error) return;
+
+  if (isMissingColumnError(error, 'day_type')) {
+    console.warn('[Training] day_type column missing. Skipping day_type update.');
+    return;
+  }
+
+  throw error;
+}
+
 async function getCurrentUserId() {
   const { data: { user }, error } = await supabase.auth.getUser();
   if (error) throw error;
@@ -178,6 +247,52 @@ export async function fetchTrainingPlan() {
   }
 }
 
+
+async function deletePlanTree(planId, userId) {
+  if (!planId || !userId) return;
+
+  const { data: existingDays, error: existingDaysError } = await supabase
+    .from('training_days')
+    .select('id')
+    .eq('plan_id', planId);
+
+  if (existingDaysError) throw existingDaysError;
+
+  const existingDayIds = (existingDays || []).map((day) => day.id);
+
+  if (existingDayIds.length > 0) {
+    const { error: deleteExercisesError } = await supabase
+      .from('training_exercises')
+      .delete()
+      .in('day_id', existingDayIds);
+
+    if (deleteExercisesError) throw deleteExercisesError;
+
+    const { error: deleteDaysError } = await supabase
+      .from('training_days')
+      .delete()
+      .eq('plan_id', planId);
+
+    if (deleteDaysError) throw deleteDaysError;
+  }
+
+  const { error: deletePlanError } = await supabase
+    .from('training_plans')
+    .delete()
+    .eq('id', planId)
+    .eq('user_id', userId);
+
+  if (deletePlanError) throw deletePlanError;
+}
+
+async function cleanupCreatedPlan(planId, userId) {
+  try {
+    await deletePlanTree(planId, userId);
+  } catch (cleanupError) {
+    console.error('[Training] cleanupCreatedPlan failed:', cleanupError);
+  }
+}
+
 export async function createTrainingPlan(planName, daysData) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error('Nicht eingeloggt');
@@ -194,92 +309,80 @@ export async function createTrainingPlan(planName, daysData) {
     exerciseCount: cleanDaysData.reduce((sum, day) => sum + day.exercises.length, 0),
   });
 
-  // Erst validieren, dann bestehenden Plan löschen/ersetzen.
+  // Erst validieren. Danach erstellen wir den neuen Plan vollständig,
+  // bevor der bestehende Plan entfernt wird. So verliert der Nutzer bei
+  // Netzwerkfehlern oder App-Abbruch nicht seinen alten Trainingsplan.
   validateTrainingDays(cleanDaysData);
 
-  // 1. Bestehenden Plan suchen
+  if (requiresDayTypeColumn(cleanDaysData)) {
+    // Ohne day_type könnten Lauf-/Resttage nur als leere Gym-Tage gespeichert werden.
+    // Deshalb lassen wir Gym-Pläne auf alten Schemas weiterlaufen, blockieren aber
+    // neue Tagesarten mit einer klaren Fehlermeldung.
+    const { error: schemaProbeError } = await supabase
+      .from('training_days')
+      .select('day_type')
+      .limit(1);
+
+    if (isMissingColumnError(schemaProbeError, 'day_type')) {
+      throwMissingTrainingSchemaError();
+    }
+
+    if (schemaProbeError) throw schemaProbeError;
+  }
+
   const { data: existingPlans, error: existingPlanError } = await supabase
     .from('training_plans')
     .select('id')
     .eq('user_id', userId)
-    .limit(1);
+    .order('created_at', { ascending: true });
 
   if (existingPlanError) throw existingPlanError;
 
-  const existingPlan = existingPlans?.[0];
+  const oldPlanIds = (existingPlans || []).map((existingPlan) => existingPlan.id);
+  let plan = null;
 
-  // 2. Falls vorhanden: alten Plan sauber löschen
-  if (existingPlan?.id) {
-    const { data: existingDays, error: existingDaysError } = await supabase
-      .from('training_days')
-      .select('id')
-      .eq('plan_id', existingPlan.id);
-
-    if (existingDaysError) throw existingDaysError;
-
-    const existingDayIds = (existingDays || []).map((day) => day.id);
-
-    if (existingDayIds.length > 0) {
-      const { error: deleteExercisesError } = await supabase
-        .from('training_exercises')
-        .delete()
-        .in('day_id', existingDayIds);
-
-      if (deleteExercisesError) throw deleteExercisesError;
-
-      const { error: deleteDaysError } = await supabase
-        .from('training_days')
-        .delete()
-        .eq('plan_id', existingPlan.id);
-
-      if (deleteDaysError) throw deleteDaysError;
-    }
-
-    const { error: deletePlanError } = await supabase
+  try {
+    const { data: createdPlan, error: planError } = await supabase
       .from('training_plans')
-      .delete()
-      .eq('id', existingPlan.id)
-      .eq('user_id', userId);
-
-    if (deletePlanError) throw deletePlanError;
-  }
-
-  // 3. Neuen Plan erstellen
-  const { data: plan, error: planError } = await supabase
-    .from('training_plans')
-    .insert({ user_id: userId, name: cleanPlanName })
-    .select()
-    .single();
-
-  if (planError) throw planError;
-
-  // 4. Neue Trainingstage + Übungen erstellen
-  for (let i = 0; i < cleanDaysData.length; i++) {
-    const day = cleanDaysData[i];
-
-    const { data: createdDay, error: dayError } = await supabase
-      .from('training_days')
-      .insert({ plan_id: plan.id, name: day.name, day_type: day.type })
+      .insert({ user_id: userId, name: cleanPlanName })
       .select()
       .single();
 
-    if (dayError) throw dayError;
+    if (planError) throw planError;
+    plan = createdPlan;
 
-    for (let j = 0; j < day.exercises.length; j++) {
-      const ex = day.exercises[j];
+    for (let i = 0; i < cleanDaysData.length; i++) {
+      const day = cleanDaysData[i];
 
-      const { error: exError } = await supabase
-        .from('training_exercises')
-        .insert({
-          day_id: createdDay.id,
-          name: ex.name,
-          weight: ex.weight,
-          sets: ex.sets,
-          reps: ex.reps,
-          note: ex.note,
-        });
+      const createdDay = await insertTrainingDay(plan.id, day);
 
-      if (exError) throw exError;
+      for (let j = 0; j < day.exercises.length; j++) {
+        const ex = day.exercises[j];
+
+        const { error: exError } = await supabase
+          .from('training_exercises')
+          .insert({
+            day_id: createdDay.id,
+            name: ex.name,
+            weight: ex.weight,
+            sets: ex.sets,
+            reps: ex.reps,
+            note: ex.note,
+          });
+
+        if (exError) throw exError;
+      }
+    }
+  } catch (creationError) {
+    if (plan?.id) {
+      await cleanupCreatedPlan(plan.id, userId);
+    }
+    throw creationError;
+  }
+
+  for (const oldPlanId of oldPlanIds) {
+    if (oldPlanId !== plan.id) {
+      await deletePlanTree(oldPlanId, userId);
     }
   }
 
@@ -313,10 +416,7 @@ export async function addExerciseToDay(dayId, exerciseData) {
 
   if (error) throw error;
 
-  await supabase
-    .from('training_days')
-    .update({ day_type: 'gym' })
-    .eq('id', dayId);
+  await updateTrainingDayType(dayId, 'gym');
 
   return data;
 }
@@ -382,12 +482,20 @@ export async function renameTrainingDay(dayId, newName) {
 export async function addTrainingDay(planId, dayName, dayType = 'gym') {
   const cleanDayType = normalizeDayType(dayType);
 
-  const { data, error } = await supabase
-    .from('training_days')
-    .insert({ plan_id: planId, name: safeText(dayName, getDefaultDayName(cleanDayType, 0)), day_type: cleanDayType })
-    .select()
-    .single();
+  const cleanName = safeText(dayName, getDefaultDayName(cleanDayType, 0));
 
-  if (error) throw error;
-  return data;
+  if (cleanDayType !== 'gym') {
+    const { error: schemaProbeError } = await supabase
+      .from('training_days')
+      .select('day_type')
+      .limit(1);
+
+    if (isMissingColumnError(schemaProbeError, 'day_type')) {
+      throwMissingTrainingSchemaError();
+    }
+
+    if (schemaProbeError) throw schemaProbeError;
+  }
+
+  return insertTrainingDay(planId, { name: cleanName, type: cleanDayType });
 }

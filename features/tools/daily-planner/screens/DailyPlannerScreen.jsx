@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -68,7 +68,20 @@ export default function DailyPlannerScreen() {
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const dayScrollRef = useRef(null);
+  const mountedRef = useRef(true);
+  const scrollTimeoutRef = useRef(null);
   const showDayLoading = useDelayedLoading(dayLoading);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const eventsWithLayout = useMemo(() => {
     return applyEventOverlapLayout(events);
@@ -86,8 +99,14 @@ export default function DailyPlannerScreen() {
       ? Math.max(0, now.getHours() * 2 - 2)
       : 14; // 07:00
 
-    setTimeout(() => {
-      dayScrollRef.current?.scrollTo({ y: scrollSlot * SLOT_HEIGHT, animated: false });
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (mountedRef.current) {
+        dayScrollRef.current?.scrollTo({ y: scrollSlot * SLOT_HEIGHT, animated: false });
+      }
     }, 200);
   }, [loadDayEvents]);
 
@@ -178,16 +197,20 @@ export default function DailyPlannerScreen() {
         return;
       }
 
-      setModalVisible(false);
-      setEditingEventId(null);
-      setModalTitle('');
-      setModalDuration(60);
-      setModalColor(EVENT_COLORS[0].value);
-      setModalShowPicker(false);
+      if (mountedRef.current) {
+        setModalVisible(false);
+        setEditingEventId(null);
+        setModalTitle('');
+        setModalDuration(60);
+        setModalColor(EVENT_COLORS[0].value);
+        setModalShowPicker(false);
+      }
     } catch (error) {
       console.log('[DailyPlanner] Save failed:', error);
     } finally {
-      setSaving(false);
+      if (mountedRef.current) {
+        setSaving(false);
+      }
     }
   }, [
     editingEventId,

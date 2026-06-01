@@ -214,9 +214,19 @@ export default function AnimatedToolsGridSwitcher({
   onOpenAllTools,
 }) {
   const [containerWidth, setContainerWidth] = useState(0);
+  const mountedRef = useRef(true);
 
   const pinchScale = useRef(new Animated.Value(1)).current;
   const isPinchingRef = useRef(false);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+      pinchScale.stopAnimation();
+    };
+  }, [pinchScale]);
 
   const isExpanded = mode === 'expanded';
 
@@ -356,8 +366,13 @@ export default function AnimatedToolsGridSwitcher({
       toValue: finalScale,
       duration: 115,
       useNativeDriver: false,
-    }).start(async () => {
+    }).start(async ({ finished }) => {
+      if (!finished || !mountedRef.current) return;
+
       await onModeChange(nextMode);
+
+      if (!mountedRef.current) return;
+
       pinchScale.setValue(1);
       isPinchingRef.current = false;
     });
@@ -369,7 +384,8 @@ export default function AnimatedToolsGridSwitcher({
       useNativeDriver: false,
       speed: 18,
       bounciness: 5,
-    }).start(() => {
+    }).start(({ finished }) => {
+      if (!finished || !mountedRef.current) return;
       isPinchingRef.current = false;
     });
   };
@@ -562,7 +578,7 @@ export default function AnimatedToolsGridSwitcher({
         style={{ width: '100%', minHeight: replacementTotalHeight }}
         onLayout={(event) => {
           const nextWidth = event.nativeEvent.layout.width;
-          if (nextWidth > 0 && Math.abs(nextWidth - containerWidth) > 1) {
+          if (mountedRef.current && nextWidth > 0 && Math.abs(nextWidth - containerWidth) > 1) {
             setContainerWidth(nextWidth);
           }
         }}
@@ -577,7 +593,7 @@ export default function AnimatedToolsGridSwitcher({
       style={{ width: '100%' }}
       onLayout={(event) => {
         const nextWidth = event.nativeEvent.layout.width;
-        if (nextWidth > 0 && Math.abs(nextWidth - containerWidth) > 1) {
+        if (mountedRef.current && nextWidth > 0 && Math.abs(nextWidth - containerWidth) > 1) {
           setContainerWidth(nextWidth);
         }
       }}

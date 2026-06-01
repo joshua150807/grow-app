@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
 
 import { tools } from '../../../../data/tools';
+import { lockToolNavigation, unlockToolNavigation } from '../services/toolNavigationGuard';
 
 import {
   getSelectedOverviewToolIds,
@@ -24,6 +25,33 @@ function buildPlaceholderSlots(count) {
   }));
 }
 
+function normalizeOverviewIds(ids, activeTools, defaultIds) {
+  const validIds = Array.isArray(ids)
+    ? ids.filter((id) => activeTools.some((tool) => tool.id === id))
+    : [];
+
+  const uniqueIds = [];
+
+  validIds.forEach((id) => {
+    if (!uniqueIds.includes(id)) {
+      uniqueIds.push(id);
+    }
+  });
+
+  const fallbackIds = defaultIds.filter((id) =>
+    activeTools.some((tool) => tool.id === id)
+  );
+
+  fallbackIds.forEach((id) => {
+    if (uniqueIds.length >= 6) return;
+    if (!uniqueIds.includes(id)) {
+      uniqueIds.push(id);
+    }
+  });
+
+  return uniqueIds.slice(0, 6);
+}
+
 export function useToolsOverviewPreferences() {
   const activeTools = useMemo(() => getActiveTools(), []);
 
@@ -36,21 +64,22 @@ export function useToolsOverviewPreferences() {
   const [toolsViewMode, setToolsViewMode] = useState('compact');
   const [reorderMode, setReorderMode] = useState(false);
   const [replacementToolId, setReplacementToolId] = useState(null);
+  const navigationInProgressRef = useRef(false);
 
   useEffect(() => {
     let mounted = true;
 
     async function loadToolPreferences() {
-      const savedIds = await getSelectedOverviewToolIds(defaultOverviewToolIds);
-      const savedMode = await getToolsOverviewMode();
+      const [savedIds, savedMode] = await Promise.all([
+        getSelectedOverviewToolIds(defaultOverviewToolIds),
+        getToolsOverviewMode(),
+      ]);
 
-      const validIds = savedIds.filter((id) =>
-        activeTools.some((tool) => tool.id === id)
+      const normalizedIds = normalizeOverviewIds(
+        savedIds,
+        activeTools,
+        defaultOverviewToolIds
       );
-
-      const normalizedIds = validIds.length > 0
-        ? validIds.slice(0, 6)
-        : defaultOverviewToolIds;
 
       if (mounted) {
         setOverviewToolIds(normalizedIds);
@@ -67,8 +96,14 @@ export function useToolsOverviewPreferences() {
 
   useFocusEffect(
     useCallback(() => {
-      let active = true;
+      navigationInProgressRef.current = false;
+      unlockToolNavigation();
+    }, [])
+  );
 
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
       async function loadPendingReplacement() {
         const pendingId = await getPendingReplacementToolId();
 
@@ -87,8 +122,10 @@ export function useToolsOverviewPreferences() {
           return;
         }
 
-        const currentIds = overviewToolIds.filter((id) =>
-          activeTools.some((tool) => tool.id === id)
+        const currentIds = normalizeOverviewIds(
+          overviewToolIds,
+          activeTools,
+          defaultOverviewToolIds
         );
 
         if (currentIds.includes(pendingId)) {
@@ -107,16 +144,14 @@ export function useToolsOverviewPreferences() {
       return () => {
         active = false;
       };
-    }, [activeTools, overviewToolIds])
+    }, [activeTools, defaultOverviewToolIds, overviewToolIds])
   );
 
   const activeToolCount = activeTools.length;
   const canCustomizeOverviewTools = activeToolCount > 6;
 
   const normalizedOverviewToolIds = canCustomizeOverviewTools
-    ? overviewToolIds
-        .filter((id) => activeTools.some((tool) => tool.id === id))
-        .slice(0, 6)
+    ? normalizeOverviewIds(overviewToolIds, activeTools, defaultOverviewToolIds)
     : activeTools.slice(0, 6).map((tool) => tool.id);
 
   const overviewTools = normalizedOverviewToolIds
@@ -140,11 +175,13 @@ export function useToolsOverviewPreferences() {
     : null;
 
   const handleSetToolsViewMode = async (nextMode) => {
-    if (nextMode === toolsViewMode) return;
+    const normalizedMode = nextMode === 'expanded' ? 'expanded' : 'compact';
+
+    if (normalizedMode === toolsViewMode) return;
 
     setReorderMode(false);
-    setToolsViewMode(nextMode);
-    await saveToolsOverviewMode(nextMode);
+    setToolsViewMode(normalizedMode);
+    await saveToolsOverviewMode(normalizedMode);
   };
 
   const handleToggleToolsViewMode = () => {
@@ -181,8 +218,10 @@ export function useToolsOverviewPreferences() {
     const nextIds = [...currentIds];
     nextIds[targetIndex] = replacementToolId;
 
-    setOverviewToolIds(nextIds);
-    await saveSelectedOverviewToolIds(nextIds);
+    const normalizedNextIds = normalizeOverviewIds(nextIds, activeTools, defaultOverviewToolIds);
+
+    setOverviewToolIds(normalizedNextIds);
+    await saveSelectedOverviewToolIds(normalizedNextIds);
 
     setReplacementToolId(null);
     await clearPendingReplacementToolId();
@@ -199,10 +238,12 @@ export function useToolsOverviewPreferences() {
       .map((tool) => tool.id)
       .slice(0, 6);
 
-    if (nextIds.length === 0) return;
+    const normalizedNextIds = normalizeOverviewIds(nextIds, activeTools, defaultOverviewToolIds);
 
-    setOverviewToolIds(nextIds);
-    await saveSelectedOverviewToolIds(nextIds);
+    if (normalizedNextIds.length === 0) return;
+
+    setOverviewToolIds(normalizedNextIds);
+    await saveSelectedOverviewToolIds(normalizedNextIds);
   };
 
   const handleToolPress = (tool) => {
@@ -220,6 +261,10 @@ export function useToolsOverviewPreferences() {
     }
 
     if (tool.route) {
+      if (navigationInProgressRef.current) return;
+      if (!lockToolNavigation(4000)) return;
+
+      navigationInProgressRef.current = true;
       router.push(tool.route);
     }
   };

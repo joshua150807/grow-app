@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect } from 'react';
+import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -27,23 +27,33 @@ export default function AdminBetaCodesScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorText, setErrorText] = useState(null);
   const [filterMode, setFilterMode] = useState('all');
+  const activeRequestRef = useRef(0);
+  const isFocusedRef = useRef(false);
 
   const loadCodes = useCallback(async ({ refreshing = false, silent = false } = {}) => {
+    const requestId = activeRequestRef.current + 1;
+    activeRequestRef.current = requestId;
+
     try {
-        if(!silent) {
-            if (refreshing) {
-                setIsRefreshing(true);
-            } else {
-                setIsLoading(true);
-            }
-        }    
+      if (!silent) {
+        if (refreshing) {
+          setIsRefreshing(true);
+        } else {
+          setIsLoading(true);
+        }
+      }
 
       setErrorText(null);
 
       const list = await loadAdminBetaCodes(1000);
-      setCodes(list);
+
+      if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
+
+      setCodes(Array.isArray(list) ? list : []);
     } catch (error) {
       console.log('Fehler beim Laden der Beta Codes:', error);
+
+      if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
 
       if (String(error.message ?? '').includes('Not allowed')) {
         setErrorText('Kein Zugriff auf diese Beta-Code-Übersicht.');
@@ -51,24 +61,32 @@ export default function AdminBetaCodesScreen() {
         setErrorText('Beta Codes konnten nicht geladen werden.');
       }
     } finally {
-        if(!silent) {
-            setIsLoading(false);
-            setIsRefreshing(false);
-        }    
+      if (!isFocusedRef.current || requestId !== activeRequestRef.current || silent) return;
+
+      setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
     const intervalId = setInterval(() => {
+      if (isFocusedRef.current) {
         loadCodes({ silent: true });
+      }
     }, 10000);
 
     return () => clearInterval(intervalId);
-    }, [loadCodes]);
+  }, [loadCodes]);
 
   useFocusEffect(
     useCallback(() => {
+      isFocusedRef.current = true;
       loadCodes();
+
+      return () => {
+        isFocusedRef.current = false;
+        activeRequestRef.current += 1;
+      };
     }, [loadCodes])
   );
 

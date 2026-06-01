@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -42,7 +42,16 @@ export default function TodoScreen() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [androidStep, setAndroidStep] = useState('date');
   const [saving, setSaving] = useState(false);
+  const mountedRef = useRef(true);
   const showLoading = useDelayedLoading(loading);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const resetModalState = () => {
     setInputTitle('');
@@ -101,11 +110,15 @@ export default function TodoScreen() {
         await add(inputTitle.trim(), selectedDate);
       }
 
-      closeModal();
+      if (mountedRef.current) {
+        closeModal();
+      }
     } catch (e) {
       console.log('Fehler beim Speichern der Todo:', e);
     } finally {
-      setSaving(false);
+      if (mountedRef.current) {
+        setSaving(false);
+      }
     }
   };
 

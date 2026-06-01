@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -49,7 +49,16 @@ export default function HabitsScreen() {
   const [allDays, setAllDays] = useState(false);
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState(null);
+  const mountedRef = useRef(true);
   const showLoading = useDelayedLoading(loading);
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const handleAdd = useCallback(async () => {
     if (!inputName.trim()) return;
@@ -62,11 +71,17 @@ export default function HabitsScreen() {
 
     try {
       await add(inputName.trim(), days);
-      closeModal();
+      if (mountedRef.current) {
+        closeModal();
+      }
     } catch (e) {
-      setAddError('Gewohnheit konnte nicht gespeichert werden. Bitte versuche es erneut.');
+      if (mountedRef.current) {
+        setAddError('Gewohnheit konnte nicht gespeichert werden. Bitte versuche es erneut.');
+      }
     } finally {
-      setAdding(false);
+      if (mountedRef.current) {
+        setAdding(false);
+      }
     }
   }, [inputName, modalDays, allDays, add]);
 

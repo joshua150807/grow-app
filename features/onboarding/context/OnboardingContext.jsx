@@ -35,6 +35,8 @@ export function OnboardingProvider({ children, isAuthenticated = false }) {
   const [targets, setTargets] = useState({});
   const [includeToolsTour, setIncludeToolsTour] = useState(false);
   const didCheckInitialPrompt = useRef(false);
+  const navigationFrameRef = useRef(null);
+  const finishTimeoutRef = useRef(null);
 
   const activeSteps = includeToolsTour ? FULL_ONBOARDING_STEPS : BASE_ONBOARDING_STEPS;
   const currentStep = activeSteps[currentStepIndex] ?? activeSteps[0];
@@ -75,10 +77,27 @@ export function OnboardingProvider({ children, isAuthenticated = false }) {
     };
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    return () => {
+      if (navigationFrameRef.current) {
+        cancelAnimationFrame(navigationFrameRef.current);
+      }
+
+      if (finishTimeoutRef.current) {
+        clearTimeout(finishTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const navigateToTourRoute = useCallback((route) => {
     if (!route) return;
 
-    requestAnimationFrame(() => {
+    if (navigationFrameRef.current) {
+      cancelAnimationFrame(navigationFrameRef.current);
+    }
+
+    navigationFrameRef.current = requestAnimationFrame(() => {
+      navigationFrameRef.current = null;
       router.navigate(route);
     });
   }, []);
@@ -129,10 +148,20 @@ export function OnboardingProvider({ children, isAuthenticated = false }) {
     // Wenn die optionale Tool-Erklärung auf /tools/all-tools lief, merkt sich der Tools-Tab
     // sonst diese Unterseite. Deshalb setzen wir den Tools-Stack kurz auf die Overview zurück
     // und springen danach final in den Feed. Für den Nutzer soll das Tutorial im Feed enden.
-    requestAnimationFrame(() => {
+    if (navigationFrameRef.current) {
+      cancelAnimationFrame(navigationFrameRef.current);
+    }
+
+    if (finishTimeoutRef.current) {
+      clearTimeout(finishTimeoutRef.current);
+    }
+
+    navigationFrameRef.current = requestAnimationFrame(() => {
+      navigationFrameRef.current = null;
       router.navigate('/tools');
 
-      setTimeout(() => {
+      finishTimeoutRef.current = setTimeout(() => {
+        finishTimeoutRef.current = null;
         router.navigate('/');
       }, 80);
     });

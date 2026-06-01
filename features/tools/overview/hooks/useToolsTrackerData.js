@@ -5,20 +5,31 @@ import { getTodayDeepWorkSeconds } from '../../deep-work/services/deepWorkStore'
 import { useSteps } from '../../../steps/hooks/useSteps';
 
 function formatDeepWork(seconds) {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
-  const sec = (seconds % 60).toString().padStart(2, '0');
+  const safeSeconds = Math.max(0, Number(seconds) || 0);
+  const m = Math.floor(safeSeconds / 60).toString().padStart(2, '0');
+  const sec = (safeSeconds % 60).toString().padStart(2, '0');
 
   return `${m}:${sec}`;
 }
 
 function formatSteps(count) {
-  const safeCount = Number(count ?? 0);
+  const safeCount = Math.max(0, Number(count ?? 0) || 0);
 
   if (safeCount >= 1000) {
     return `${Math.floor(safeCount / 1000)}.${String(safeCount % 1000).padStart(3, '0')}`;
   }
 
   return String(safeCount);
+}
+
+function normalizeHabitProgress(progress) {
+  const completed = Math.max(0, Number(progress?.completed) || 0);
+  const total = Math.max(0, Number(progress?.total) || 0);
+
+  return {
+    completed: Math.min(completed, total || completed),
+    total,
+  };
 }
 
 export function useToolsTrackerData() {
@@ -37,8 +48,34 @@ export function useToolsTrackerData() {
   } = useSteps();
 
   useEffect(() => {
-    getHabitStreak().then(setStreak).catch(() => {});
-    getTodayHabitProgress().then(setHabitProgress).catch(() => {});
+    let mounted = true;
+
+    async function loadHabitSummary() {
+      try {
+        const [nextStreak, nextProgress] = await Promise.all([
+          getHabitStreak(),
+          getTodayHabitProgress(),
+        ]);
+
+        if (!mounted) return;
+
+        setStreak(Math.max(0, Number(nextStreak) || 0));
+        setHabitProgress(normalizeHabitProgress(nextProgress));
+      } catch (error) {
+        console.log('[ToolsTracker] Failed to load habit summary:', error);
+
+        if (!mounted) return;
+
+        setStreak(0);
+        setHabitProgress({ completed: 0, total: 0 });
+      }
+    }
+
+    loadHabitSummary();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -49,9 +86,11 @@ export function useToolsTrackerData() {
         const seconds = await getTodayDeepWorkSeconds();
 
         if (mounted) {
-          setDeepWorkTime(seconds);
+          setDeepWorkTime(Math.max(0, Number(seconds) || 0));
         }
-      } catch {
+      } catch (error) {
+        console.log('[ToolsTracker] Failed to load deep work time:', error);
+
         if (mounted) {
           setDeepWorkTime(0);
         }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 
 import { supabase } from '../../../services/supabaseClient';
@@ -11,28 +11,54 @@ const FALLBACK_PROFILE = {
   role: 'user',
 };
 
+function normalizeProfile(profile) {
+  const growPoints = Number(profile?.growPoints ?? FALLBACK_PROFILE.growPoints);
+
+  return {
+    username: profile?.username || FALLBACK_PROFILE.username,
+    growPoints: Number.isFinite(growPoints) && growPoints >= 0 ? growPoints : 0,
+    role: profile?.role || FALLBACK_PROFILE.role,
+  };
+}
+
 export function useProfile() {
   const startupProfileContext = useStartupProfile();
   const startupProfile = startupProfileContext?.profile;
   const reloadStartupProfile = startupProfileContext?.reloadProfile;
 
-  const [profile, setProfile] = useState(startupProfile ?? FALLBACK_PROFILE);
+  const isMountedRef = useRef(true);
+  const loadRequestIdRef = useRef(0);
+
+  const [profile, setProfile] = useState(() => normalizeProfile(startupProfile));
 
   useEffect(() => {
-    if (startupProfile) {
-      setProfile(startupProfile);
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (startupProfile && isMountedRef.current) {
+      setProfile(normalizeProfile(startupProfile));
     }
   }, [startupProfile]);
 
   const load = useCallback(async () => {
+    const requestId = loadRequestIdRef.current + 1;
+    loadRequestIdRef.current = requestId;
+
     try {
       // Wenn Profil schon beim App-Start geladen wurde,
       // nutzen wir denselben zentralen Reload.
       if (reloadStartupProfile) {
         const nextProfile = await reloadStartupProfile();
 
-        if (nextProfile) {
-          setProfile(nextProfile);
+        if (
+          nextProfile &&
+          isMountedRef.current &&
+          loadRequestIdRef.current === requestId
+        ) {
+          setProfile(normalizeProfile(nextProfile));
         }
 
         return;
@@ -40,14 +66,17 @@ export function useProfile() {
 
       // Fallback, falls useProfile irgendwo ohne Provider genutzt wird
       const {
-        data: { user },
+        data: { user } = {},
         error,
       } = await supabase.auth.getUser();
 
       if (error || !user) return;
 
       const nextProfile = await loadProfileData(user.id);
-      setProfile(nextProfile);
+
+      if (isMountedRef.current && loadRequestIdRef.current === requestId) {
+        setProfile(normalizeProfile(nextProfile));
+      }
     } catch (err) {
       console.log('Fehler beim Laden des Profils:', err);
     }
@@ -59,12 +88,13 @@ export function useProfile() {
     }, [load])
   );
 
-  const role = profile?.role ?? FALLBACK_PROFILE.role;
+  const normalizedProfile = normalizeProfile(profile);
+  const role = normalizedProfile.role;
   const isCeo = role === 'ceo' || role === 'admin';
 
   return {
-    username: profile?.username ?? FALLBACK_PROFILE.username,
-    growPoints: profile?.growPoints ?? FALLBACK_PROFILE.growPoints,
+    username: normalizedProfile.username,
+    growPoints: normalizedProfile.growPoints,
     role,
     isCeo,
     reload: load,

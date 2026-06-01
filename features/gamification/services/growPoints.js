@@ -1,5 +1,22 @@
-import { supabase } from "../../../services/supabaseClient";
+import { supabase } from '../../../services/supabaseClient';
+
+function isDuplicateError(error) {
+  return error?.code === '23505';
+}
+
+function normalizeGrowPoints(value) {
+  const numberValue = Number(value ?? 0);
+  return Number.isFinite(numberValue) && numberValue >= 0 ? numberValue : 0;
+}
+
 export async function awardVideoPoints(userId, videoId) {
+  if (!userId || !videoId) {
+    return {
+      awarded: false,
+      reason: 'missing_data',
+    };
+  }
+
   const { data: existingView, error: fetchViewError } = await supabase
     .from('video_views')
     .select('id, points_awarded, progress_percent')
@@ -41,6 +58,14 @@ export async function awardVideoPoints(userId, videoId) {
       });
 
     if (insertViewError) {
+      // Wenn parallel bereits ein View entstanden ist, nicht doppelt belohnen.
+      if (isDuplicateError(insertViewError)) {
+        return {
+          awarded: false,
+          reason: 'already_awarded',
+        };
+      }
+
       throw insertViewError;
     }
   }
@@ -55,7 +80,7 @@ export async function awardVideoPoints(userId, videoId) {
     throw profileFetchError;
   }
 
-  const currentGrowPoints = profile?.grow_points ?? 0;
+  const currentGrowPoints = normalizeGrowPoints(profile?.grow_points);
 
   const { error: profileUpdateError } = await supabase
     .from('profiles')
@@ -77,7 +102,9 @@ export async function awardVideoPoints(userId, videoId) {
     });
 
   if (logError) {
-    throw logError;
+    // Die Punkte wurden bereits vergeben. Ein Log-Fehler darf keinen Retry auslösen,
+    // der später doppelte Punkte verursachen könnte.
+    console.log('Grow-Points-Log konnte nicht gespeichert werden:', logError);
   }
 
   return {

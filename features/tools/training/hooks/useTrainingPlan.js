@@ -18,7 +18,16 @@ export function useTrainingPlan() {
   const [loading, setLoading] = useState(!preloadedPlan);
   const [error, setError] = useState(null);
   const planRef = useRef(plan);
+  const mountedRef = useRef(true);
   planRef.current = plan;
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const loadPlan = useCallback(async ({ silent = false } = {}) => {
     if (!silent) {
@@ -29,14 +38,20 @@ export function useTrainingPlan() {
 
     try {
       const data = await fetchTrainingPlan();
+      if (!mountedRef.current) return;
+
       setPlan(data);
       setPreloadedToolData('trainingPlan', data);
     } catch (e) {
       console.error('[Training Hook] Load error:', e);
-      setError('Trainingsplan konnte nicht geladen werden.');
+      if (!mountedRef.current) return;
+
+      setError('Trainingsplan konnte nicht geladen werden. Deine vorhandenen lokalen Daten bleiben bis zum erneuten Versuch sichtbar.');
     } finally {
       if (!silent) {
-        setLoading(false);
+        if (mountedRef.current) {
+          setLoading(false);
+        }
       }
     }
   }, []);

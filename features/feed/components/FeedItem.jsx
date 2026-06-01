@@ -1,21 +1,22 @@
-import { useEffect, useRef, useState } from 'react';
-import { View, Pressable, StyleSheet, Dimensions } from 'react-native';
-import { VideoView, useVideoPlayer } from 'expo-video';
- 
-import VideoOverlay from './VideoOverlay';
-import FeedProgressBar from './FeedProgressBar';
-import TourTarget from '../../onboarding/components/TourTarget';
-import { useWatchReward } from '../hooks/useWatchReward';
-import { useVideoProgress } from '../hooks/useVideoProgress';
-import { useVideoRating } from '../hooks/useVideoRating';
-import { COLORS } from '../../../constants/colors';
-import { s, sv, sf, SCREEN } from '../../../constants/layout';
-import { supabase } from '../../../services/supabaseClient';
- 
-const { width, height } = Dimensions.get('window');
- 
+import { useEffect, useRef, useState } from "react";
+import { View, Pressable, StyleSheet, Dimensions } from "react-native";
+import { VideoView, useVideoPlayer } from "expo-video";
+
+import VideoOverlay from "./VideoOverlay";
+import FeedProgressBar from "./FeedProgressBar";
+import TourTarget from "../../onboarding/components/TourTarget";
+import { useWatchReward } from "../hooks/useWatchReward";
+import { useVideoProgress } from "../hooks/useVideoProgress";
+import { useVideoRating } from "../hooks/useVideoRating";
+import { COLORS } from "../../../constants/colors";
+import { s, sv, sf, SCREEN } from "../../../constants/layout";
+import { supabase } from "../../../services/supabaseClient";
+import { logVideoPlayerError } from "../utils/videoPlayerSafety";
+
+const { width, height } = Dimensions.get("window");
+
 const LONG_PRESS_DELAY = 120;
- 
+
 export default function FeedItem({
   item,
   isActive,
@@ -32,17 +33,56 @@ export default function FeedItem({
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isPausedByUser, setIsPausedByUser] = useState(false);
   const [userId, setUserId] = useState(null);
- 
+
   const hasReportedReady = useRef(false);
- 
+  const isMountedRef = useRef(true);
+
   const player = useVideoPlayer(item.source, (playerInstance) => {
     playerInstance.loop = true;
   });
- 
+
+  const pausePlayerSafely = () => {
+    try {
+      player.pause();
+    } catch (error) {
+      logVideoPlayerError("Fehler beim Pausieren des Videos:", error);
+    }
+  };
+
+  const playPlayerSafely = () => {
+    try {
+      player.play();
+    } catch (error) {
+      logVideoPlayerError("Fehler beim Starten des Videos:", error);
+    }
+  };
+
+  const resetPlayerSafely = () => {
+    pausePlayerSafely();
+
+    try {
+      player.currentTime = 0;
+    } catch (error) {
+      logVideoPlayerError("Fehler beim Zurücksetzen des Videos:", error);
+    }
+  };
+
   useEffect(() => {
-    player.muted = isMuted;
+    try {
+      player.muted = isMuted;
+    } catch (error) {
+      logVideoPlayerError("Fehler beim Stummschalten des Videos:", error);
+    }
   }, [isMuted, player]);
- 
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [player]);
+
   const {
     progress,
     duration,
@@ -63,7 +103,7 @@ export default function FeedItem({
     onScrubStart,
     onScrubEnd,
   });
- 
+
   useEffect(() => {
     const shouldPlay =
       isActive &&
@@ -71,35 +111,62 @@ export default function FeedItem({
       !isHolding &&
       !isScrubbing &&
       !isPausedByUser;
- 
+
     if (!isActive) {
-      player.pause();
-      player.currentTime = 0;
+      resetPlayerSafely();
       setProgress(0);
       setIsPausedByUser(false);
       return;
     }
- 
+
     if (!isFeedFocused) {
-      player.pause();
+      pausePlayerSafely();
       return;
     }
- 
+
     if (shouldPlay) {
-      player.play();
+      playPlayerSafely();
     } else {
-      player.pause();
+      pausePlayerSafely();
     }
-  }, [isActive, isFeedFocused, isHolding, isScrubbing, isPausedByUser, player, setProgress]);
- 
+  }, [
+    isActive,
+    isFeedFocused,
+    isHolding,
+    isScrubbing,
+    isPausedByUser,
+    player,
+    setProgress,
+  ]);
+
   useEffect(() => {
+    let cancelled = false;
+
     async function loadUser() {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUserId(user?.id ?? null);
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!cancelled && isMountedRef.current) {
+          setUserId(user?.id ?? null);
+        }
+      } catch (error) {
+        console.log("Fehler beim Laden des Feed-Users:", error);
+
+        if (!cancelled && isMountedRef.current) {
+          setUserId(null);
+        }
+      }
     }
+
     loadUser();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
- 
+
   const { showPointReward } = useWatchReward({
     isActive,
     progress,
@@ -108,13 +175,13 @@ export default function FeedItem({
     videoId: item.id,
     isScrubbing,
   });
- 
+
   const { activeRating, rate } = useVideoRating({
     userId,
     videoId: item.id,
     isActive,
   });
- 
+
   return (
     <View style={styles.page}>
       {isActive && (
@@ -131,28 +198,28 @@ export default function FeedItem({
         contentFit="contain"
         nativeControls={false}
         onFirstFrameRender={() => {
-          if (!hasReportedReady.current) {
+          if (!hasReportedReady.current && isMountedRef.current) {
             hasReportedReady.current = true;
             onVideoReady?.();
           }
         }}
       />
- 
+
       <Pressable
         style={styles.touchLayer}
-        pointerEvents={isInteractionDisabled ? 'none' : 'auto'}
+        pointerEvents={isInteractionDisabled ? "none" : "auto"}
         disabled={isInteractionDisabled}
         onPress={() => setIsPausedByUser((prev) => !prev)}
         onLongPress={() => setIsHolding(true)}
         delayLongPress={LONG_PRESS_DELAY}
         onPressOut={() => setIsHolding(false)}
       />
- 
+
       <View style={styles.overlayDark} pointerEvents="none" />
- 
+
       <View
         style={styles.overlayContent}
-        pointerEvents={isInteractionDisabled ? 'none' : 'box-none'}
+        pointerEvents={isInteractionDisabled ? "none" : "box-none"}
       >
         <VideoOverlay
           saved={item.saved}
@@ -170,7 +237,7 @@ export default function FeedItem({
           isActive={isActive}
         />
       </View>
- 
+
       <FeedProgressBar
         safeProgress={safeProgress}
         canScrub={canScrub}
@@ -184,7 +251,7 @@ export default function FeedItem({
     </View>
   );
 }
- 
+
 const styles = StyleSheet.create({
   page: {
     width,
@@ -192,12 +259,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   video: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
+    position: "absolute",
+    width: "100%",
+    height: "100%",
   },
   videoTourTarget: {
-    position: 'absolute',
+    position: "absolute",
     left: s(20),
     right: s(68),
     top: SCREEN.height * 0.22,
@@ -205,15 +272,15 @@ const styles = StyleSheet.create({
     zIndex: 3,
   },
   touchLayer: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
+    position: "absolute",
+    width: "100%",
+    height: "100%",
     zIndex: 2,
   },
   overlayDark: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
+    position: "absolute",
+    width: "100%",
+    height: "100%",
     backgroundColor: COLORS.overlayDark,
     zIndex: 1,
   },

@@ -59,6 +59,8 @@ export default function ToolsScreen() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuAnimation = useRef(new Animated.Value(0)).current;
+  const mountedRef = useRef(true);
+  const navigationLockedRef = useRef(false);
 
   const { username, growPoints, isCeo } = useProfile();
   const { startTutorial } = useOnboarding();
@@ -83,6 +85,9 @@ export default function ToolsScreen() {
   } = useToolsOverviewPreferences();
 
   useEffect(() => {
+    mountedRef.current = true;
+    navigationLockedRef.current = false;
+
     const preloadTask = InteractionManager.runAfterInteractions(() => {
       preloadToolPageBackgroundAssets().catch((err) => {
         console.log('Tool-Seiten-Hintergründe konnten nicht vorgeladen werden:', err);
@@ -90,6 +95,8 @@ export default function ToolsScreen() {
     });
 
     return () => {
+      mountedRef.current = false;
+      navigationLockedRef.current = false;
       preloadTask?.cancel?.();
     };
   }, []);
@@ -126,26 +133,68 @@ export default function ToolsScreen() {
     ],
   };
 
+  const unlockNavigationSoon = () => {
+    setTimeout(() => {
+      navigationLockedRef.current = false;
+    }, 650);
+  };
+
   const handleLogout = async () => {
+    if (navigationLockedRef.current) return;
+
+    navigationLockedRef.current = true;
     setMenuOpen(false);
 
     const { error } = await supabase.auth.signOut();
 
     if (error) {
       console.log('[ToolsOverview] Logout failed:', error);
+      navigationLockedRef.current = false;
       return;
     }
 
-    router.replace('/login');
+    if (mountedRef.current) {
+      router.replace('/login');
+    }
   };
 
   const handleOutsideMenuPress = () => {
     handleScreenPress(() => setMenuOpen(false));
   };
 
+  const handleOverviewBackgroundPress = () => {
+    if (!reorderMode) return;
+    handleScreenPress();
+  };
+
   const navigateFromMenu = (route) => {
+    if (!route || navigationLockedRef.current) return;
+
+    navigationLockedRef.current = true;
     setMenuOpen(false);
     router.push(route);
+    unlockNavigationSoon();
+  };
+
+  const handleOpenAllTools = () => {
+    if (navigationLockedRef.current) return;
+
+    navigationLockedRef.current = true;
+    router.push('/tools/all-tools');
+    unlockNavigationSoon();
+  };
+
+  const handleOpenMentor = () => {
+    if (reorderMode || replacementToolId) {
+      handleScreenPress();
+      return;
+    }
+
+    if (navigationLockedRef.current) return;
+
+    navigationLockedRef.current = true;
+    router.push('/tools/mentor');
+    unlockNavigationSoon();
   };
 
   const handleStartTutorialFromMenu = () => {
@@ -166,6 +215,11 @@ export default function ToolsScreen() {
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
+        <Pressable
+          disabled={!reorderMode}
+          onPress={handleOverviewBackgroundPress}
+          style={{ width: '100%' }}
+        >
         {/* Header */}
         <View
           style={[
@@ -293,7 +347,7 @@ export default function ToolsScreen() {
             onReorderModeChange={setReorderMode}
             onExitReorderMode={() => setReorderMode(false)}
             onModeChange={handleSetToolsViewMode}
-            onOpenAllTools={() => router.push('/tools/all-tools')}
+            onOpenAllTools={handleOpenAllTools}
           />
         </TourTarget>
 
@@ -309,7 +363,7 @@ export default function ToolsScreen() {
         {/* KI Mentor Card */}
         <TourTarget id="mentor-card">
           <PressableScale
-          onPress={() => router.push('/tools/mentor')}
+          onPress={handleOpenMentor}
           activeScale={0.985}
           activeOpacity={0.9}
           style={[
@@ -380,6 +434,7 @@ export default function ToolsScreen() {
             ))}
           </View>
         </View>
+        </Pressable>
       </ScrollView>
 
       {menuOpen && (

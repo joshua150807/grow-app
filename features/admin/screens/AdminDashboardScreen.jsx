@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -36,8 +36,13 @@ export default function AdminDashboardScreen() {
   const [hasAccess, setHasAccess] = useState(false);
   const [stats, setStats] = useState(emptyStats);
   const [statsError, setStatsError] = useState(null);
+  const activeRequestRef = useRef(0);
+  const isFocusedRef = useRef(false);
 
   const checkAccessAndLoadStats = useCallback(async () => {
+    const requestId = activeRequestRef.current + 1;
+    activeRequestRef.current = requestId;
+
     try {
       setIsLoading(true);
       setStatsError(null);
@@ -48,7 +53,9 @@ export default function AdminDashboardScreen() {
       } = await supabase.auth.getUser();
 
       if (userError || !user) {
-        setHasAccess(false);
+        if (isFocusedRef.current && requestId === activeRequestRef.current) {
+          setHasAccess(false);
+        }
         return;
       }
 
@@ -65,6 +72,8 @@ export default function AdminDashboardScreen() {
       const role = profile?.role ?? 'user';
       const allowed = role === 'ceo' || role === 'admin';
 
+      if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
+
       setHasAccess(allowed);
 
       if (!allowed) {
@@ -72,18 +81,31 @@ export default function AdminDashboardScreen() {
       }
 
       const overviewStats = await loadAdminOverviewStats();
-      setStats(overviewStats);
+
+      if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
+
+      setStats(overviewStats ?? emptyStats);
     } catch (error) {
       console.log('Fehler beim Laden des CEO Dashboards:', error);
-      setStatsError('Statistiken konnten nicht geladen werden.');
+      if (isFocusedRef.current && requestId === activeRequestRef.current) {
+        setStatsError('Statistiken konnten nicht geladen werden.');
+      }
     } finally {
-      setIsLoading(false);
+      if (isFocusedRef.current && requestId === activeRequestRef.current) {
+        setIsLoading(false);
+      }
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
+      isFocusedRef.current = true;
       checkAccessAndLoadStats();
+
+      return () => {
+        isFocusedRef.current = false;
+        activeRequestRef.current += 1;
+      };
     }, [checkAccessAndLoadStats])
   );
 

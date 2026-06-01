@@ -1,4 +1,4 @@
-import { supabase } from '../../../services/supabaseClient';
+import { supabase } from "../../../services/supabaseClient";
 
 async function getCurrentUserId() {
   const {
@@ -28,28 +28,32 @@ function shuffleArray(array) {
 }
 
 function mapVideos(videos, bookmarkedVideoIds = []) {
-  return videos.map((video) => ({
-    id: video.id,
-    title: video.title,
-    source: video.video_url,
-    thumbnail: video.thumbnail_url,
-    saved: bookmarkedVideoIds.includes(video.id),
-  }));
+  return (videos ?? [])
+    .filter((video) => video?.id && video?.video_url)
+    .map((video) => ({
+      id: String(video.id),
+      title: video.title ?? "",
+      source: video.video_url,
+      thumbnail: video.thumbnail_url ?? null,
+      saved: bookmarkedVideoIds.includes(video.id),
+    }));
 }
 
 export async function getActiveVideos() {
   const userId = await getCurrentUserId();
 
   const { data: videos, error: videosError } = await supabase
-    .from('videos')
-    .select('*')
-    .eq('is_active', true);
+    .from("videos")
+    .select("*")
+    .eq("is_active", true);
 
   if (videosError) {
     throw videosError;
   }
 
-  const activeVideos = videos ?? [];
+  const activeVideos = (videos ?? []).filter(
+    (video) => video?.id && video?.video_url,
+  );
 
   if (activeVideos.length === 0) {
     return [];
@@ -60,25 +64,12 @@ export async function getActiveVideos() {
     return shuffleArray(mapVideos(activeVideos));
   }
 
-  const [
-    bookmarksResult,
-    viewsResult,
-    ratingsResult,
-  ] = await Promise.all([
-    supabase
-      .from('video_bookmarks')
-      .select('video_id')
-      .eq('user_id', userId),
+  const [bookmarksResult, viewsResult, ratingsResult] = await Promise.all([
+    supabase.from("video_bookmarks").select("video_id").eq("user_id", userId),
 
-    supabase
-      .from('video_views')
-      .select('video_id')
-      .eq('user_id', userId),
+    supabase.from("video_views").select("video_id").eq("user_id", userId),
 
-    supabase
-      .from('video_ratings')
-      .select('video_id')
-      .eq('user_id', userId),
+    supabase.from("video_ratings").select("video_id").eq("user_id", userId),
   ]);
 
   if (bookmarksResult.error) {
@@ -94,7 +85,7 @@ export async function getActiveVideos() {
   }
 
   const bookmarkedVideoIds = (bookmarksResult.data ?? []).map(
-    (bookmark) => bookmark.video_id
+    (bookmark) => bookmark.video_id,
   );
 
   // Ein Video gilt als gesehen, wenn es entweder:
@@ -109,7 +100,7 @@ export async function getActiveVideos() {
   ]);
 
   const unseenVideos = activeVideos.filter(
-    (video) => !seenVideoIds.has(video.id)
+    (video) => !seenVideoIds.has(video.id),
   );
 
   // Regel:
@@ -129,8 +120,9 @@ export async function getSavedVideos() {
   }
 
   const { data, error } = await supabase
-    .from('video_bookmarks')
-    .select(`
+    .from("video_bookmarks")
+    .select(
+      `
       video_id,
       created_at,
       videos (
@@ -140,9 +132,10 @@ export async function getSavedVideos() {
         thumbnail_url,
         is_active
       )
-    `)
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
+    `,
+    )
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
 
   if (error) {
     throw error;
@@ -152,11 +145,7 @@ export async function getSavedVideos() {
     .filter((bookmark) => {
       const video = bookmark.videos;
 
-      return (
-        video &&
-        video.is_active &&
-        video.video_url
-      );
+      return video && video.is_active && video.video_url;
     })
     .map((bookmark) => ({
       id: bookmark.videos.id,
@@ -176,9 +165,9 @@ export async function getSavedVideoIds() {
   }
 
   const { data, error } = await supabase
-    .from('video_bookmarks')
-    .select('video_id')
-    .eq('user_id', userId);
+    .from("video_bookmarks")
+    .select("video_id")
+    .eq("user_id", userId);
 
   if (error) {
     throw error;
@@ -191,15 +180,15 @@ export async function toggleVideoBookmark(videoId, currentlySaved) {
   const userId = await getCurrentUserId();
 
   if (!userId) {
-    throw new Error('Kein eingeloggter User gefunden.');
+    throw new Error("Kein eingeloggter User gefunden.");
   }
 
   if (currentlySaved) {
     const { error } = await supabase
-      .from('video_bookmarks')
+      .from("video_bookmarks")
       .delete()
-      .eq('user_id', userId)
-      .eq('video_id', videoId);
+      .eq("user_id", userId)
+      .eq("video_id", videoId);
 
     if (error) {
       throw error;
@@ -208,12 +197,15 @@ export async function toggleVideoBookmark(videoId, currentlySaved) {
     return false;
   }
 
-  const { error } = await supabase
-    .from('video_bookmarks')
-    .insert({
+  const { error } = await supabase.from("video_bookmarks").upsert(
+    {
       user_id: userId,
       video_id: videoId,
-    });
+    },
+    {
+      onConflict: "user_id,video_id",
+    },
+  );
 
   if (error) {
     throw error;

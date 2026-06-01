@@ -50,10 +50,14 @@ function TabIcon({ name, color, size, focused }) {
  
 function CustomTabButton(props) {
   const handlePress = async (event) => {
-    const session = await getSavedDeepWorkSession();
+    try {
+      const session = await getSavedDeepWorkSession();
 
-    if (session?.phase === 'running') {
-      return;
+      if (session?.phase === 'running') {
+        return;
+      }
+    } catch (error) {
+      console.log('[Tabs] Deep Work session check failed:', error);
     }
 
     void triggerHaptic('selection');

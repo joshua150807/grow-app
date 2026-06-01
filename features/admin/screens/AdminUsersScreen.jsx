@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -27,8 +27,13 @@ export default function AdminUsersScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorText, setErrorText] = useState(null);
   const [sortMode, setSortMode] = useState('activity');
+  const activeRequestRef = useRef(0);
+  const isFocusedRef = useRef(false);
 
   const loadUsers = useCallback(async ({ refreshing = false } = {}) => {
+    const requestId = activeRequestRef.current + 1;
+    activeRequestRef.current = requestId;
+
     try {
       if (refreshing) {
         setIsRefreshing(true);
@@ -39,9 +44,14 @@ export default function AdminUsersScreen() {
       setErrorText(null);
 
       const list = await loadAdminUsersOverview(500);
-      setUsers(list);
+
+      if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
+
+      setUsers(Array.isArray(list) ? list : []);
     } catch (error) {
       console.log('Fehler beim Laden der User Analytics:', error);
+
+      if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
 
       if (String(error.message ?? '').includes('Not allowed')) {
         setErrorText('Kein Zugriff auf diese User-Übersicht.');
@@ -49,14 +59,22 @@ export default function AdminUsersScreen() {
         setErrorText('User Analytics konnten nicht geladen werden.');
       }
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (isFocusedRef.current && requestId === activeRequestRef.current) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
+      isFocusedRef.current = true;
       loadUsers();
+
+      return () => {
+        isFocusedRef.current = false;
+        activeRequestRef.current += 1;
+      };
     }, [loadUsers])
   );
 

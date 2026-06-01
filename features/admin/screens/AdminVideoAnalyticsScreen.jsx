@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -27,8 +27,13 @@ export default function AdminVideoAnalyticsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorText, setErrorText] = useState(null);
   const [sortMode, setSortMode] = useState('views');
+  const activeRequestRef = useRef(0);
+  const isFocusedRef = useRef(false);
 
   const loadVideos = useCallback(async ({ refreshing = false } = {}) => {
+    const requestId = activeRequestRef.current + 1;
+    activeRequestRef.current = requestId;
+
     try {
       if (refreshing) {
         setIsRefreshing(true);
@@ -39,9 +44,14 @@ export default function AdminVideoAnalyticsScreen() {
       setErrorText(null);
 
       const list = await loadAdminVideoAnalytics(500);
-      setVideos(list);
+
+      if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
+
+      setVideos(Array.isArray(list) ? list : []);
     } catch (error) {
       console.log('Fehler beim Laden der Video Analytics:', error);
+
+      if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
 
       if (String(error.message ?? '').includes('Not allowed')) {
         setErrorText('Kein Zugriff auf diese Video-Übersicht.');
@@ -49,14 +59,22 @@ export default function AdminVideoAnalyticsScreen() {
         setErrorText('Video Analytics konnten nicht geladen werden.');
       }
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (isFocusedRef.current && requestId === activeRequestRef.current) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
+      isFocusedRef.current = true;
       loadVideos();
+
+      return () => {
+        isFocusedRef.current = false;
+        activeRequestRef.current += 1;
+      };
     }, [loadVideos])
   );
 

@@ -133,6 +133,18 @@ function DraggableTile({
   onCancelDragRef.current = onCancelDrag;
   onExitReorderModeRef.current = onExitReorderMode;
 
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+
+      touchStartedRef.current = false;
+      dragActiveRef.current = false;
+    };
+  }, []);
+
   const clearLongPressTimer = () => {
     if (longPressTimerRef.current) {
       clearTimeout(longPressTimerRef.current);
@@ -304,6 +316,7 @@ export default function DraggableSixToolGrid({
 }) {
   const [containerWidth, setContainerWidth] = useState(0);
   const [displayTools, setDisplayTools] = useState(tools);
+  const mountedRef = useRef(true);
   const [dragState, setDragState] = useState(null);
 
   const displayToolsRef = useRef(tools);
@@ -312,6 +325,15 @@ export default function DraggableSixToolGrid({
 
   const gap = overviewLayout?.compactGridGap ?? 8;
   const rowGap = overviewLayout?.compactGridRowGap ?? 8;
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+      dragPosition.stopAnimation();
+    };
+  }, [dragPosition]);
 
   useEffect(() => {
     if (!dragStateRef.current) {
@@ -350,12 +372,16 @@ export default function DraggableSixToolGrid({
 
   const updateDisplayTools = (nextTools) => {
     displayToolsRef.current = nextTools;
-    setDisplayTools(nextTools);
+    if (mountedRef.current) {
+      setDisplayTools(nextTools);
+    }
   };
 
   const updateDragState = (nextState) => {
     dragStateRef.current = nextState;
-    setDragState(nextState);
+    if (mountedRef.current) {
+      setDragState(nextState);
+    }
   };
 
   const handleStartDrag = (index, item, touchOffset) => {
@@ -423,7 +449,10 @@ export default function DraggableSixToolGrid({
 
     const finalTools = displayToolsRef.current;
 
-    onReorder(finalTools);
+    await onReorder(finalTools);
+
+    if (!mountedRef.current) return;
+
     updateDragState(null);
   };
 
@@ -440,7 +469,7 @@ export default function DraggableSixToolGrid({
       style={[styles.container, { height: gridHeight || undefined }]}
       onLayout={(event) => {
         const nextWidth = event.nativeEvent.layout.width;
-        if (nextWidth > 0 && Math.abs(nextWidth - containerWidth) > 1) {
+        if (mountedRef.current && nextWidth > 0 && Math.abs(nextWidth - containerWidth) > 1) {
           setContainerWidth(nextWidth);
         }
       }}

@@ -1,12 +1,32 @@
 import { decode } from 'base64-arraybuffer';
 import { supabase } from '../../../services/supabaseClient';
 
+function getSafeFeedbackFileExtension(fileName, mimeType) {
+  const rawExt = fileName?.split('.').pop()?.toLowerCase();
+
+  if (rawExt && /^[a-z0-9]+$/.test(rawExt)) {
+    return rawExt;
+  }
+
+  if (mimeType === 'image/png') return 'png';
+  if (mimeType === 'image/webp') return 'webp';
+
+  return 'jpg';
+}
+
 export async function uploadFeedbackImage({ selectedImage, userId }) {
   if (!selectedImage) {
     return { imageUrl: null, imagePath: null };
   }
 
-  const fileExt = selectedImage.fileName?.split('.').pop() || 'jpg';
+  if (!selectedImage.base64) {
+    throw new Error('Feedback image is missing base64 data.');
+  }
+
+  const fileExt = getSafeFeedbackFileExtension(
+    selectedImage.fileName,
+    selectedImage.mimeType
+  );
   const safeUserId = userId || 'anonymous';
   const filePath = `${safeUserId}/${Date.now()}.${fileExt}`;
 
@@ -15,7 +35,7 @@ export async function uploadFeedbackImage({ selectedImage, userId }) {
   const { error: uploadError } = await supabase.storage
     .from('feedback-images')
     .upload(filePath, arrayBuffer, {
-      contentType: selectedImage.mimeType,
+      contentType: selectedImage.mimeType || 'image/jpeg',
       upsert: false,
     });
 
@@ -28,9 +48,65 @@ export async function uploadFeedbackImage({ selectedImage, userId }) {
     .getPublicUrl(filePath);
 
   return {
-    imageUrl: data.publicUrl,
+    imageUrl: data?.publicUrl ?? null,
     imagePath: filePath,
   };
+}
+
+async function deleteUploadedFeedbackImage(imagePath) {
+  if (!imagePath) return;
+
+  const { error } = await supabase.storage
+    .from('feedback-images')
+    .remove([imagePath]);
+
+  if (error) {
+    console.log('Feedback-Bild konnte nach fehlgeschlagenem Insert nicht bereinigt werden:', error);
+  }
+}
+
+async function awardFeedbackGrowPoints(userId) {
+  try {
+    const { data: profile, error: profileFetchError } = await supabase
+      .from('profiles')
+      .select('grow_points')
+      .eq('id', userId)
+      .single();
+
+    if (profileFetchError) {
+      throw profileFetchError;
+    }
+
+    const currentGrowPoints = Number(profile?.grow_points ?? 0);
+
+    const { error: profileUpdateError } = await supabase
+      .from('profiles')
+      .update({
+        grow_points: currentGrowPoints + 5,
+      })
+      .eq('id', userId);
+
+    if (profileUpdateError) {
+      throw profileUpdateError;
+    }
+
+    const { error: logError } = await supabase
+      .from('grow_points_log')
+      .insert({
+        user_id: userId,
+        points: 5,
+        reason: 'feedback_sent',
+      });
+
+    if (logError) {
+      throw logError;
+    }
+
+    return true;
+  } catch (error) {
+    console.log('Grow Points für Feedback konnten nicht vergeben werden:', error);
+    return false;
+  }
 }
 
 export async function sendFeedback({
@@ -40,6 +116,16 @@ export async function sendFeedback({
   text,
   selectedImage,
 }) {
+  const trimmedText = text.trim();
+
+  if (!userId) {
+    throw new Error('Feedback userId is missing.');
+  }
+
+  if (!trimmedText) {
+    throw new Error('Feedback text is empty.');
+  }
+
   let imageUrl = null;
   let imagePath = null;
 
@@ -57,47 +143,17 @@ export async function sendFeedback({
     user_id: userId,
     feedback_type: selectedType,
     importance: selectedImportance,
-    message: text.trim(),
+    message: trimmedText,
     image_url: imageUrl,
     image_path: imagePath,
   });
 
   if (feedbackError) {
+    await deleteUploadedFeedbackImage(imagePath);
     throw feedbackError;
   }
 
-  const { data: profile, error: profileFetchError } = await supabase
-    .from('profiles')
-    .select('grow_points')
-    .eq('id', userId)
-    .single();
+  const pointsAwarded = await awardFeedbackGrowPoints(userId);
 
-  if (profileFetchError) {
-    throw profileFetchError;
-  }
-
-  const currentGrowPoints = profile?.grow_points ?? 0;
-
-  const { error: profileUpdateError } = await supabase
-    .from('profiles')
-    .update({
-      grow_points: currentGrowPoints + 5,
-    })
-    .eq('id', userId);
-
-  if (profileUpdateError) {
-    throw profileUpdateError;
-  }
-
-  const { error: logError } = await supabase
-    .from('grow_points_log')
-    .insert({
-      user_id: userId,
-      points: 5,
-      reason: 'feedback_sent',
-    });
-
-  if (logError) {
-    throw logError;
-  }
+  return { pointsAwarded };
 }

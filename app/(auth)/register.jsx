@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -24,29 +24,46 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState('');
+  const isMountedRef = useRef(true);
+  const isSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  function showError(message) {
+    if (isMountedRef.current) {
+      setErrorText(message);
+    }
+  }
  
   async function handleRegister() {
-    setErrorText('');
+    if (isSubmittingRef.current) return;
+
+    showError('');
  
     const cleanUsername = username.trim().toLowerCase();
     const cleanCode = code.trim().toUpperCase();
  
     if (!cleanUsername || !password || !password2 || !cleanCode) {
-      setErrorText('Bitte alle Felder ausfüllen.');
+      showError('Bitte alle Felder ausfüllen.');
       return;
     }
  
     if (password !== password2) {
-      setErrorText('Passwörter stimmen nicht überein.');
+      showError('Passwörter stimmen nicht überein.');
       return;
     }
  
     if (cleanUsername.length < 3) {
-      setErrorText('Username zu kurz.');
+      showError('Username zu kurz.');
       return;
     }
  
     try {
+      isSubmittingRef.current = true;
       setLoading(true);
  
       // Beta Code prüfen
@@ -58,7 +75,7 @@ export default function RegisterScreen() {
         .single();
  
       if (betaError || !betaRow) {
-        setErrorText('Ungültiger oder bereits genutzter Beta-Code.');
+        showError('Ungültiger oder bereits genutzter Beta-Code.');
         return;
       }
  
@@ -71,12 +88,12 @@ export default function RegisterScreen() {
         .maybeSingle();
  
       if (usernameError) {
-        setErrorText('Username konnte nicht geprüft werden.');
+        showError('Username konnte nicht geprüft werden.');
         return;
       }
  
       if (existingProfile) {
-        setErrorText('Username ist bereits vergeben.');
+        showError('Username ist bereits vergeben.');
         return;
       }
  
@@ -90,13 +107,13 @@ export default function RegisterScreen() {
         const message = error?.message?.toLowerCase() || '';
  
         if (message.includes('already registered') || message.includes('already been registered')) {
-          setErrorText('Username ist bereits vergeben.');
+          showError('Username ist bereits vergeben.');
         } else if (message.includes('password')) {
-          setErrorText('Passwort ist zu schwach oder zu kurz.');
+          showError('Passwort ist zu schwach oder zu kurz.');
         } else if (message.includes('rate limit')) {
-          setErrorText('Zu viele Versuche. Bitte warte kurz und versuche es später erneut.');
+          showError('Zu viele Versuche. Bitte warte kurz und versuche es später erneut.');
         } else {
-          setErrorText('Registrierung fehlgeschlagen. Bitte prüfe deine Eingaben.');
+          showError('Registrierung fehlgeschlagen. Bitte prüfe deine Eingaben.');
         }
  
         return;
@@ -113,7 +130,7 @@ export default function RegisterScreen() {
  
         if (profileError) {
         console.log('PROFILE ERROR:', profileError);
-        setErrorText(profileError.message);
+        showError(profileError.message);
         return;
         }
         const { data: claimed, error: claimError } = await supabase.rpc(
@@ -125,14 +142,17 @@ export default function RegisterScreen() {
         );
  
         if (claimError || !claimed) {
-          setErrorText('Beta-Code konnte nicht aktiviert werden.');
+          showError('Beta-Code konnte nicht aktiviert werden.');
           return;
         }
       router.replace('/(tabs)');
     } catch (err) {
-      setErrorText('Registrierung fehlgeschlagen.');
+      showError('Registrierung fehlgeschlagen.');
     } finally {
-      setLoading(false);
+      isSubmittingRef.current = false;
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }
  

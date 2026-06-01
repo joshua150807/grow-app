@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,7 @@ import {
   Alert,
   useWindowDimensions,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 
 import { tools } from '../../../../data/tools';
@@ -23,6 +23,7 @@ import {
   getSelectedOverviewToolIds,
   setPendingReplacementToolId,
 } from '../services/toolPreferences';
+import { lockToolNavigation, unlockToolNavigation, unlockToolNavigationSoon } from '../services/toolNavigationGuard';
 
 function renderToolIcon(tool) {
   const iconColor = tool.disabled ? COLORS.toolsTextDim : COLORS.toolsGold;
@@ -73,23 +74,38 @@ export default function AllToolsScreen() {
   );
 
   const [selectedIds, setSelectedIds] = useState(defaultOverviewToolIds);
+  const toolNavigationInProgressRef = useRef(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      toolNavigationInProgressRef.current = false;
+      unlockToolNavigation();
+    }, [])
+  );
 
   useEffect(() => {
     let mounted = true;
-
     async function loadSelectedTools() {
-      const savedIds = await getSelectedOverviewToolIds(defaultOverviewToolIds);
+      try {
+        const savedIds = await getSelectedOverviewToolIds(defaultOverviewToolIds);
 
-      const validIds = savedIds.filter((id) =>
-        activeTools.some((tool) => tool.id === id)
-      );
-
-      if (mounted) {
-        setSelectedIds(
-          validIds.length > 0
-            ? validIds.slice(0, 6)
-            : defaultOverviewToolIds
+        const validIds = savedIds.filter((id) =>
+          activeTools.some((tool) => tool.id === id)
         );
+
+        if (mounted) {
+          setSelectedIds(
+            validIds.length > 0
+              ? validIds.slice(0, 6)
+              : defaultOverviewToolIds
+          );
+        }
+      } catch (error) {
+        console.log('[AllTools] Failed to load selected tools:', error);
+
+        if (mounted) {
+          setSelectedIds(defaultOverviewToolIds);
+        }
       }
     }
 
@@ -125,7 +141,18 @@ export default function AllToolsScreen() {
 
   const handleToolPress = (tool) => {
     if (!tool || tool.disabled || !tool.route) return;
+    if (toolNavigationInProgressRef.current) return;
+    if (!lockToolNavigation(4000)) return;
+
+    toolNavigationInProgressRef.current = true;
     router.push(tool.route);
+  };
+
+  const handleBackPress = () => {
+    if (!lockToolNavigation()) return;
+
+    router.back();
+    unlockToolNavigationSoon();
   };
 
   const handleLongPressTool = async (tool) => {
@@ -141,8 +168,21 @@ export default function AllToolsScreen() {
       return;
     }
 
-    await setPendingReplacementToolId(tool.id);
+    if (!lockToolNavigation()) return;
+
+    const saved = await setPendingReplacementToolId(tool.id);
+
+    if (!saved) {
+      unlockToolNavigation();
+      Alert.alert(
+        'Nicht gespeichert',
+        'Das Tool konnte gerade nicht für den Austausch vorbereitet werden. Bitte versuche es erneut.'
+      );
+      return;
+    }
+
     router.back();
+    unlockToolNavigationSoon();
   };
 
   return (
@@ -150,7 +190,7 @@ export default function AllToolsScreen() {
       <View style={styles.content}>
         <View style={styles.allToolsTopBar}>
           <PressableScale
-            onPress={() => router.back()}
+            onPress={handleBackPress}
             style={styles.backButton}
             activeScale={0.96}
             activeOpacity={0.78}

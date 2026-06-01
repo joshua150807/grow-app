@@ -141,6 +141,20 @@ export default function TrainingSessionActiveScreen() {
             note: getExerciseValue(exercise, 'note').trim(),
           }));
 
+      if (!isRunDay) {
+        if (sessionExercises.length === 0) {
+          setSaveError('Dieser Trainingstag hat keine Übungen. Füge im Plan-Editor zuerst eine Übung hinzu.');
+          return;
+        }
+
+        const invalidExercise = sessionExercises.find(exercise => exercise.sets === null || exercise.reps === null);
+
+        if (invalidExercise) {
+          setSaveError(`Prüfe "${invalidExercise.name}": Sätze und Wiederholungen müssen größer 0 sein.`);
+          return;
+        }
+      }
+
       await createTrainingSession({
         userId,
         planId: plan.id,
@@ -316,6 +330,20 @@ export default function TrainingSessionActiveScreen() {
           </View>
         ) : null}
 
+        {!isRunDay && exercises.length === 0 ? (
+          <View style={styles.sessionExerciseCard}>
+            <View style={styles.sessionExerciseHeader}>
+              <Text style={styles.sessionExerciseIndex}>!</Text>
+              <View style={styles.sessionExerciseTitleWrap}>
+                <Text style={styles.sessionExerciseName}>Keine Übungen vorhanden</Text>
+                <Text style={styles.sessionExerciseHint}>
+                  Öffne den Plan-Editor und füge diesem Tag zuerst eine Übung hinzu.
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
         {!isRunDay && exercises.map((exercise, index) => (
           <View key={exercise.id} style={styles.sessionExerciseCard}>
             <View style={styles.sessionExerciseHeader}>
@@ -398,9 +426,9 @@ export default function TrainingSessionActiveScreen() {
         ) : null}
 
         <Pressable
-          style={softPress([styles.saveBtn, saving && styles.saveBtnDisabled], saving)}
+          style={softPress([styles.saveBtn, (saving || (!isRunDay && exercises.length === 0)) && styles.saveBtnDisabled], saving || (!isRunDay && exercises.length === 0))}
           onPress={handleSaveSession}
-          disabled={saving}
+          disabled={saving || (!isRunDay && exercises.length === 0)}
         >
           {saving ? (
             <ActivityIndicator color={COLORS.black} />

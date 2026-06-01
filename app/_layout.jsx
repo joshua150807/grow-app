@@ -19,6 +19,7 @@ import { loadProfileData } from '../features/profile/services/profiles';
 import { StartupProfileContext } from '../features/profile/context/ProfileContext';
 import { OnboardingProvider } from '../features/onboarding/context/OnboardingContext';
 import OnboardingLayer from '../features/onboarding/components/OnboardingLayer';
+import RootErrorBoundary from '../components/system/RootErrorBoundary';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -44,21 +45,31 @@ export default function RootLayout() {
     let mounted = true;
 
     // Nur die Session-Prüfung darf das native Startsymbol kurz halten.
-    supabase.auth.getSession().then(({ data }) => {
-      if (mounted) {
-        setSession(data.session ?? null);
-      }
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (mounted) {
+          setSession(data.session ?? null);
+        }
+      })
+      .catch((err) => {
+        console.log('Session konnte beim Start nicht geladen werden:', err);
+        if (mounted) {
+          setSession(null);
+        }
+      });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession ?? null);
+      if (mounted) {
+        setSession(newSession ?? null);
+      }
     });
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      subscription?.unsubscribe?.();
     };
   }, []);
 
@@ -76,10 +87,15 @@ export default function RootLayout() {
       return null;
     }
 
-    const profile = await loadProfileData(session.user.id);
-    setStartupProfile(profile);
+    try {
+      const profile = await loadProfileData(session.user.id);
+      setStartupProfile(profile);
 
-    return profile;
+      return profile;
+    } catch (err) {
+      console.log('Profil konnte nicht neu geladen werden:', err);
+      return null;
+    }
   }, [session?.user?.id]);
 
   useEffect(() => {
@@ -180,14 +196,16 @@ export default function RootLayout() {
       <AuthContext.Provider value={session}>
         <StartupProfileContext.Provider value={startupProfileValue}>
           <OnboardingProvider isAuthenticated={Boolean(session?.user?.id)}>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: COLORS.background },
-                animation: 'none',
-              }}
-            />
-            <OnboardingLayer />
+            <RootErrorBoundary>
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: COLORS.background },
+                  animation: 'none',
+                }}
+              />
+              <OnboardingLayer />
+            </RootErrorBoundary>
           </OnboardingProvider>
         </StartupProfileContext.Provider>
       </AuthContext.Provider>

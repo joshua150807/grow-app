@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,18 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../../constants/colors';
 import { s, sv, sf } from '../../../../../constants/layout';
 import { styles } from '../../styles/trainingStyles';
+import {
+  loadCustomTrainingPlanDraft,
+  saveCustomTrainingPlanDraft,
+  clearCustomTrainingPlanDraft,
+} from '../../services/trainingDraftStorage';
 
 const DAY_TYPES = [
   { value: 'gym', label: 'Gym', icon: 'barbell-outline' },
@@ -134,6 +140,68 @@ export function CustomPlanForm({ onSave, onBack }) {
   const [days, setDays] = useState([emptyDay()]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const draftReadyRef = useRef(false);
+  const planNameRef = useRef(planName);
+  const daysRef = useRef(days);
+
+  useEffect(() => {
+    planNameRef.current = planName;
+  }, [planName]);
+
+  useEffect(() => {
+    daysRef.current = days;
+  }, [days]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function restoreDraft() {
+      const draft = await loadCustomTrainingPlanDraft();
+
+      if (!mounted) return;
+
+      if (draft) {
+        setPlanName(draft.planName || '');
+        setDays(draft.days || [emptyDay()]);
+        setDraftRestored(true);
+      }
+
+      draftReadyRef.current = true;
+    }
+
+    restoreDraft();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!draftReadyRef.current) return undefined;
+
+    const timeout = setTimeout(() => {
+      saveCustomTrainingPlanDraft({
+        planName,
+        days,
+      });
+    }, 350);
+
+    return () => clearTimeout(timeout);
+  }, [planName, days]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'inactive' || nextState === 'background') {
+        saveCustomTrainingPlanDraft({
+          planName: planNameRef.current,
+          days: daysRef.current,
+        });
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   const addDay = () => setDays(prev => [...prev, emptyDay()]);
 
@@ -228,6 +296,7 @@ export function CustomPlanForm({ onSave, onBack }) {
       });
 
       await onSave(cleanPlanName, daysData);
+      await clearCustomTrainingPlanDraft();
     } catch (e) {
       console.error('[Training Setup] Custom plan save failed:', e);
       setSaveError(e?.message || 'Trainingsplan konnte nicht gespeichert werden. Bitte versuche es erneut.');
@@ -270,6 +339,13 @@ export function CustomPlanForm({ onSave, onBack }) {
           onChangeText={setPlanName}
           editable={!saving}
         />
+
+        {draftRestored ? (
+          <View style={localStyles.draftRestoredCard}>
+            <Ionicons name="cloud-done-outline" size={s(17)} color={COLORS.gold} />
+            <Text style={localStyles.draftRestoredText}>Dein angefangener Plan wurde wiederhergestellt.</Text>
+          </View>
+        ) : null}
 
         <Text style={[styles.sectionLabel, { marginTop: sv(24) }]}>TRAININGSTAGE</Text>
 
@@ -471,6 +547,24 @@ const localStyles = {
   },
   dayTypeTextActive: {
     color: COLORS.black,
+  },
+  draftRestoredCard: {
+    borderRadius: s(12),
+    borderWidth: 1,
+    borderColor: COLORS.goldBorder,
+    backgroundColor: 'rgba(212,175,55,0.08)',
+    paddingVertical: sv(10),
+    paddingHorizontal: s(12),
+    marginTop: sv(14),
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(8),
+  },
+  draftRestoredText: {
+    color: COLORS.paleGold,
+    fontSize: sf(12),
+    fontWeight: '700',
+    flex: 1,
   },
   runHintCard: {
     borderRadius: s(12),

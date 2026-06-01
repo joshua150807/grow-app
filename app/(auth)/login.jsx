@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -22,8 +22,18 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [errorText, setErrorText] = useState('');
   const [loading, setLoading] = useState(false);
+  const isMountedRef = useRef(true);
+  const isSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
  
   async function handleLogin() {
+    if (isSubmittingRef.current) return;
+
     setErrorText('');
  
     const cleanUsername = username.trim().toLowerCase();
@@ -36,6 +46,7 @@ export default function LoginScreen() {
     const email = `${cleanUsername}@growapp.com`;
  
     try {
+      isSubmittingRef.current = true;
       setLoading(true);
  
       const { error } = await supabase.auth.signInWithPassword({
@@ -44,15 +55,22 @@ export default function LoginScreen() {
       });
  
       if (error) {
-        setErrorText('Username oder Passwort ist falsch.');
+        if (isMountedRef.current) {
+          setErrorText('Username oder Passwort ist falsch.');
+        }
         return;
       }
  
       router.replace('/(tabs)');
     } catch (err) {
-      setErrorText('Login fehlgeschlagen. Bitte erneut versuchen.');
+      if (isMountedRef.current) {
+        setErrorText('Login fehlgeschlagen. Bitte erneut versuchen.');
+      }
     } finally {
-      setLoading(false);
+      isSubmittingRef.current = false;
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   }
  

@@ -1,16 +1,25 @@
-import { useCallback, useEffect, useState } from 'react';
-import { deleteRating, fetchRating, upsertRating } from '../services/ratings';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { deleteRating, fetchRating, upsertRating } from "../services/ratings";
 
 export const RATINGS = [
-  { key: 'fire', emoji: '🔥' },
-  { key: 'thumbs_up', emoji: '👍' },
-  { key: 'neutral', emoji: '😐' },
-  { key: 'thumbs_down', emoji: '👎' },
+  { key: "fire", emoji: "🔥" },
+  { key: "thumbs_up", emoji: "👍" },
+  { key: "neutral", emoji: "😐" },
+  { key: "thumbs_down", emoji: "👎" },
 ];
 
 export function useVideoRating({ userId, videoId, isActive }) {
   const [activeRating, setActiveRating] = useState(null);
   const [loading, setLoading] = useState(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!isActive || !userId || !videoId) return;
@@ -21,11 +30,11 @@ export function useVideoRating({ userId, videoId, isActive }) {
       try {
         const rating = await fetchRating(userId, videoId);
 
-        if (!cancelled) {
+        if (!cancelled && isMountedRef.current) {
           setActiveRating(rating);
         }
       } catch (err) {
-        console.log('Fehler beim Laden der Bewertung:', err);
+        console.log("Fehler beim Laden der Bewertung:", err);
       }
     }
 
@@ -39,6 +48,7 @@ export function useVideoRating({ userId, videoId, isActive }) {
   useEffect(() => {
     if (!isActive) {
       setActiveRating(null);
+      setLoading(false);
     }
   }, [isActive, videoId]);
 
@@ -60,13 +70,18 @@ export function useVideoRating({ userId, videoId, isActive }) {
           await upsertRating(userId, videoId, ratingKey);
         }
       } catch (err) {
-        console.log('Fehler beim Speichern der Bewertung:', err);
-        setActiveRating(previousRating);
+        console.log("Fehler beim Speichern der Bewertung:", err);
+
+        if (isMountedRef.current) {
+          setActiveRating(previousRating);
+        }
       } finally {
-        setLoading(false);
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
       }
     },
-    [activeRating, userId, videoId, loading]
+    [activeRating, userId, videoId, loading],
   );
 
   return { activeRating, rate };

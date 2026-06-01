@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   Pressable,
   RefreshControl,
@@ -25,8 +25,13 @@ export default function AdminFeedbackScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorText, setErrorText] = useState(null);
+  const loadRequestIdRef = useRef(0);
+  const deletingFeedbackIdsRef = useRef(new Set());
 
   const loadFeedbacks = useCallback(async ({ refreshing = false } = {}) => {
+    const requestId = loadRequestIdRef.current + 1;
+    loadRequestIdRef.current = requestId;
+
     try {
       if (refreshing) {
         setIsRefreshing(true);
@@ -37,8 +42,13 @@ export default function AdminFeedbackScreen() {
       setErrorText(null);
 
       const list = await loadAdminFeedbackList(100);
+
+      if (loadRequestIdRef.current !== requestId) return;
+
       setFeedbacks(list);
     } catch (error) {
+      if (loadRequestIdRef.current !== requestId) return;
+
       console.log('Fehler beim Laden der Admin-Feedbacks:', error);
 
       if (String(error.message ?? '').includes('Not allowed')) {
@@ -47,12 +57,16 @@ export default function AdminFeedbackScreen() {
         setErrorText('Feedbacks konnten nicht geladen werden.');
       }
     } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
+      if (loadRequestIdRef.current === requestId) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
     }
   }, []);
 
   const handleDeleteFeedback = useCallback((feedback) => {
+    if (!feedback?.id || deletingFeedbackIdsRef.current.has(feedback.id)) return;
+
     Alert.alert(
       'Feedback löschen?',
       'Dieses Feedback wird dauerhaft gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.',
@@ -65,6 +79,10 @@ export default function AdminFeedbackScreen() {
           text: 'Löschen',
           style: 'destructive',
           onPress: async () => {
+            if (deletingFeedbackIdsRef.current.has(feedback.id)) return;
+
+            deletingFeedbackIdsRef.current.add(feedback.id);
+
             try {
               await deleteAdminFeedback(feedback.id);
 
@@ -78,6 +96,8 @@ export default function AdminFeedbackScreen() {
                 'Fehler',
                 'Feedback konnte nicht gelöscht werden.'
               );
+            } finally {
+              deletingFeedbackIdsRef.current.delete(feedback.id);
             }
           },
         },
@@ -88,6 +108,10 @@ export default function AdminFeedbackScreen() {
   useFocusEffect(
     useCallback(() => {
       loadFeedbacks();
+
+      return () => {
+        loadRequestIdRef.current += 1;
+      };
     }, [loadFeedbacks])
   );
 

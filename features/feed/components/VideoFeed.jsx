@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  AppState,
   Dimensions,
   FlatList,
   Image,
@@ -7,30 +8,27 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
-import { useFocusEffect, useIsFocused } from '@react-navigation/native';
-import { router } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
+} from "react-native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
+import { router } from "expo-router";
+import { Feather } from "@expo/vector-icons";
 
-import { COLORS } from '../../../constants/colors';
-import { s, sv, sf } from '../../../constants/layout';
-import FeedItem from './FeedItem';
-import {
-  getSavedVideoIds,
-  toggleVideoBookmark,
-} from '../services/videos';
+import { COLORS } from "../../../constants/colors";
+import { s, sv, sf } from "../../../constants/layout";
+import FeedItem from "./FeedItem";
+import { getSavedVideoIds, toggleVideoBookmark } from "../services/videos";
 
-const { height } = Dimensions.get('window');
+const { height } = Dimensions.get("window");
 const FLICK_THRESHOLD = 28;
 const VIDEO_READY_TIMEOUT_MS = 6500;
 
 export default function VideoFeed({
   loadVideos,
   initialIndex = 0,
-  emptyTitle = 'Noch keine Videos',
-  emptyText = 'Aktuell sind keine Videos verfügbar.',
-  errorMessage = 'Videos konnten nicht geladen werden.',
-  reloadButtonText = 'Erneut versuchen',
+  emptyTitle = "Noch keine Videos",
+  emptyText = "Aktuell sind keine Videos verfügbar.",
+  errorMessage = "Videos konnten nicht geladen werden.",
+  reloadButtonText = "Erneut versuchen",
   showBackButton = false,
   reloadOnFocus = false,
   syncSavedStateOnFocus = false,
@@ -51,6 +49,11 @@ export default function VideoFeed({
   const dragStartOffsetY = useRef(0);
   const isFirstFocus = useRef(true);
   const videoReadyFallbackTimerRef = useRef(null);
+  const scrollFrameRef = useRef(null);
+  const isMountedRef = useRef(true);
+  const loadRequestIdRef = useRef(0);
+  const bookmarkRequestRef = useRef(new Set());
+  const [isAppActive, setIsAppActive] = useState(true);
 
   const clearVideoReadyFallbackTimer = useCallback(() => {
     if (videoReadyFallbackTimerRef.current) {
@@ -59,25 +62,73 @@ export default function VideoFeed({
     }
   }, []);
 
+  const clearScrollFrame = useCallback(() => {
+    if (scrollFrameRef.current) {
+      cancelAnimationFrame(scrollFrameRef.current);
+      scrollFrameRef.current = null;
+    }
+  }, []);
+
+  const scrollToIndex = useCallback(
+    (index, animated = false) => {
+      clearScrollFrame();
+
+      scrollFrameRef.current = requestAnimationFrame(() => {
+        scrollFrameRef.current = null;
+
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        flatListRef.current?.scrollToOffset({
+          offset: index * height,
+          animated,
+        });
+      });
+    },
+    [clearScrollFrame],
+  );
+
   const startVideoReadyFallbackTimer = useCallback(() => {
     clearVideoReadyFallbackTimer();
 
     videoReadyFallbackTimerRef.current = setTimeout(() => {
-      console.log('Video ready fallback: Loading wurde automatisch beendet.');
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      console.log("Video ready fallback: Loading wurde automatisch beendet.");
       setIsInitialLoading(false);
       videoReadyFallbackTimerRef.current = null;
     }, VIDEO_READY_TIMEOUT_MS);
   }, [clearVideoReadyFallbackTimer]);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      setIsAppActive(nextState === "active");
+    });
+
     return () => {
+      isMountedRef.current = false;
+      loadRequestIdRef.current += 1;
       clearVideoReadyFallbackTimer();
+      clearScrollFrame();
+      subscription.remove();
     };
-  }, [clearVideoReadyFallbackTimer]);
+  }, [clearScrollFrame, clearVideoReadyFallbackTimer]);
 
   const loadFeedVideos = useCallback(async () => {
+    const requestId = loadRequestIdRef.current + 1;
+    loadRequestIdRef.current = requestId;
+
+    const isCurrentRequest = () =>
+      isMountedRef.current && loadRequestIdRef.current === requestId;
+
     try {
       clearVideoReadyFallbackTimer();
+      clearScrollFrame();
 
       setFeedError(null);
       setHasNoVideos(false);
@@ -85,7 +136,15 @@ export default function VideoFeed({
 
       const videos = await loadVideos();
 
-      if (!videos || videos.length === 0) {
+      if (!isCurrentRequest()) {
+        return;
+      }
+
+      const validVideos = Array.isArray(videos)
+        ? videos.filter((video) => video?.id && video?.source)
+        : [];
+
+      if (validVideos.length === 0) {
         setFeedData([]);
         setActiveVideoId(null);
         setHasNoVideos(true);
@@ -95,23 +154,22 @@ export default function VideoFeed({
 
       const safeInitialIndex = Math.max(
         0,
-        Math.min(initialIndex, videos.length - 1)
+        Math.min(initialIndex, validVideos.length - 1),
       );
 
-      setFeedData(videos);
-      setActiveVideoId(videos[safeInitialIndex].id);
+      setFeedData(validVideos);
+      setActiveVideoId(validVideos[safeInitialIndex].id);
       currentIndexRef.current = safeInitialIndex;
 
       startVideoReadyFallbackTimer();
 
-      requestAnimationFrame(() => {
-        flatListRef.current?.scrollToOffset({
-          offset: safeInitialIndex * height,
-          animated: false,
-        });
-      });
+      scrollToIndex(safeInitialIndex, false);
     } catch (error) {
-      console.log('Fehler beim Laden des Feeds:', error);
+      if (!isCurrentRequest()) {
+        return;
+      }
+
+      console.log("Fehler beim Laden des Feeds:", error);
       clearVideoReadyFallbackTimer();
       setFeedData([]);
       setActiveVideoId(null);
@@ -119,11 +177,13 @@ export default function VideoFeed({
       setIsInitialLoading(false);
     }
   }, [
-    errorMessage, 
-    initialIndex, 
+    errorMessage,
+    initialIndex,
     loadVideos,
     clearVideoReadyFallbackTimer,
-    startVideoReadyFallbackTimer
+    clearScrollFrame,
+    scrollToIndex,
+    startVideoReadyFallbackTimer,
   ]);
 
   useEffect(() => {
@@ -153,40 +213,64 @@ export default function VideoFeed({
         return;
       }
 
+      let isActive = true;
+
       async function syncSavedState() {
         try {
           const savedIds = await getSavedVideoIds();
+
+          if (!isActive || !isMountedRef.current) {
+            return;
+          }
 
           setFeedData((prevData) =>
             prevData.map((video) => ({
               ...video,
               saved: savedIds.includes(video.id),
-            }))
+            })),
           );
         } catch (error) {
-          console.log('Fehler beim Sync der Bookmarks:', error);
+          console.log("Fehler beim Sync der Bookmarks:", error);
         }
       }
 
       syncSavedState();
-    }, [loadFeedVideos, reloadOnFocus, syncSavedStateOnFocus])
+
+      return () => {
+        isActive = false;
+      };
+    }, [loadFeedVideos, reloadOnFocus, syncSavedStateOnFocus]),
   );
 
   const handleInitialVideoReady = useCallback(() => {
+    if (!isMountedRef.current) {
+      return;
+    }
+
     clearVideoReadyFallbackTimer();
     setIsInitialLoading(false);
   }, [clearVideoReadyFallbackTimer]);
 
   const handleToggleSaved = useCallback(
     async (id) => {
+      if (bookmarkRequestRef.current.has(id)) {
+        return;
+      }
+
       const video = feedData.find((item) => item.id === id);
 
       if (!video) {
         return;
       }
 
+      bookmarkRequestRef.current.add(id);
+
       try {
         const newSavedState = await toggleVideoBookmark(id, video.saved);
+
+        if (!isMountedRef.current) {
+          return;
+        }
 
         if (removeUnsavedVideos && !newSavedState) {
           setFeedData((prevData) => {
@@ -200,18 +284,13 @@ export default function VideoFeed({
 
             const nextIndex = Math.min(
               currentIndexRef.current,
-              nextData.length - 1
+              nextData.length - 1,
             );
 
             currentIndexRef.current = nextIndex;
             setActiveVideoId(nextData[nextIndex].id);
 
-            requestAnimationFrame(() => {
-              flatListRef.current?.scrollToOffset({
-                offset: nextIndex * height,
-                animated: true,
-              });
-            });
+            scrollToIndex(nextIndex, true);
 
             return nextData;
           });
@@ -221,14 +300,16 @@ export default function VideoFeed({
 
         setFeedData((prevData) =>
           prevData.map((item) =>
-            item.id === id ? { ...item, saved: newSavedState } : item
-          )
+            item.id === id ? { ...item, saved: newSavedState } : item,
+          ),
         );
       } catch (error) {
-        console.log('Fehler beim Speichern des Videos:', error);
+        console.log("Fehler beim Speichern des Videos:", error);
+      } finally {
+        bookmarkRequestRef.current.delete(id);
       }
     },
-    [feedData, removeUnsavedVideos]
+    [feedData, removeUnsavedVideos, scrollToIndex],
   );
 
   const handleScroll = useCallback(
@@ -245,7 +326,7 @@ export default function VideoFeed({
         setActiveVideoId(feedData[nextIndex].id);
       }
     },
-    [feedData]
+    [feedData, scrollToIndex],
   );
 
   const handleScrollBeginDrag = useCallback((event) => {
@@ -274,10 +355,7 @@ export default function VideoFeed({
 
       targetIndex = Math.max(0, Math.min(targetIndex, feedData.length - 1));
 
-      flatListRef.current?.scrollToOffset({
-        offset: targetIndex * height,
-        animated: true,
-      });
+      scrollToIndex(targetIndex, true);
 
       currentIndexRef.current = targetIndex;
 
@@ -285,7 +363,7 @@ export default function VideoFeed({
         setActiveVideoId(feedData[targetIndex].id);
       }
     },
-    [feedData]
+    [feedData, scrollToIndex],
   );
 
   const handleMomentumScrollEnd = useCallback(
@@ -298,7 +376,7 @@ export default function VideoFeed({
         setActiveVideoId(feedData[settledIndex].id);
       }
     },
-    [feedData]
+    [feedData],
   );
 
   const renderItem = useCallback(
@@ -306,7 +384,7 @@ export default function VideoFeed({
       <FeedItem
         item={item}
         isActive={item.id === activeVideoId}
-        isFeedFocused={isFocused && !isDisabled}
+        isFeedFocused={isFocused && isAppActive && !isDisabled}
         isInteractionDisabled={isDisabled}
         isMuted={isMuted}
         setIsMuted={setIsMuted}
@@ -314,11 +392,21 @@ export default function VideoFeed({
         onScrubStart={() => setIsFeedScrollEnabled(false)}
         onScrubEnd={() => setIsFeedScrollEnabled(true)}
         onVideoReady={
-          index === currentIndexRef.current ? handleInitialVideoReady : undefined
+          index === currentIndexRef.current
+            ? handleInitialVideoReady
+            : undefined
         }
       />
     ),
-    [activeVideoId, handleInitialVideoReady, handleToggleSaved, isDisabled, isFocused, isMuted]
+    [
+      activeVideoId,
+      handleInitialVideoReady,
+      handleToggleSaved,
+      isAppActive,
+      isDisabled,
+      isFocused,
+      isMuted,
+    ],
   );
 
   if (feedError) {
@@ -345,7 +433,7 @@ export default function VideoFeed({
           onPress={showBackButton ? () => router.back() : loadFeedVideos}
         >
           <Text style={styles.stateButtonText}>
-            {showBackButton ? 'Zurück' : 'Neu laden'}
+            {showBackButton ? "Zurück" : "Neu laden"}
           </Text>
         </Pressable>
       </View>
@@ -392,7 +480,7 @@ export default function VideoFeed({
       {isInitialLoading && (
         <View style={styles.loadingOverlay}>
           <Image
-            source={require('../../../assets/images/grow-loading.jpeg')}
+            source={require("../../../assets/images/grow-loading.jpeg")}
             style={styles.loadingLogo}
             resizeMode="contain"
           />
@@ -408,24 +496,24 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   backButton: {
-    position: 'absolute',
+    position: "absolute",
     top: 56,
     left: 18,
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: "rgba(0,0,0,0.45)",
     borderWidth: 1,
     borderColor: COLORS.goldBorder,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 20,
   },
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 999,
   },
   loadingLogo: {
@@ -435,21 +523,21 @@ const styles = StyleSheet.create({
   stateContainer: {
     flex: 1,
     backgroundColor: COLORS.background,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 30,
   },
   stateTitle: {
     color: COLORS.white,
     fontSize: sf(24),
-    fontWeight: '700',
+    fontWeight: "700",
     marginBottom: sv(12),
-    textAlign: 'center',
+    textAlign: "center",
   },
   stateText: {
     color: COLORS.mutedGold,
     fontSize: sf(15),
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 22,
   },
   stateButton: {
@@ -462,6 +550,6 @@ const styles = StyleSheet.create({
   stateButtonText: {
     color: COLORS.black,
     fontSize: sf(15),
-    fontWeight: '700',
+    fontWeight: "700",
   },
 });

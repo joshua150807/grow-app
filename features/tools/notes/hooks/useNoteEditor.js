@@ -30,8 +30,19 @@ export function useNoteEditor(noteId) {
   const saveTimerRef = useRef(null);
   const latestBodyRef = useRef('');
   const hasLoadedRef = useRef(!noteId || Boolean(preloadedNote));
+  const mountedRef = useRef(true);
+  const savePromiseRef = useRef(null);
+  const deletingRef = useRef(false);
 
   latestBodyRef.current = body;
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const clearSaveTimer = useCallback(() => {
     if (saveTimerRef.current) {
@@ -95,6 +106,10 @@ export function useNoteEditor(noteId) {
   const saveNow = useCallback(async (value = latestBodyRef.current) => {
     const cleanBody = normalizeNoteBody(value);
 
+    if (savePromiseRef.current) {
+      return savePromiseRef.current;
+    }
+
     if (!hasLoadedRef.current && noteId) return null;
 
     if (!localNoteId && isEmptyNote(cleanBody)) {
@@ -108,35 +123,62 @@ export function useNoteEditor(noteId) {
     setSaving(true);
     setError(null);
 
-    try {
-      if (!localNoteId) {
-        const createdNote = await createNote({ body: cleanBody });
+    const savePromise = (async () => {
+      try {
+        if (!localNoteId) {
+          const createdNote = await createNote({ body: cleanBody });
 
-        if (createdNote) {
-          setLocalNoteId(createdNote.id);
-          setInitialBody(createdNote.body ?? '');
-          setNoteMeta(createdNote);
-          setPreloadedToolData('notes', [createdNote, ...(getPreloadedToolData('notes') ?? [])]);
+          if (!mountedRef.current) return createdNote;
+
+          if (createdNote) {
+            setLocalNoteId(createdNote.id);
+            setInitialBody(createdNote.body ?? '');
+            setNoteMeta(createdNote);
+            const existingNotes = getPreloadedToolData('notes') ?? [];
+            const nextNotes = existingNotes.some((item) => item.id === createdNote.id)
+              ? existingNotes.map((item) => (item.id === createdNote.id ? createdNote : item))
+              : [createdNote, ...existingNotes];
+            setPreloadedToolData('notes', nextNotes);
+          }
+
+          return createdNote;
         }
 
-        return createdNote;
+        const updatedNote = await updateNote(localNoteId, { body: cleanBody });
+
+        if (!mountedRef.current) return updatedNote;
+
+        setInitialBody(updatedNote.body ?? '');
+        setNoteMeta(updatedNote);
+        const existingNotes = getPreloadedToolData('notes') ?? [];
+        const nextNotes = existingNotes.some((item) => item.id === updatedNote.id)
+          ? existingNotes.map((item) => (item.id === updatedNote.id ? updatedNote : item))
+          : [updatedNote, ...existingNotes];
+        setPreloadedToolData('notes', nextNotes);
+
+        return updatedNote;
+      } catch (saveError) {
+        console.log('[NoteEditor] Save failed:', saveError);
+
+        if (mountedRef.current) {
+          setError('Notiz konnte nicht gespeichert werden.');
+        }
+
+        throw saveError;
+      } finally {
+        if (mountedRef.current) {
+          setSaving(false);
+        }
+
+        if (savePromiseRef.current === savePromise) {
+          savePromiseRef.current = null;
+        }
       }
+    })();
 
-      const updatedNote = await updateNote(localNoteId, { body: cleanBody });
+    savePromiseRef.current = savePromise;
 
-      setInitialBody(updatedNote.body ?? '');
-      setNoteMeta(updatedNote);
-      const existingNotes = getPreloadedToolData('notes') ?? [];
-      setPreloadedToolData('notes', existingNotes.map((item) => (item.id === updatedNote.id ? updatedNote : item)));
-
-      return updatedNote;
-    } catch (saveError) {
-      console.log('[NoteEditor] Save failed:', saveError);
-      setError('Notiz konnte nicht gespeichert werden.');
-      throw saveError;
-    } finally {
-      setSaving(false);
-    }
+    return savePromise;
   }, [initialBody, localNoteId, noteId]);
 
   const scheduleSave = useCallback((nextBody) => {
@@ -164,10 +206,19 @@ export function useNoteEditor(noteId) {
   const removeCurrentNote = useCallback(async () => {
     clearSaveTimer();
 
-    if (!localNoteId) return;
+    if (!localNoteId || deletingRef.current) return;
 
-    await deleteNote(localNoteId);
-    setPreloadedToolData('notes', (getPreloadedToolData('notes') ?? []).filter((note) => note.id !== localNoteId));
+    deletingRef.current = true;
+
+    try {
+      await deleteNote(localNoteId);
+
+      if (mountedRef.current) {
+        setPreloadedToolData('notes', (getPreloadedToolData('notes') ?? []).filter((note) => note.id !== localNoteId));
+      }
+    } finally {
+      deletingRef.current = false;
+    }
   }, [clearSaveTimer, localNoteId]);
 
   return {

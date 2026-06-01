@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Modal } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
@@ -23,19 +23,34 @@ export default function RecommendationsScreen() {
   const [activeType, setActiveType] = useState('book');
   const [selectedItem, setSelectedItem] = useState(null);
   const [savedIds, setSavedIds] = useState([]);
+  const mountedRef = useRef(true);
+  const persistRequestRef = useRef(0);
+
+  const validRecommendationIds = useMemo(
+    () => new Set(RECOMMENDATIONS.map((item) => item.id)),
+    []
+  );
+
+  const normalizeSavedIds = useCallback(
+    (ids) => {
+      if (!Array.isArray(ids)) return [];
+
+      return [...new Set(ids.filter((id) => validRecommendationIds.has(id)))];
+    },
+    [validRecommendationIds]
+  );
 
   useEffect(() => {
-    let mounted = true;
+    mountedRef.current = true;
 
     async function loadSavedRecommendations() {
       try {
         const raw = await AsyncStorage.getItem(SAVED_RECOMMENDATIONS_STORAGE_KEY);
-        if (!mounted || !raw) return;
+        if (!mountedRef.current || !raw) return;
 
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          setSavedIds(parsed);
-        }
+        const nextIds = normalizeSavedIds(parsed);
+        setSavedIds(nextIds);
       } catch (error) {
         console.warn('Could not load saved recommendations', error);
       }
@@ -44,9 +59,9 @@ export default function RecommendationsScreen() {
     loadSavedRecommendations();
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
     };
-  }, []);
+  }, [normalizeSavedIds]);
 
   const visibleRecommendations = useMemo(() => {
     if (activeType === 'saved') {
@@ -63,22 +78,32 @@ export default function RecommendationsScreen() {
   const savedCount = savedIds.length;
 
   const persistSavedIds = useCallback(async (nextIds) => {
-    setSavedIds(nextIds);
+    const requestId = persistRequestRef.current + 1;
+    persistRequestRef.current = requestId;
+    const safeIds = normalizeSavedIds(nextIds);
+
+    if (mountedRef.current) {
+      setSavedIds(safeIds);
+    }
 
     try {
       await AsyncStorage.setItem(
         SAVED_RECOMMENDATIONS_STORAGE_KEY,
-        JSON.stringify(nextIds)
+        JSON.stringify(safeIds)
       );
     } catch (error) {
-      console.warn('Could not save recommendations', error);
+      if (requestId === persistRequestRef.current) {
+        console.warn('Could not save recommendations', error);
+      }
     }
-  }, []);
+  }, [normalizeSavedIds]);
 
   const toggleSaved = useCallback((id) => {
+    if (!validRecommendationIds.has(id)) return;
+
     const nextIds = toggleIdInList(savedIds, id);
     persistSavedIds(nextIds);
-  }, [persistSavedIds, savedIds]);
+  }, [persistSavedIds, savedIds, validRecommendationIds]);
 
   const closeDetail = useCallback(() => {
     setSelectedItem(null);

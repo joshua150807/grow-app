@@ -33,6 +33,7 @@ export default function DeepWorkSetupModal({
   setSelHours,
   setSelMinutes,
   canStart,
+  isStarting = false,
   startSession,
 }) {
   const [sheetScrollEnabled, setSheetScrollEnabled] = useState(true);
@@ -142,6 +143,7 @@ export default function DeepWorkSetupModal({
                   pressed && styles.secondaryButtonPressed,
                 ]}
                 onPress={closeSetup}
+                disabled={isStarting}
               >
                 <Text style={styles.cancelBtnText}>Abbrechen</Text>
               </Pressable>
@@ -149,11 +151,11 @@ export default function DeepWorkSetupModal({
               <Pressable
                 style={({ pressed }) => [
                   styles.confirmBtn,
-                  !canStart && styles.confirmBtnDisabled,
-                  pressed && canStart && styles.primaryButtonPressed,
+                  (!canStart || isStarting) && styles.confirmBtnDisabled,
+                  pressed && canStart && !isStarting && styles.primaryButtonPressed,
                 ]}
                 onPress={startSession}
-                disabled={!canStart}
+                disabled={!canStart || isStarting}
               >
                 <Text style={styles.confirmBtnText}>Starten</Text>
               </Pressable>

@@ -73,6 +73,7 @@ export default function DeepWorkScreen() {
           setSelHours={session.setSelHours}
           setSelMinutes={session.setSelMinutes}
           canStart={session.canStart}
+          isStarting={session.isStarting}
           startSession={session.startSession}
         />
 
@@ -99,6 +100,7 @@ export default function DeepWorkScreen() {
         pulseAnim={session.pulseAnim}
         togglePause={session.togglePause}
         endSession={session.endSession}
+        isEnding={session.isEnding}
       />
     </>
   );

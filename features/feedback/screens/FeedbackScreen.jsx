@@ -34,6 +34,7 @@ export default function FeedbackScreen() {
     sending,
     sendError,
     sendSuccess,
+    pointsAwarded,
     handlePickImage,
     handleRemoveImage,
     handleSend,
@@ -195,7 +196,9 @@ export default function FeedbackScreen() {
  
         {sendSuccess && (
           <Text style={styles.successText}>
-            Dein Feedback wurde gespeichert. Du hast 5 Grow Points erhalten.
+            {pointsAwarded
+              ? 'Dein Feedback wurde gespeichert. Du hast 5 Grow Points erhalten.'
+              : 'Dein Feedback wurde gespeichert.'}
           </Text>
         )}
  

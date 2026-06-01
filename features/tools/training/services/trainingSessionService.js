@@ -4,6 +4,77 @@ function normalizeSessionType(value) {
   return value === 'run' ? 'run' : 'gym';
 }
 
+function isMissingColumnError(error, columnName) {
+  const message = `${error?.message || ''} ${error?.details || ''} ${error?.hint || ''}`.toLowerCase();
+  return Boolean(
+    columnName
+    && error
+    && (
+      error.code === 'PGRST204'
+      || error.code === '42703'
+      || message.includes('column')
+    )
+    && message.includes(columnName.toLowerCase())
+  );
+}
+
+function isTrainingSessionSchemaError(error) {
+  return ['session_type', 'run_duration_minutes', 'run_distance_km', 'run_pace', 'day_type']
+    .some((columnName) => isMissingColumnError(error, columnName));
+}
+
+function throwMissingSessionSchemaError() {
+  throw new Error('Die Trainings-Datenbank ist noch nicht vollständig migriert. Laufeinheiten brauchen die neuen Session-Spalten. Bitte Supabase-Migration ausführen und danach erneut versuchen.');
+}
+
+function safeText(value) {
+  if (value === null || value === undefined) return '';
+  return String(value).trim();
+}
+
+function isPositiveInteger(value) {
+  return Number.isInteger(value) && value > 0;
+}
+
+function validateGymExercises(exercises = []) {
+  if (!Array.isArray(exercises) || exercises.length === 0) {
+    throw new Error('Diese Trainingseinheit braucht mindestens eine Übung.');
+  }
+
+  exercises.forEach((exercise, index) => {
+    const exerciseName = safeText(exercise?.name) || `Übung ${index + 1}`;
+
+    if (!safeText(exercise?.exerciseId)) {
+      throw new Error(`${exerciseName}: Übungs-ID fehlt.`);
+    }
+
+    if (!safeText(exercise?.name)) {
+      throw new Error(`Übung ${index + 1}: Name fehlt.`);
+    }
+
+    if (!isPositiveInteger(exercise?.sets)) {
+      throw new Error(`${exerciseName}: Trage eine Satzzahl größer 0 ein.`);
+    }
+
+    if (!isPositiveInteger(exercise?.reps)) {
+      throw new Error(`${exerciseName}: Trage Wiederholungen größer 0 ein.`);
+    }
+  });
+}
+
+async function cleanupSession(sessionId) {
+  if (!sessionId) return;
+
+  try {
+    await supabase
+      .from('training_sessions')
+      .delete()
+      .eq('id', sessionId);
+  } catch (cleanupError) {
+    console.error('[Training Session] cleanupSession failed:', cleanupError);
+  }
+}
+
 function formatRunMeta(session) {
   const parts = [];
 
@@ -22,6 +93,44 @@ function formatRunMeta(session) {
   return parts.join(' · ');
 }
 
+function mapSessionSummary(session) {
+  const sessionType = normalizeSessionType(session.session_type || session.training_days?.day_type);
+  const exerciseCount = session.training_session_exercises?.length || 0;
+  const runMeta = sessionType === 'run' ? formatRunMeta(session) : '';
+
+  return {
+    id: session.id,
+    performedAt: session.performed_at,
+    sessionType,
+    dayName: session.training_days?.name || (sessionType === 'run' ? 'Lauf' : 'Training'),
+    exerciseCount,
+    note: session.note,
+    runDurationMinutes: session.run_duration_minutes ?? null,
+    runDistanceKm: session.run_distance_km ?? null,
+    runPace: session.run_pace ?? null,
+    metaText: sessionType === 'run'
+      ? runMeta || 'Laufeinheit'
+      : `${exerciseCount} ${exerciseCount === 1 ? 'Übung' : 'Übungen'}`,
+  };
+}
+
+function mapSessionDetail(data) {
+  const sessionType = normalizeSessionType(data.session_type || data.training_days?.day_type);
+
+  return {
+    id: data.id,
+    performedAt: data.performed_at,
+    note: data.note,
+    sessionType,
+    dayName: data.training_days?.name || (sessionType === 'run' ? 'Lauf' : 'Training'),
+    runDurationMinutes: data.run_duration_minutes ?? null,
+    runDistanceKm: data.run_distance_km ?? null,
+    runPace: data.run_pace ?? null,
+    runMetaText: sessionType === 'run' ? formatRunMeta(data) : '',
+    exercises: data.training_session_exercises || [],
+  };
+}
+
 export async function createTrainingSession({
   userId,
   planId,
@@ -35,20 +144,48 @@ export async function createTrainingSession({
 }) {
   const cleanSessionType = normalizeSessionType(sessionType);
 
-  const { data: session, error: sessionError } = await supabase
+  if (cleanSessionType === 'gym') {
+    validateGymExercises(exercises);
+  }
+
+  const sessionPayload = {
+    user_id: userId,
+    plan_id: planId,
+    day_id: dayId,
+    session_type: cleanSessionType,
+    note: note || null,
+    run_duration_minutes: cleanSessionType === 'run' ? runDurationMinutes : null,
+    run_distance_km: cleanSessionType === 'run' ? runDistanceKm : null,
+    run_pace: cleanSessionType === 'run' ? runPace : null,
+  };
+
+  let { data: session, error: sessionError } = await supabase
     .from('training_sessions')
-    .insert({
-      user_id: userId,
-      plan_id: planId,
-      day_id: dayId,
-      session_type: cleanSessionType,
-      note: note || null,
-      run_duration_minutes: cleanSessionType === 'run' ? runDurationMinutes : null,
-      run_distance_km: cleanSessionType === 'run' ? runDistanceKm : null,
-      run_pace: cleanSessionType === 'run' ? runPace : null,
-    })
+    .insert(sessionPayload)
     .select('id')
     .single();
+
+  if (sessionError && isTrainingSessionSchemaError(sessionError)) {
+    if (cleanSessionType === 'run') {
+      throwMissingSessionSchemaError();
+    }
+
+    console.warn('[Training Session] New session columns missing. Falling back to legacy gym session insert.');
+
+    const legacyResult = await supabase
+      .from('training_sessions')
+      .insert({
+        user_id: userId,
+        plan_id: planId,
+        day_id: dayId,
+        note: note || null,
+      })
+      .select('id')
+      .single();
+
+    session = legacyResult.data;
+    sessionError = legacyResult.error;
+  }
 
   if (sessionError) throw sessionError;
 
@@ -69,7 +206,10 @@ export async function createTrainingSession({
       .from('training_session_exercises')
       .insert(exerciseRows);
 
-    if (exercisesError) throw exercisesError;
+    if (exercisesError) {
+      await cleanupSession(session.id);
+      throw exercisesError;
+    }
   }
 
   return session;
@@ -101,34 +241,43 @@ export async function fetchLatestTrainingSessions(limit = null) {
     query = query.limit(limit);
   }
 
-  const { data, error } = await query;
+  let { data, error } = await query;
+
+  if (error && isTrainingSessionSchemaError(error)) {
+    console.warn('[Training Sessions] New session/day columns missing. Falling back to legacy sessions query.');
+
+    let legacyQuery = supabase
+      .from('training_sessions')
+      .select(`
+        id,
+        performed_at,
+        note,
+        training_days (
+          id,
+          name
+        ),
+        training_session_exercises (
+          id
+        )
+      `)
+      .order('performed_at', { ascending: false });
+
+    if (limit) {
+      legacyQuery = legacyQuery.limit(limit);
+    }
+
+    const legacyResult = await legacyQuery;
+    data = legacyResult.data;
+    error = legacyResult.error;
+  }
 
   if (error) throw error;
 
-  return (data || []).map(session => {
-    const sessionType = normalizeSessionType(session.session_type || session.training_days?.day_type);
-    const exerciseCount = session.training_session_exercises?.length || 0;
-    const runMeta = sessionType === 'run' ? formatRunMeta(session) : '';
-
-    return {
-      id: session.id,
-      performedAt: session.performed_at,
-      sessionType,
-      dayName: session.training_days?.name || (sessionType === 'run' ? 'Lauf' : 'Training'),
-      exerciseCount,
-      note: session.note,
-      runDurationMinutes: session.run_duration_minutes,
-      runDistanceKm: session.run_distance_km,
-      runPace: session.run_pace,
-      metaText: sessionType === 'run'
-        ? runMeta || 'Laufeinheit'
-        : `${exerciseCount} ${exerciseCount === 1 ? 'Übung' : 'Übungen'}`,
-    };
-  });
+  return (data || []).map(mapSessionSummary);
 }
 
 export async function fetchTrainingSessionDetail(sessionId) {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('training_sessions')
     .select(`
       id,
@@ -155,20 +304,36 @@ export async function fetchTrainingSessionDetail(sessionId) {
     .eq('id', sessionId)
     .single();
 
+  if (error && isTrainingSessionSchemaError(error)) {
+    console.warn('[Training Session Detail] New session/day columns missing. Falling back to legacy detail query.');
+
+    const legacyResult = await supabase
+      .from('training_sessions')
+      .select(`
+        id,
+        performed_at,
+        note,
+        training_days (
+          id,
+          name
+        ),
+        training_session_exercises (
+          id,
+          exercise_name,
+          weight,
+          sets,
+          reps,
+          note
+        )
+      `)
+      .eq('id', sessionId)
+      .single();
+
+    data = legacyResult.data;
+    error = legacyResult.error;
+  }
+
   if (error) throw error;
 
-  const sessionType = normalizeSessionType(data.session_type || data.training_days?.day_type);
-
-  return {
-    id: data.id,
-    performedAt: data.performed_at,
-    note: data.note,
-    sessionType,
-    dayName: data.training_days?.name || (sessionType === 'run' ? 'Lauf' : 'Training'),
-    runDurationMinutes: data.run_duration_minutes,
-    runDistanceKm: data.run_distance_km,
-    runPace: data.run_pace,
-    runMetaText: sessionType === 'run' ? formatRunMeta(data) : '',
-    exercises: data.training_session_exercises || [],
-  };
+  return mapSessionDetail(data);
 }

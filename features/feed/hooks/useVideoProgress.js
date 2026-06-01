@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { PanResponder } from "react-native";
+import { logVideoPlayerError } from "../utils/videoPlayerSafety";
 
 const PROGRESS_UPDATE_INTERVAL = 150;
 const THUMB_SIZE = 12;
+const SCRUB_TOUCH_ZONE_MIN_Y = 70;
+const SCRUB_TOUCH_ZONE_MAX_Y = 116;
+const SCRUB_HORIZONTAL_MOVE_THRESHOLD = 5;
 
 const clamp = (value, min, max) => {
   return Math.max(min, Math.min(value, max));
@@ -10,14 +14,14 @@ const clamp = (value, min, max) => {
 
 const formatVideoTime = (seconds) => {
   if (!Number.isFinite(seconds) || seconds <= 0) {
-    return '0:00';
+    return "0:00";
   }
 
   const totalSeconds = Math.floor(seconds);
   const minutes = Math.floor(totalSeconds / 60);
   const remainingSeconds = totalSeconds % 60;
 
-  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+  return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
 };
 
 export function useVideoProgress({
@@ -38,6 +42,7 @@ export function useVideoProgress({
   const latestDurationRef = useRef(0);
   const latestScrubRatioRef = useRef(0);
   const liveSeekFrameRef = useRef(null);
+  const finishScrubTimeoutRef = useRef(null);
 
   const canScrub = duration > 0 && trackWidth > 0;
 
@@ -45,17 +50,21 @@ export function useVideoProgress({
     (ratio) => {
       const total = latestDurationRef.current || duration;
 
-      if (!player || !total || typeof ratio !== 'number') {
+      if (!player || !total || typeof ratio !== "number") {
         return;
       }
 
       const safeRatio = clamp(ratio, 0, 1);
       const nextTime = safeRatio * total;
 
-      player.currentTime = nextTime;
-      setCurrentTime(nextTime);
+      try {
+        player.currentTime = nextTime;
+        setCurrentTime(nextTime);
+      } catch (error) {
+        logVideoPlayerError("Fehler beim Springen im Video:", error);
+      }
     },
-    [duration, player]
+    [duration, player],
   );
 
   const seekToProgressOnNextFrame = useCallback(
@@ -71,7 +80,7 @@ export function useVideoProgress({
         seekToProgress(latestScrubRatioRef.current);
       });
     },
-    [seekToProgress]
+    [seekToProgress],
   );
 
   useEffect(() => {
@@ -79,18 +88,25 @@ export function useVideoProgress({
 
     if (isActive && isFeedFocused && !isScrubbing) {
       intervalId = setInterval(() => {
-        const current = player.currentTime ?? 0;
-        const total = player.duration ?? 0;
+        try {
+          const current = player.currentTime ?? 0;
+          const total = player.duration ?? 0;
 
-        latestDurationRef.current = total;
-        setDuration(total);
-        setCurrentTime(current);
+          latestDurationRef.current = total;
+          setDuration(total);
+          setCurrentTime(current);
 
-        if (total > 0) {
-          const nextProgress = current / total;
-          setProgress(clamp(nextProgress, 0, 1));
-        } else {
-          setProgress(0);
+          if (total > 0) {
+            const nextProgress = current / total;
+            setProgress(clamp(nextProgress, 0, 1));
+          } else {
+            setProgress(0);
+          }
+        } catch (error) {
+          logVideoPlayerError(
+            "Fehler beim Aktualisieren des Video-Fortschritts:",
+            error,
+          );
         }
       }, PROGRESS_UPDATE_INTERVAL);
     }
@@ -107,6 +123,11 @@ export function useVideoProgress({
       if (liveSeekFrameRef.current) {
         cancelAnimationFrame(liveSeekFrameRef.current);
         liveSeekFrameRef.current = null;
+      }
+
+      if (finishScrubTimeoutRef.current) {
+        clearTimeout(finishScrubTimeoutRef.current);
+        finishScrubTimeoutRef.current = null;
       }
     };
   }, []);
@@ -130,7 +151,7 @@ export function useVideoProgress({
 
       return ratio;
     },
-    [canScrub, duration, trackWidth]
+    [canScrub, duration, trackWidth],
   );
 
   const startScrubbing = useCallback(
@@ -146,17 +167,11 @@ export function useVideoProgress({
 
       const ratio = setProgressFromX(x);
 
-      if (typeof ratio === 'number') {
+      if (typeof ratio === "number") {
         seekToProgress(ratio);
       }
     },
-    [
-      canScrub,
-      onScrubStart,
-      seekToProgress,
-      setIsScrubbing,
-      setProgressFromX,
-    ]
+    [canScrub, onScrubStart, seekToProgress, setIsScrubbing, setProgressFromX],
   );
 
   const finishScrubbing = useCallback(
@@ -166,28 +181,66 @@ export function useVideoProgress({
         liveSeekFrameRef.current = null;
       }
 
-      if (typeof ratio === 'number') {
+      if (finishScrubTimeoutRef.current) {
+        clearTimeout(finishScrubTimeoutRef.current);
+        finishScrubTimeoutRef.current = null;
+      }
+
+      if (typeof ratio === "number") {
         seekToProgress(ratio);
       }
 
-      setTimeout(() => {
+      if (finishScrubTimeoutRef.current) {
+        clearTimeout(finishScrubTimeoutRef.current);
+      }
+
+      finishScrubTimeoutRef.current = setTimeout(() => {
+        finishScrubTimeoutRef.current = null;
         setIsScrubbing(false);
         onScrubEnd?.();
       }, 80);
     },
-    [onScrubEnd, seekToProgress, setIsScrubbing]
+    [onScrubEnd, seekToProgress, setIsScrubbing],
+  );
+
+  const isInsideScrubTouchZone = useCallback((event) => {
+    const locationY = event?.nativeEvent?.locationY;
+
+    if (!Number.isFinite(locationY)) {
+      return false;
+    }
+
+    return (
+      locationY >= SCRUB_TOUCH_ZONE_MIN_Y &&
+      locationY <= SCRUB_TOUCH_ZONE_MAX_Y
+    );
+  }, []);
+
+  const shouldHandleScrubMove = useCallback(
+    (event, gestureState) => {
+      if (!canScrub || !isInsideScrubTouchZone(event)) {
+        return false;
+      }
+
+      const dx = Math.abs(gestureState?.dx ?? 0);
+      const dy = Math.abs(gestureState?.dy ?? 0);
+
+      return dx >= SCRUB_HORIZONTAL_MOVE_THRESHOLD && dx > dy;
+    },
+    [canScrub, isInsideScrubTouchZone],
   );
 
   const progressPanResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => canScrub,
-        onStartShouldSetPanResponderCapture: () => canScrub,
+        onStartShouldSetPanResponder: (event) =>
+          canScrub && isInsideScrubTouchZone(event),
+        onStartShouldSetPanResponderCapture: () => false,
 
-        onMoveShouldSetPanResponder: () => canScrub,
-        onMoveShouldSetPanResponderCapture: () => canScrub,
+        onMoveShouldSetPanResponder: shouldHandleScrubMove,
+        onMoveShouldSetPanResponderCapture: () => false,
 
-        onPanResponderTerminationRequest: () => false,
+        onPanResponderTerminationRequest: () => true,
 
         onPanResponderGrant: (event) => {
           startScrubbing(event.nativeEvent.locationX);
@@ -201,7 +254,7 @@ export function useVideoProgress({
           const nextX = dragStartXRef.current + gestureState.dx;
           const ratio = setProgressFromX(nextX);
 
-          if (typeof ratio === 'number') {
+          if (typeof ratio === "number") {
             seekToProgressOnNextFrame(ratio);
           }
         },
@@ -226,12 +279,14 @@ export function useVideoProgress({
     [
       canScrub,
       finishScrubbing,
+      isInsideScrubTouchZone,
       onScrubEnd,
       seekToProgressOnNextFrame,
       setIsScrubbing,
       setProgressFromX,
+      shouldHandleScrubMove,
       startScrubbing,
-    ]
+    ],
   );
 
   const safeProgress = clamp(progress, 0, 1);
@@ -239,7 +294,7 @@ export function useVideoProgress({
   const thumbLeft = clamp(
     safeProgress * trackWidth - THUMB_SIZE / 2,
     0,
-    Math.max(trackWidth - THUMB_SIZE, 0)
+    Math.max(trackWidth - THUMB_SIZE, 0),
   );
 
   return {

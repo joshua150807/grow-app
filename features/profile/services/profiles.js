@@ -1,6 +1,23 @@
 import { supabase } from '../../../services/supabaseClient';
 
-export async function loadProfileData(userId) {
+const FALLBACK_ROLE = 'user';
+
+function normalizeGrowPoints(value) {
+  const numberValue = Number(value ?? 0);
+  return Number.isFinite(numberValue) && numberValue >= 0 ? numberValue : 0;
+}
+
+function normalizeProfile(row, userId) {
+  const fallbackUsername = userId ? `user_${userId.slice(0, 6)}` : 'Grower';
+
+  return {
+    username: row?.username || fallbackUsername,
+    growPoints: normalizeGrowPoints(row?.grow_points),
+    role: row?.role || FALLBACK_ROLE,
+  };
+}
+
+async function fetchProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')
     .select('username, grow_points, role')
@@ -9,32 +26,46 @@ export async function loadProfileData(userId) {
 
   if (error) throw error;
 
-  if (!data) {
-    const fallbackUsername = `user_${userId.slice(0, 6)}`;
+  return data;
+}
 
-    const { data: newProfile, error: insertError } = await supabase
-      .from('profiles')
-      .insert({
-        id: userId,
-        username: fallbackUsername,
-        grow_points: 0,
-        role: 'user',
-      })
-      .select('username, grow_points, role')
-      .single();
-
-    if (insertError) throw insertError;
-
-    return {
-      username: newProfile.username,
-      growPoints: newProfile.grow_points ?? 0,
-      role: newProfile.role ?? 'user',
-    };
+export async function loadProfileData(userId) {
+  if (!userId) {
+    return normalizeProfile(null, null);
   }
 
-  return {
-    username: data.username,
-    growPoints: data.grow_points ?? 0,
-    role: data.role ?? 'user',
-  };
+  const existingProfile = await fetchProfile(userId);
+
+  if (existingProfile) {
+    return normalizeProfile(existingProfile, userId);
+  }
+
+  const fallbackUsername = `user_${userId.slice(0, 6)}`;
+
+  const { data: newProfile, error: insertError } = await supabase
+    .from('profiles')
+    .insert({
+      id: userId,
+      username: fallbackUsername,
+      grow_points: 0,
+      role: FALLBACK_ROLE,
+    })
+    .select('username, grow_points, role')
+    .single();
+
+  if (insertError) {
+    // Falls das Profil parallel durch Trigger/zweiten Request erstellt wurde,
+    // nicht hart abbrechen, sondern nochmal laden.
+    if (insertError.code === '23505') {
+      const retryProfile = await fetchProfile(userId);
+
+      if (retryProfile) {
+        return normalizeProfile(retryProfile, userId);
+      }
+    }
+
+    throw insertError;
+  }
+
+  return normalizeProfile(newProfile, userId);
 }

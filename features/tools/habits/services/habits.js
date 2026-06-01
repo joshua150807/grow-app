@@ -6,6 +6,15 @@ async function getCurrentUserId() {
   return user?.id ?? null;
 }
 
+function normalizeDays(days) {
+  if (!Array.isArray(days)) return [];
+
+  return Array.from(new Set(days
+    .map(day => Number(day))
+    .filter(day => Number.isInteger(day) && day >= 0 && day <= 6)
+  )).sort((a, b) => a - b);
+}
+
 export async function getHabits() {
   const userId = await getCurrentUserId();
   if (!userId) return [];
@@ -17,24 +26,32 @@ export async function getHabits() {
     .order('created_at', { ascending: true });
 
   if (error) throw error;
-  return data;
+  return Array.isArray(data) ? data : [];
 }
 
 export async function addHabit(name, days) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error('Nicht eingeloggt');
 
+  const safeName = typeof name === 'string' ? name.trim() : '';
+  const safeDays = normalizeDays(days);
+  if (!safeName) throw new Error('Name fehlt.');
+  if (safeDays.length === 0) throw new Error('Keine Tage ausgewählt.');
+
   const { data, error } = await supabase
     .from('habits')
-    .insert({ user_id: userId, name, days })
+    .insert({ user_id: userId, name: safeName, days: safeDays })
     .select()
     .single();
 
   if (error) throw error;
+  if (!data) throw new Error('Gewohnheit konnte nicht gespeichert werden.');
   return data;
 }
 
 export async function deleteHabit(id) {
+  if (!id) return;
+
   const { error } = await supabase
     .from('habits')
     .delete()
@@ -55,7 +72,7 @@ export async function getCompletionsForDate(date) {
     .eq('completed_date', date);
 
   if (error) throw error;
-  return data.map(r => r.habit_id);
+  return Array.isArray(data) ? data.map(r => r.habit_id).filter(Boolean) : [];
 }
 
 export async function getHabitStreak() {
@@ -66,7 +83,7 @@ export async function getHabitStreak() {
     .from('habits')
     .select('id, days')
     .eq('user_id', userId);
-  if (hErr || !habits || habits.length === 0) return 0;
+  if (hErr || !Array.isArray(habits) || habits.length === 0) return 0;
 
   const today = new Date();
   const since = new Date(today);
@@ -81,6 +98,7 @@ export async function getHabitStreak() {
 
   const byDate = {};
   for (const c of completions ?? []) {
+    if (!c?.completed_date || !c?.habit_id) continue;
     if (!byDate[c.completed_date]) byDate[c.completed_date] = new Set();
     byDate[c.completed_date].add(c.habit_id);
   }
@@ -91,7 +109,7 @@ export async function getHabitStreak() {
     d.setDate(today.getDate() - i);
     const dateStr = d.toISOString().split('T')[0];
     const dow = d.getDay() === 0 ? 6 : d.getDay() - 1;
-    const scheduled = habits.filter(h => h.days.includes(dow));
+    const scheduled = habits.filter(h => normalizeDays(h.days).includes(dow));
     if (scheduled.length === 0) continue;
     const done = byDate[dateStr] ?? new Set();
     if (scheduled.every(h => done.has(h.id))) {
@@ -111,21 +129,25 @@ export async function getTodayHabitProgress() {
   const dateStr = today.toISOString().split('T')[0];
   const dow = today.getDay() === 0 ? 6 : today.getDay() - 1;
 
-  const { data: habits } = await supabase
+  const { data: habits, error: hErr } = await supabase
     .from('habits')
     .select('id, days')
     .eq('user_id', userId);
 
-  const scheduled = (habits ?? []).filter(h => h.days.includes(dow));
+  if (hErr || !Array.isArray(habits)) return { completed: 0, total: 0 };
+
+  const scheduled = habits.filter(h => normalizeDays(h.days).includes(dow));
   if (scheduled.length === 0) return { completed: 0, total: 0 };
 
-  const { data: completions } = await supabase
+  const { data: completions, error: cErr } = await supabase
     .from('habit_completions')
     .select('habit_id')
     .eq('user_id', userId)
     .eq('completed_date', dateStr);
 
-  const doneIds = new Set((completions ?? []).map(c => c.habit_id));
+  if (cErr || !Array.isArray(completions)) return { completed: 0, total: scheduled.length };
+
+  const doneIds = new Set(completions.map(c => c.habit_id).filter(Boolean));
   const completed = scheduled.filter(h => doneIds.has(h.id)).length;
   return { completed, total: scheduled.length };
 }
@@ -134,6 +156,7 @@ export async function getTodayHabitProgress() {
 export async function toggleCompletion(habitId, date, isCompleted) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error('Nicht eingeloggt');
+  if (!habitId || !date) throw new Error('Ungültige Gewohnheit.');
 
   if (isCompleted) {
     const { error } = await supabase
