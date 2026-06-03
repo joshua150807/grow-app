@@ -94,7 +94,7 @@ export function AddEventModal({
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? sv(10) : 0}
+        keyboardVerticalOffset={0}
       >
         <Pressable style={styles.overlay} onPress={handleClose}>
           <Pressable style={styles.sheet} onPress={() => Keyboard.dismiss()}>
@@ -268,16 +268,16 @@ export function AddEventModal({
 const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
-    backgroundColor: COLORS.black,
+    backgroundColor: 'transparent',
   },
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.72)',
+    backgroundColor: 'rgba(0,0,0,0.38)',
   },
   sheet: {
     maxHeight: '88%',
-    backgroundColor: COLORS.background,
+    backgroundColor: 'rgba(8,7,12,0.96)',
     borderTopLeftRadius: s(26),
     borderTopRightRadius: s(26),
     paddingHorizontal: s(20),
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     borderRadius: s(14),
     borderWidth: 1,
     borderColor: COLORS.goldBorder,
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(0,0,0,0.44)',
     color: COLORS.white,
     paddingHorizontal: s(14),
     fontSize: sf(15),
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     borderRadius: s(14),
     borderWidth: 1,
     borderColor: COLORS.goldBorder,
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(0,0,0,0.44)',
     marginBottom: sv(16),
     overflow: 'hidden',
   },
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     borderRadius: s(14),
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(0,0,0,0.44)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
   },
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     borderRadius: s(14),
     borderWidth: 1,
     borderColor: COLORS.goldBorder,
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(0,0,0,0.44)',
     overflow: 'hidden',
     marginBottom: sv(12),
   },

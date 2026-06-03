@@ -1,8 +1,9 @@
-import { ScrollView, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, ScrollView, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
+import { DAILY_PLANNER_PAGE_BG } from '../../../../constants/toolAssets';
 import { s, sv, sf } from '../../../../constants/layout';
 import {
   MONTH_NAMES,
@@ -22,7 +23,13 @@ export function PlannerCalendar({
   const cells = buildCalendarCells(currentYear, currentMonth);
 
   return (
-    <View style={styles.screen}>
+    <ImageBackground
+      source={DAILY_PLANNER_PAGE_BG}
+      style={styles.background}
+      imageStyle={styles.backgroundImage}
+      resizeMode="cover"
+    >
+      <View style={styles.screen}>
       <View style={styles.topBar}>
         <Pressable
           onPress={() => router.back()}
@@ -104,14 +111,21 @@ export function PlannerCalendar({
           })}
         </View>
       </ScrollView>
-    </View>
+      </View>
+    </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+  },
+  backgroundImage: {
+    opacity: 1,
+  },
   screen: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'rgba(0,0,0,0.16)',
   },
   topBar: {
     position: 'absolute',
@@ -147,7 +161,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: sv(16),
-    backgroundColor: 'rgba(212,175,55,0.08)',
+    backgroundColor: 'rgba(0,0,0,0.32)',
   },
   title: {
     color: COLORS.paleGold,
@@ -173,7 +187,7 @@ const styles = StyleSheet.create({
     borderRadius: s(21),
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(0,0,0,0.42)',
     borderWidth: 1,
     borderColor: COLORS.goldBorder,
   },
@@ -202,7 +216,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.goldBorder,
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(0,0,0,0.48)',
   },
   calCell: {
     width: `${100 / 7}%`,
@@ -242,6 +256,6 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.94 }],
   },
   calCellPressed: {
-    backgroundColor: 'rgba(212,175,55,0.08)',
+    backgroundColor: 'rgba(0,0,0,0.32)',
   },
 });

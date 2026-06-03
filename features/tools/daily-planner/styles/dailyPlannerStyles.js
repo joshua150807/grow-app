@@ -8,9 +8,17 @@ import {
 } from '../utils/plannerUtils';
 
 export const styles = StyleSheet.create({
+  background: {
+    flex: 1,
+  },
+
+  backgroundImage: {
+    opacity: 1,
+  },
+
   screen: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: 'rgba(0,0,0,0.16)',
   },
 
   // ─── Day view ──────────────────────────────────────────────────────────────
@@ -39,6 +47,7 @@ export const styles = StyleSheet.create({
     paddingTop: sv(108),
     paddingHorizontal: s(20),
     paddingBottom: sv(14),
+    backgroundColor: 'rgba(0,0,0,0.24)',
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(127,98,54,0.3)',
     flexDirection: 'row',

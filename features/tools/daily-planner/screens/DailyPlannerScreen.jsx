@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import {
+  ImageBackground,
   View,
   Text,
   ScrollView,
@@ -9,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
+import { DAILY_PLANNER_PAGE_BG } from '../../../../constants/toolAssets';
 import { s, sv } from '../../../../constants/layout';
 
 import {
@@ -68,20 +70,7 @@ export default function DailyPlannerScreen() {
   const [deleteTarget, setDeleteTarget] = useState(null);
 
   const dayScrollRef = useRef(null);
-  const mountedRef = useRef(true);
-  const scrollTimeoutRef = useRef(null);
   const showDayLoading = useDelayedLoading(dayLoading);
-
-  useEffect(() => {
-    mountedRef.current = true;
-
-    return () => {
-      mountedRef.current = false;
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, []);
 
   const eventsWithLayout = useMemo(() => {
     return applyEventOverlapLayout(events);
@@ -99,14 +88,8 @@ export default function DailyPlannerScreen() {
       ? Math.max(0, now.getHours() * 2 - 2)
       : 14; // 07:00
 
-    if (scrollTimeoutRef.current) {
-      clearTimeout(scrollTimeoutRef.current);
-    }
-
-    scrollTimeoutRef.current = setTimeout(() => {
-      if (mountedRef.current) {
-        dayScrollRef.current?.scrollTo({ y: scrollSlot * SLOT_HEIGHT, animated: false });
-      }
+    setTimeout(() => {
+      dayScrollRef.current?.scrollTo({ y: scrollSlot * SLOT_HEIGHT, animated: false });
     }, 200);
   }, [loadDayEvents]);
 
@@ -197,20 +180,16 @@ export default function DailyPlannerScreen() {
         return;
       }
 
-      if (mountedRef.current) {
-        setModalVisible(false);
-        setEditingEventId(null);
-        setModalTitle('');
-        setModalDuration(60);
-        setModalColor(EVENT_COLORS[0].value);
-        setModalShowPicker(false);
-      }
+      setModalVisible(false);
+      setEditingEventId(null);
+      setModalTitle('');
+      setModalDuration(60);
+      setModalColor(EVENT_COLORS[0].value);
+      setModalShowPicker(false);
     } catch (error) {
       console.log('[DailyPlanner] Save failed:', error);
     } finally {
-      if (mountedRef.current) {
-        setSaving(false);
-      }
+      setSaving(false);
     }
   }, [
     editingEventId,
@@ -247,7 +226,13 @@ export default function DailyPlannerScreen() {
   // ─── Render: Day view ─────────────────────────────────────────────────────
 
   return (
-    <View style={styles.screen}>
+    <ImageBackground
+      source={DAILY_PLANNER_PAGE_BG}
+      style={styles.background}
+      imageStyle={styles.backgroundImage}
+      resizeMode="cover"
+    >
+      <View style={styles.screen}>
       <View style={styles.topBar}>
         <Pressable
           onPress={backToCalendar}
@@ -346,6 +331,7 @@ export default function DailyPlannerScreen() {
         onDelete={handleDelete}
         onEdit={openEditModal}
       />
-    </View>
+      </View>
+    </ImageBackground>
   );
 }

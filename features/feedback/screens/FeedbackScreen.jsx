@@ -5,7 +5,6 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Image,
   ActivityIndicator,
 } from 'react-native';
@@ -13,14 +12,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
  
 import InfoCard from '../components/InfoCard';
-import FeedbackTypeButton from '../components/FeedbackTypeButton';
+import FeedbackHero from '../components/FeedbackHero';
+import FeedbackTypeCards from '../components/FeedbackTypeCards';
+import FeedbackTextInputCard from '../components/FeedbackTextInputCard';
+import FeedbackImportanceCircles from '../components/FeedbackImportanceCircles';
 import ImportanceButton from '../components/ImportanceButton';
 import { useFeedbackForm } from '../hooks/useFeedbackForm';
 import { COLORS } from '../../../constants/colors';
-import { s, sv, sf } from '../../../constants/layout'
-import TourTarget from '../../onboarding/components/TourTarget';
- 
-const feedbackTypes = ['Idee / Vorschlag', 'Bug melden', 'Lob & Dank'];
+import { s, sv, sf } from '../../../constants/layout';
  
 export default function FeedbackScreen() {
   const {
@@ -47,78 +46,40 @@ export default function FeedbackScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.growTitle}>GROW</Text>
- 
-        <View style={styles.headerRow}>
-          <View style={styles.headerTextWrapper}>
-            <Text style={styles.title}>Feedback</Text>
-            <Text style={styles.subtitle}>Deine Stimme. Unser Wachstum.</Text>
-            <Text style={styles.description}>
-              Hilf uns, GROW jeden Tag ein Stück besser zu machen.
-            </Text>
-          </View>
- 
-          <View style={styles.headerIconContainer}>
-            <Ionicons
-              name="chatbubble-ellipses-outline"
-              size={34}
-              color={COLORS.gold}
-            />
-          </View>
-        </View>
+        <FeedbackHero />
  
         <Text style={styles.sectionTitle}>WAS MÖCHTEST DU FEEDBACK GEBEN?</Text>
  
-        <View style={styles.feedbackTypeRow}>
-          {feedbackTypes.map((type) => (
-            <FeedbackTypeButton
-              key={type}
-              label={type}
-              active={selectedType === type}
-              onPress={() => {
-                setSelectedType(type);
-                clearStatus();
-              }}
-            />
-          ))}
-        </View>
+        <FeedbackTypeCards
+          selectedType={selectedType}
+          onSelect={(type) => {
+            setSelectedType(type);
+            clearStatus();
+          }}
+        />
  
         <Text style={styles.sectionTitle}>WIE KÖNNEN WIR GROW VERBESSERN?</Text>
  
-        <TourTarget id="feedback-form" style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            multiline
-            maxLength={500}
-            value={text}
-            onChangeText={(value) => {
-              setText(value);
-              clearStatus();
-            }}
-            placeholder="Teile deine Idee, dein Feedback oder was dir fehlt. Je mehr Details, desto besser."
-            placeholderTextColor={COLORS.textDim}
-          />
-          <Text style={styles.counter}>{text.length}/500</Text>
-        </TourTarget>
+        <FeedbackTextInputCard
+          value={text}
+          onChangeText={(value) => {
+            setText(value);
+            clearStatus();
+          }}
+        />
  
         <Text style={styles.sectionTitle}>WIE WICHTIG IST DIR DAS?</Text>
         <Text style={styles.smallDescription}>
           Deine Einschätzung hilft uns zu priorisieren.
         </Text>
  
-        <View style={styles.importanceRow}>
-          {[1, 2, 3, 4].map((item) => (
-            <ImportanceButton
-              key={item}
-              value={item}
-              active={selectedImportance === item}
-              onPress={() => {
-                setSelectedImportance(item);
-                clearStatus();
-              }}
-            />
-          ))}
-        </View>
+        <FeedbackImportanceCircles
+          selectedImportance={selectedImportance}
+          onSelect={(value) => {
+            setSelectedImportance(value);
+            clearStatus();
+          }}
+        />
  
         <View style={styles.importanceLabels}>
           <Text style={styles.importanceLabel}>Nicht wichtig</Text>
@@ -215,57 +176,12 @@ export default function FeedbackScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.backgroundDeep,
+    backgroundColor: 'black',
   },
   content: {
     paddingHorizontal: s(20),
-    paddingTop: 18,
+    paddingTop: 0,
     paddingBottom: 40,
-  },
-  growTitle: {
-    textAlign: 'center',
-    color: COLORS.gold,
-    fontSize: sf(15),
-    letterSpacing: 3,
-    marginBottom: 18,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    marginBottom: 22,
-  },
-  headerTextWrapper: {
-    flex: 1,
-    paddingRight: 12,
-  },
-  title: {
-    color: COLORS.white,
-    fontSize: 34,
-    fontWeight: '700',
-    marginBottom: sv(4),
-  },
-  subtitle: {
-    color: COLORS.textSecondary,
-    fontSize: sf(14),
-    marginBottom: sv(4),
-  },
-  description: {
-    color: COLORS.textDim,
-    fontSize: sf(13),
-    lineHeight: 18,
-  },
-  headerIconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    borderWidth: 1.5,
-    borderColor: COLORS.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.darkCard3,
-    shadowColor: COLORS.gold,
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 0 },
   },
   topCardsContainer: {
     flexDirection: 'row',
@@ -279,32 +195,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginBottom: sv(12),
     marginTop: sv(4),
-  },
-  feedbackTypeRow: {
-    flexDirection: 'row',
-    gap: s(10),
-    marginBottom: 28,
-  },
-  inputContainer: {
-    backgroundColor: COLORS.darkCard3,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
-    minHeight: 150,
-    padding: 16,
-    marginBottom: 28,
-  },
-  input: {
-    color: COLORS.white,
-    fontSize: sf(14),
-    minHeight: 90,
-    textAlignVertical: 'top',
-  },
-  counter: {
-    alignSelf: 'flex-end',
-    color: COLORS.textFaint,
-    fontSize: sf(12),
-    marginTop: sv(10),
   },
   smallDescription: {
     color: COLORS.textDim,

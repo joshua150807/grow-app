@@ -55,10 +55,10 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.58)',
+    backgroundColor: 'rgba(0,0,0,0.38)',
   },
   sheet: {
-    backgroundColor: COLORS.background,
+    backgroundColor: 'rgba(8,7,12,0.96)',
     borderTopLeftRadius: s(26),
     borderTopRightRadius: s(26),
     paddingHorizontal: s(20),
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     borderRadius: s(14),
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(0,0,0,0.44)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
   },
