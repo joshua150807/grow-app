@@ -10,6 +10,9 @@ import {
 export const styles = StyleSheet.create({
   background: {
     flex: 1,
+    marginBottom: sv(82),
+    backgroundColor: COLORS.background,
+    overflow: 'hidden',
   },
 
   backgroundImage: {

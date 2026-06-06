@@ -21,6 +21,10 @@ export const DEEPWORK_PAGE_BG = require('../assets/tool-icons/backgrounds/deepwo
 export const GOALS_PAGE_BG = require('../assets/tool-icons/backgrounds/goals-page-bg.webp');
 export const HABITS_PAGE_BG = require('../assets/tool-icons/backgrounds/habits-page-bg.webp')
 export const DAILY_PLANNER_PAGE_BG = require('../assets/tool-icons/backgrounds/daily-planner-page-bg.webp');
+export const AFFIRMATIONS_PAGE_BG = require('../assets/tool-icons/backgrounds/affirmations-page-bg.webp');
+export const RECOMMENDATIONS_PAGE_BG = require('../assets/tool-icons/backgrounds/recommendations-page-bg.webp');
+export const NOTES_PAGE_BG = require('../assets/tool-icons/backgrounds/notes-page-bg.webp');
+export const JOURNAL_PAGE_BG = require('../assets/tool-icons/backgrounds/journal-page-bg.webp')
 
 export const STARTUP_IMAGE_ASSETS = [
   ...Object.values(TOOL_IMAGES),
@@ -35,6 +39,10 @@ export const TOOL_PAGE_BACKGROUND_ASSETS = [
   GOALS_PAGE_BG,
   HABITS_PAGE_BG,
   DAILY_PLANNER_PAGE_BG,
+  AFFIRMATIONS_PAGE_BG,
+  RECOMMENDATIONS_PAGE_BG,
+  NOTES_PAGE_BG,
+  JOURNAL_PAGE_BG,
 ];  
 
 let toolPageBackgroundsPreloaded = false;

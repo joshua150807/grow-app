@@ -6,11 +6,13 @@ import {
   Pressable,
   TextInput,
   ActivityIndicator,
+  ImageBackground,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
+import { JOURNAL_PAGE_BG } from '../../../../constants/toolAssets';
 import { s } from '../../../../constants/layout';
 
 import { useJournalEntries } from '../hooks/useJournalEntries';
@@ -124,6 +126,13 @@ export default function JournalScreen() {
 
   return (
     <View style={styles.screen}>
+      <ImageBackground
+        source={JOURNAL_PAGE_BG}
+        style={styles.background}
+        imageStyle={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.backgroundOverlay}>
       <View style={styles.topBar}>
         <PressableScale onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
@@ -340,6 +349,8 @@ export default function JournalScreen() {
           </View>
         ) : null}
       </ScrollView>
+        </View>
+      </ImageBackground>
     </View>
   );
 }

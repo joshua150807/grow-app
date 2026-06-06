@@ -14,6 +14,7 @@ export default function DeepWorkIdleView({ router, openSetup, phase }) {
       imageStyle={styles.deepWorkPageBackgroundImage}
       resizeMode="cover"
     >
+      <View style={styles.pageOverlay} pointerEvents="none" />
       <View style={styles.topBar}>
         <Pressable
           onPress={() => {

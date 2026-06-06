@@ -8,6 +8,16 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
+  background: {
+    flex: 1,
+  },
+  backgroundImage: {
+    opacity: 1,
+  },
+  backgroundOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(5, 4, 10, 0.56)',
+  },
   topBar: {
     paddingTop: sv(58),
     paddingHorizontal: s(20),
@@ -41,7 +51,7 @@ export const styles = StyleSheet.create({
     borderColor: COLORS.goldBorderLight,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(10, 9, 17, 0.82)',
     marginBottom: sv(14),
   },
   title: {
@@ -59,7 +69,7 @@ export const styles = StyleSheet.create({
   infoCard: {
     borderWidth: 1,
     borderColor: COLORS.toolsCardBorderActive,
-    backgroundColor: COLORS.toolsCard,
+    backgroundColor: 'rgba(10, 9, 17, 0.82)',
     borderRadius: s(22),
     padding: s(16),
     marginBottom: sv(16),
@@ -85,7 +95,7 @@ export const styles = StyleSheet.create({
     minHeight: sv(58),
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(10, 9, 17, 0.82)',
     borderRadius: s(16),
     alignItems: 'center',
     justifyContent: 'center',
@@ -93,7 +103,7 @@ export const styles = StyleSheet.create({
   },
   dayBtnActive: {
     borderColor: COLORS.goldBorderLight,
-    backgroundColor: COLORS.darkCard2,
+    backgroundColor: 'rgba(14, 13, 22, 0.86)',
   },
   dayLabel: {
     color: COLORS.textDim,
@@ -159,7 +169,7 @@ export const styles = StyleSheet.create({
   formCard: {
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
-    backgroundColor: COLORS.darkCard2,
+    backgroundColor: 'rgba(14, 13, 22, 0.86)',
     borderRadius: s(24),
     padding: s(16),
     marginBottom: sv(20),
@@ -193,7 +203,7 @@ export const styles = StyleSheet.create({
     minHeight: sv(76),
     borderWidth: 1,
     borderColor: COLORS.borderMid,
-    backgroundColor: COLORS.backgroundCard,
+    backgroundColor: 'rgba(8, 7, 14, 0.74)',
     borderRadius: s(16),
     color: COLORS.textSecondary,
     paddingHorizontal: s(12),
@@ -215,7 +225,7 @@ export const styles = StyleSheet.create({
     borderColor: COLORS.goldBorderLight,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.backgroundCard,
+    backgroundColor: 'rgba(8, 7, 14, 0.74)',
   },
   checkboxActive: {
     backgroundColor: 'rgba(212, 175, 55, 0.15)',
@@ -268,7 +278,7 @@ export const styles = StyleSheet.create({
     borderColor: COLORS.borderSubtle,
     borderRadius: s(22),
     padding: s(24),
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(10, 9, 17, 0.82)',
     marginBottom: sv(18),
   },
   emptyText: {
@@ -289,7 +299,7 @@ export const styles = StyleSheet.create({
   entryCard: {
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(10, 9, 17, 0.82)',
     borderRadius: s(22),
     padding: s(15),
   },

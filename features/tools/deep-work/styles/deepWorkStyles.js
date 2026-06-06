@@ -6,7 +6,9 @@ import { s, sv, sf } from '../../../../constants/layout';
 export const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    marginBottom: sv(82),
     backgroundColor: COLORS.background,
+    overflow: 'hidden',
   },
   deepWorkPageBackgroundImage: {
     opacity: 0.72,

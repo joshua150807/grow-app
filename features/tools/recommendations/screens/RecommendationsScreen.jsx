@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, ScrollView, Pressable, Modal } from 'react-native';
+import { View, Text, ScrollView, Pressable, Modal, ImageBackground } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
+import { RECOMMENDATIONS_PAGE_BG } from '../../../../constants/toolAssets';
 import { s } from '../../../../constants/layout';
 
 import {
@@ -111,6 +112,13 @@ export default function RecommendationsScreen() {
 
   return (
     <View style={styles.screen}>
+      <ImageBackground
+        source={RECOMMENDATIONS_PAGE_BG}
+        style={styles.background}
+        imageStyle={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.backgroundOverlay}>
       <View style={styles.topBar}>
         <PressableScale onPress={() => router.back()} style={styles.backButton} hitSlop={8}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
@@ -311,6 +319,8 @@ export default function RecommendationsScreen() {
           </View>
         </View>
       </Modal>
+        </View>
+      </ImageBackground>
     </View>
   );
 }

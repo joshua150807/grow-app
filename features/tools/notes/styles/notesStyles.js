@@ -7,8 +7,8 @@ const veryCompact = SCREEN.height < 760;
 const compact = SCREEN.height < 900;
 
 const BG = COLORS.toolsBg ?? '#050403';
-const CARD = COLORS.toolsCard ?? '#08060B';
-const CARD_2 = COLORS.darkCard2 ?? '#0E0B10';
+const CARD = 'rgba(10, 9, 17, 0.82)';
+const CARD_2 = 'rgba(14, 13, 22, 0.86)';
 const TEXT = COLORS.toolsText ?? '#FFF1D2';
 const TEXT_MUTED = COLORS.textMuted ?? 'rgba(255,241,210,0.55)';
 const TEXT_DIM = COLORS.textDim ?? 'rgba(255,241,210,0.38)';
@@ -23,6 +23,19 @@ export const styles = StyleSheet.create({
     backgroundColor: BG,
   },
 
+  background: {
+    flex: 1,
+  },
+
+  backgroundImage: {
+    opacity: 1,
+  },
+
+  backgroundOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(5, 4, 10, 0.56)',
+  },
+
   topBar: {
     paddingTop: veryCompact ? sv(48) : compact ? sv(54) : sv(62),
     paddingHorizontal: s(18),
@@ -30,7 +43,7 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: BG,
+    backgroundColor: 'transparent',
     zIndex: 40,
   },
 
@@ -80,7 +93,7 @@ export const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: s(18),
     paddingBottom: sv(38),
-    backgroundColor: BG,
+    backgroundColor: 'transparent',
   },
 
   listHeader: {
@@ -154,7 +167,7 @@ export const styles = StyleSheet.create({
     minHeight: sv(160),
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: BG,
+    backgroundColor: 'transparent',
   },
 
   emptyState: {
@@ -249,14 +262,14 @@ export const styles = StyleSheet.create({
 
   editorScroll: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: 'transparent',
   },
 
   editorContent: {
     flexGrow: 1,
     paddingHorizontal: s(20),
     paddingBottom: sv(180),
-    backgroundColor: BG,
+    backgroundColor: 'transparent',
   },
 
   editorDate: {
@@ -315,7 +328,7 @@ export const styles = StyleSheet.create({
     textAlignVertical: 'top',
     paddingTop: sv(8),
     paddingBottom: sv(16),
-    backgroundColor: BG,
+    backgroundColor: 'transparent',
     letterSpacing: -0.3,
   },
 
@@ -328,7 +341,7 @@ export const styles = StyleSheet.create({
     textAlignVertical: 'top',
     paddingTop: sv(10),
     paddingBottom: sv(80),
-    backgroundColor: BG,
+    backgroundColor: 'transparent',
   },
 
   noteTitleDisplayWrap: {

@@ -7,11 +7,13 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  ImageBackground,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
+import { NOTES_PAGE_BG } from '../../../../constants/toolAssets';
 import { s } from '../../../../constants/layout';
 
 import { useNotes } from '../hooks/useNotes';
@@ -89,6 +91,13 @@ export default function NotesListScreen() {
 
   return (
     <View style={styles.screen}>
+      <ImageBackground
+        source={NOTES_PAGE_BG}
+        style={styles.background}
+        imageStyle={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.backgroundOverlay}>
       <View style={styles.topBar}>
         <PressableScale onPress={() => router.back()} style={styles.backButton} hitSlop={8}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
@@ -261,6 +270,8 @@ export default function NotesListScreen() {
           </View>
         ) : null}
       </ScrollView>
+        </View>
+      </ImageBackground>
     </View>
   );
 }

@@ -10,11 +10,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  ImageBackground,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
+import { NOTES_PAGE_BG } from '../../../../constants/toolAssets';
 import { s } from '../../../../constants/layout';
 
 import { useNoteEditor } from '../hooks/useNoteEditor';
@@ -454,7 +456,14 @@ export default function NoteEditorScreen({ noteId }) {
   };
 
   return (
-    <KeyboardAvoidingView
+    <ImageBackground
+      source={NOTES_PAGE_BG}
+      style={styles.screen}
+      imageStyle={styles.backgroundImage}
+      resizeMode="cover"
+    >
+      <View style={styles.backgroundOverlay}>
+        <KeyboardAvoidingView
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
@@ -551,5 +560,7 @@ export default function NoteEditorScreen({ noteId }) {
         </ScrollView>
       ) : null}
     </KeyboardAvoidingView>
+      </View>
+    </ImageBackground>
   );
 }

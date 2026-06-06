@@ -26,6 +26,7 @@ export default function DeepWorkSessionView({
       imageStyle={styles.deepWorkPageBackgroundImage}
       resizeMode="cover"
     >
+      <View style={styles.pageOverlay} pointerEvents="none" />
       <Pressable
         onPress={() => {
           if (phase !== 'running') {

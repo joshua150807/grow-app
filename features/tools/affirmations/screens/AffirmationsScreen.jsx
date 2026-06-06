@@ -10,11 +10,13 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ImageBackground,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
+import { AFFIRMATIONS_PAGE_BG } from '../../../../constants/toolAssets';
 import { s } from '../../../../constants/layout';
 
 import { useAffirmations } from '../hooks/useAffirmations';
@@ -172,6 +174,13 @@ export default function AffirmationsScreen() {
 
   return (
     <View style={styles.screen}>
+      <ImageBackground
+        source={AFFIRMATIONS_PAGE_BG}
+        style={styles.background}
+        imageStyle={styles.backgroundImage}
+        resizeMode="cover"
+      >
+        <View style={styles.backgroundOverlay}>
       <View style={styles.topBar}>
         <PressableScale onPress={() => router.back()} style={styles.backButton} hitSlop={8}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
@@ -492,6 +501,8 @@ export default function AffirmationsScreen() {
           </View>
         </View>
       </Modal>
+        </View>
+      </ImageBackground>
     </View>
   );
 }
