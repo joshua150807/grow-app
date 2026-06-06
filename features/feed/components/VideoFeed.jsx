@@ -507,7 +507,7 @@ export default function VideoFeed({
       {isInitialLoading && (
         <View style={styles.loadingOverlay}>
           <Image
-            source={require("../../../assets/images/grow-loading.webp")}
+            source={require("../../../assets/images/grow-loading.png")}
             style={styles.loadingLogo}
             resizeMode="contain"
           />

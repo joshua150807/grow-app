@@ -110,10 +110,10 @@ const styles = StyleSheet.create({
 
   rightSide: {
     position: 'absolute',
-    right: s(10),
+    right: s(5),
     top: SCREEN.height * 0.32,
     alignItems: 'center',
-    transform: [{ translateY: -sv(90) }]
+    transform: [{ translateY: -sv(20) }]
   },
 
   actionsTarget: {

@@ -11,7 +11,9 @@ export const RATINGS = [
 export function useVideoRating({ userId, videoId, isActive }) {
   const [activeRating, setActiveRating] = useState(null);
   const [loading, setLoading] = useState(false);
+
   const isMountedRef = useRef(true);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -25,12 +27,18 @@ export function useVideoRating({ userId, videoId, isActive }) {
     if (!isActive || !userId || !videoId) return;
 
     let cancelled = false;
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
 
     async function load() {
       try {
         const rating = await fetchRating(userId, videoId);
 
-        if (!cancelled && isMountedRef.current) {
+        if (
+          !cancelled &&
+          isMountedRef.current &&
+          requestIdRef.current === requestId
+        ) {
           setActiveRating(rating);
         }
       } catch (err) {
@@ -47,25 +55,26 @@ export function useVideoRating({ userId, videoId, isActive }) {
 
   useEffect(() => {
     if (!isActive) {
-      setActiveRating(null);
       setLoading(false);
     }
-  }, [isActive, videoId]);
+  }, [isActive]);
 
   const rate = useCallback(
     async (ratingKey) => {
-      if (!userId || !videoId || loading) return;
+      if (!userId || !videoId) return;
 
       const previousRating = activeRating;
       const shouldClearRating = ratingKey === null;
-      const shouldRemoveRating = previousRating === ratingKey;
-      const nextRating = shouldClearRating || shouldRemoveRating ? null : ratingKey;
+      const nextRating = shouldClearRating ? null : ratingKey;
+
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
 
       setActiveRating(nextRating);
       setLoading(true);
 
       try {
-        if (shouldClearRating || shouldRemoveRating) {
+        if (shouldClearRating) {
           await deleteRating(userId, videoId);
         } else {
           await upsertRating(userId, videoId, ratingKey);
@@ -73,17 +82,23 @@ export function useVideoRating({ userId, videoId, isActive }) {
       } catch (err) {
         console.log("Fehler beim Speichern der Bewertung:", err);
 
-        if (isMountedRef.current) {
+        if (
+          isMountedRef.current &&
+          requestIdRef.current === requestId
+        ) {
           setActiveRating(previousRating);
         }
       } finally {
-        if (isMountedRef.current) {
+        if (
+          isMountedRef.current &&
+          requestIdRef.current === requestId
+        ) {
           setLoading(false);
         }
       }
     },
-    [activeRating, userId, videoId, loading],
+    [activeRating, userId, videoId],
   );
 
-  return { activeRating, rate };
+  return { activeRating, rate, loading };
 }
