@@ -5,7 +5,7 @@ import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout';
 import { RATINGS } from '../hooks/useVideoRating';
 
-const TRACK_HEIGHT = sv(252);
+const TRACK_HEIGHT = sv(200);
 const TRACK_WIDTH = s(2);
 const THUMB_SIZE = s(13);
 const PREVIEW_SIZE = s(38);

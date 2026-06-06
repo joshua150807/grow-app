@@ -1,10 +1,12 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 
 import { COLORS } from '../../../constants/colors';
 import { s, sv, sf, SCREEN } from '../../../constants/layout';
 import TourTarget from '../../onboarding/components/TourTarget';
 import VideoRatingSlider from './VideoRatingSlider';
+
+const GROW_LOGO_HEADER = require('../../../assets/images/grow_banner_lossless.webp');
 
 export default function VideoOverlay({
   saved = false,
@@ -26,7 +28,11 @@ export default function VideoOverlay({
 
   return (
     <View style={styles.container} pointerEvents="box-none">
-      <Text style={styles.logo}>GROW</Text>
+      <Image
+        source={GROW_LOGO_HEADER}
+        style={styles.logoImage}
+        resizeMode="contain"
+      />
 
       <View style={styles.rightSide} pointerEvents="box-none">
         <TourTarget
@@ -95,17 +101,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  logo: {
+  logoImage: {
     position: 'absolute',
-    top: sv(58),
+    top: sv(61),
     alignSelf: 'center',
-    color: COLORS.gold,
-    fontSize: sf(17),
-    letterSpacing: 4,
-    fontWeight: '600',
-    textShadowColor: 'rgba(212,175,55,0.35)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
+    width: s(185),
+    height: sv(42),
   },
 
   rightSide: {
@@ -113,7 +114,6 @@ const styles = StyleSheet.create({
     right: s(5),
     top: SCREEN.height * 0.32,
     alignItems: 'center',
-    transform: [{ translateY: -sv(20) }]
   },
 
   actionsTarget: {

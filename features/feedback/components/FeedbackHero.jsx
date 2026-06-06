@@ -40,7 +40,7 @@ export default function FeedbackHero() {
 
 const styles = StyleSheet.create({
   heroStage: {
-    height: sv(520),
+    height: sv(420),
     marginHorizontal: -s(20),
     marginBottom: sv(18),
     position: 'relative',
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 0,
     right: 0,
-    top: sv(132),
+    top: sv(52),
     width: '100%',
     height: sv(350),
   },
@@ -71,25 +71,9 @@ const styles = StyleSheet.create({
     height: sv(110),
     backgroundColor: 'rgba(0,0,0,0.10)',
   },
-  growWrap: {
-    position: 'absolute',
-    top: sv(12),
-    left: 0,
-    right: 0,
-    zIndex: 3,
-    alignItems: 'center',
-  },
-  growTitle: {
-    color: COLORS.gold,
-    fontSize: sf(15),
-    letterSpacing: 5,
-    textShadowColor: 'rgba(212,175,55,0.55)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 10,
-  },
   textBlock: {
     position: 'absolute',
-    top: sv(64),
+    top: sv(30),
     left: s(20),
     width: '58%',
     zIndex: 3,

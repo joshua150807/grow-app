@@ -5,6 +5,7 @@ import {
   ScrollView,
   View,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -19,6 +20,8 @@ import { useFeedbackForm } from '../hooks/useFeedbackForm';
 import { COLORS } from '../../../constants/colors';
 import { preloadFeedbackImageAssets } from '../../../constants/toolAssets';
 import { s, sv, sf } from '../../../constants/layout';
+
+const GROW_LOGO_HEADER = require('../../../assets/images/grow_banner_lossless.webp');
  
 export default function FeedbackScreen() {
   const [feedbackAssetsReady, setFeedbackAssetsReady] = useState(false);
@@ -76,6 +79,12 @@ export default function FeedbackScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        <Image
+          source={GROW_LOGO_HEADER}
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
+
         <FeedbackHero />
  
         <Text style={styles.sectionTitle}>WAS MÖCHTEST DU FEEDBACK GEBEN?</Text>
@@ -169,6 +178,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: s(20),
     paddingTop: 0,
     paddingBottom: 40,
+  },
+  logoImage: {
+    alignSelf: 'center',
+    width: s(185),
+    height: sv(42),
+    marginTop: sv(4),
   },
   sectionTitle: {
     color: COLORS.white,
