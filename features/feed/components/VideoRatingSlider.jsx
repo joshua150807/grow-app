@@ -68,7 +68,7 @@ export default function VideoRatingSlider({
 
     setThumbY(nextY);
     setPreviewIndex(getZoneIndexFromY(nextY));
-  }, [currentRating, isDragging]);
+  }, [currentRating]);
 
   const commitRating = (yPosition) => {
     if (isInClearZone(yPosition)) {
