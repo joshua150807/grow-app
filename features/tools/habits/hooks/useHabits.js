@@ -213,17 +213,25 @@ export function useHabits(selectedDay) {
     }
   }, [loadHabits, loadCompletions, completionsCacheKey]);
 
-  const add = useCallback(async (name, days) => {
+  const add = useCallback(async (name, days, linkedTool = null) => {
     const safeName = typeof name === 'string' ? name.trim() : '';
     const safeDays = normalizeDays(days);
     if (!safeName || safeDays.length === 0) return null;
 
-    const actionKey = `add:${safeName}:${safeDays.join(',')}`;
+    const safeLinkedTool = linkedTool?.id && linkedTool?.title && linkedTool?.route
+      ? {
+          id: linkedTool.id,
+          title: linkedTool.title,
+          route: linkedTool.route,
+        }
+      : null;
+
+    const actionKey = `add:${safeName}:${safeDays.join(',')}:${safeLinkedTool?.id ?? 'none'}`;
     if (pendingActionsRef.current.has(actionKey)) return null;
     pendingActionsRef.current.add(actionKey);
 
     try {
-      const newHabit = normalizeHabit(await addHabit(safeName, safeDays));
+      const newHabit = normalizeHabit(await addHabit(safeName, safeDays, safeLinkedTool));
       if (!newHabit) return null;
 
       if (mountedRef.current) {

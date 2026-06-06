@@ -29,7 +29,7 @@ export async function getHabits() {
   return Array.isArray(data) ? data : [];
 }
 
-export async function addHabit(name, days) {
+export async function addHabit(name, days, linkedTool = null) {
   const userId = await getCurrentUserId();
   if (!userId) throw new Error('Nicht eingeloggt');
 
@@ -38,9 +38,26 @@ export async function addHabit(name, days) {
   if (!safeName) throw new Error('Name fehlt.');
   if (safeDays.length === 0) throw new Error('Keine Tage ausgewählt.');
 
+  const linkedToolPayload = linkedTool?.id && linkedTool?.title && linkedTool?.route
+    ? {
+        linked_tool_id: linkedTool.id,
+        linked_tool_title: linkedTool.title,
+        linked_tool_route: linkedTool.route,
+      }
+    : {
+        linked_tool_id: null,
+        linked_tool_title: null,
+        linked_tool_route: null,
+      };
+
   const { data, error } = await supabase
     .from('habits')
-    .insert({ user_id: userId, name: safeName, days: safeDays })
+    .insert({
+      user_id: userId,
+      name: safeName,
+      days: safeDays,
+      ...linkedToolPayload,
+    })
     .select()
     .single();
 

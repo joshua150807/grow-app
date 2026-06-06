@@ -26,6 +26,8 @@ const emptyStats = {
   totalViews: 0,
   totalSaves: 0,
   totalRatings: 0,
+  totalToolOpens: 0,
+  totalToolSeconds: 0,
   usedBetaCodes: 0,
   openBetaCodes: 0,
   totalBetaCodes: 0,
@@ -38,13 +40,16 @@ export default function AdminDashboardScreen() {
   const [statsError, setStatsError] = useState(null);
   const activeRequestRef = useRef(0);
   const isFocusedRef = useRef(false);
+  const hasLoadedOnceRef = useRef(false);
 
   const checkAccessAndLoadStats = useCallback(async () => {
     const requestId = activeRequestRef.current + 1;
     activeRequestRef.current = requestId;
 
     try {
-      setIsLoading(true);
+      if (!hasLoadedOnceRef.current) {
+        setIsLoading(true);
+      }
       setStatsError(null);
 
       const {
@@ -85,6 +90,7 @@ export default function AdminDashboardScreen() {
       if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
 
       setStats(overviewStats ?? emptyStats);
+      hasLoadedOnceRef.current = true;
     } catch (error) {
       console.log('Fehler beim Laden des CEO Dashboards:', error);
       if (isFocusedRef.current && requestId === activeRequestRef.current) {
@@ -100,7 +106,9 @@ export default function AdminDashboardScreen() {
   useFocusEffect(
     useCallback(() => {
       isFocusedRef.current = true;
-      checkAccessAndLoadStats();
+      if (!hasLoadedOnceRef.current) {
+        checkAccessAndLoadStats();
+      }
 
       return () => {
         isFocusedRef.current = false;
@@ -163,23 +171,20 @@ export default function AdminDashboardScreen() {
 
           <AdminStatCard
             icon="play-circle-outline"
-            label="Views"
+            label="Videos"
             value={formatNumber(stats.totalViews)}
+            subLabel={`${formatNumber(stats.totalSaves)} Saves · ${formatNumber(
+              stats.totalRatings
+            )} Ratings`}
             onPress={() => router.push('/admin-video-analytics')}
           />
 
           <AdminStatCard
-            icon="bookmark-outline"
-            label="Saves"
-            value={formatNumber(stats.totalSaves)}
-            onPress={() => router.push('/admin-video-analytics')}
-          />
-
-          <AdminStatCard
-            icon="flame-outline"
-            label="Ratings"
-            value={formatNumber(stats.totalRatings)}
-            onPress={() => router.push('/admin-video-analytics')}
+            icon="construct-outline"
+            label="Tools"
+            value={formatNumber(stats.totalToolOpens)}
+            subLabel={`${formatDuration(stats.totalToolSeconds)} Nutzung`}
+            onPress={() => router.push('/admin-tool-analytics')}
           />
 
           <AdminStatCard
@@ -201,6 +206,8 @@ export default function AdminDashboardScreen() {
           <AdminInfoRow label="Video Views" value={stats.totalViews} />
           <AdminInfoRow label="Gespeicherte Videos" value={stats.totalSaves} />
           <AdminInfoRow label="Video Bewertungen" value={stats.totalRatings} />
+          <AdminInfoRow label="Tool Klicks" value={stats.totalToolOpens} />
+          <AdminInfoRow label="Tool Nutzungszeit" value={formatDuration(stats.totalToolSeconds)} />
           <AdminInfoRow
             label="Benutzte Beta Codes"
             value={`${stats.usedBetaCodes} von ${stats.totalBetaCodes}`}
@@ -217,6 +224,29 @@ function formatNumber(value) {
   }
 
   return value;
+}
+
+function formatDuration(totalSeconds) {
+  const seconds = Number(totalSeconds ?? 0);
+
+  if (!Number.isFinite(seconds) || seconds <= 0) {
+    return '0 Min';
+  }
+
+  const minutes = Math.round(seconds / 60);
+
+  if (minutes < 60) {
+    return `${minutes.toLocaleString('de-DE')} Min`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+
+  if (restMinutes === 0) {
+    return `${hours.toLocaleString('de-DE')} Std`;
+  }
+
+  return `${hours.toLocaleString('de-DE')} Std ${restMinutes} Min`;
 }
 
 const styles = StyleSheet.create({

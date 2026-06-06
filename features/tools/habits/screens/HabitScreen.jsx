@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -25,6 +25,7 @@ import { styles } from '../styles/habitStyles';
 import ToolStateCard from '../../../../components/ui/ToolStateCard';
 import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 import { HABITS_PAGE_BG } from '../../../../constants/toolAssets';
+import { tools } from '../../../../data/tools';
 
 export default function HabitsScreen() {
   const [selectedDay, setSelectedDay] = useState(getTodayIndex());
@@ -49,9 +50,15 @@ export default function HabitsScreen() {
   const [inputName, setInputName] = useState('');
   const [modalDays, setModalDays] = useState(new Set());
   const [allDays, setAllDays] = useState(false);
+  const [linkedTool, setLinkedTool] = useState(null);
   const [adding, setAdding] = useState(false);
   const [addError, setAddError] = useState(null);
   const showLoading = useDelayedLoading(loading);
+
+  const linkableTools = useMemo(
+    () => tools.filter((tool) => !tool.disabled && tool.route && tool.id !== 'habits'),
+    []
+  );
 
   const handleAdd = useCallback(async () => {
     if (!inputName.trim()) return;
@@ -63,20 +70,21 @@ export default function HabitsScreen() {
     setAdding(true);
 
     try {
-      await add(inputName.trim(), days);
+      await add(inputName.trim(), days, linkedTool);
       closeModal();
     } catch (e) {
       setAddError('Gewohnheit konnte nicht gespeichert werden. Bitte versuche es erneut.');
     } finally {
       setAdding(false);
     }
-  }, [inputName, modalDays, allDays, add]);
+  }, [inputName, modalDays, allDays, linkedTool, add]);
 
   const closeModal = () => {
     setModalVisible(false);
     setInputName('');
     setModalDays(new Set());
     setAllDays(false);
+    setLinkedTool(null);
     setAddError(null);
   };
 
@@ -95,6 +103,11 @@ export default function HabitsScreen() {
     setAllDays(next);
     setModalDays(next ? new Set(getAllDayIndexes()) : new Set());
   };
+
+  const handleOpenLinkedTool = useCallback((habit) => {
+    if (!habit?.linked_tool_route) return;
+    router.push(habit.linked_tool_route);
+  }, []);
 
   const canAdd = inputName.trim().length > 0 && (allDays || modalDays.size > 0);
 
@@ -192,6 +205,7 @@ export default function HabitsScreen() {
                 done={completedIds.has(habit.id)}
                 onToggle={toggle}
                 onDelete={remove}
+                onOpenLinkedTool={handleOpenLinkedTool}
               />
             ))}
           </View>
@@ -215,6 +229,10 @@ export default function HabitsScreen() {
         modalDays={modalDays}
         toggleModalDay={toggleModalDay}
         toggleAllDays={toggleAllDays}
+        linkedTool={linkedTool}
+        linkableTools={linkableTools}
+        onSelectLinkedTool={setLinkedTool}
+        onClearLinkedTool={() => setLinkedTool(null)}
         addError={addError}
         canAdd={canAdd}
         adding={adding}

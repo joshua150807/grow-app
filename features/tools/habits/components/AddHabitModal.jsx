@@ -25,6 +25,10 @@ export function AddHabitModal({
   modalDays,
   toggleModalDay,
   toggleAllDays,
+  linkedTool,
+  linkableTools,
+  onSelectLinkedTool,
+  onClearLinkedTool,
   addError,
   canAdd,
   adding,
@@ -47,69 +51,111 @@ export function AddHabitModal({
             >
               <Text style={styles.sheetTitle}>Neue Gewohnheit</Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Name der Gewohnheit"
-              placeholderTextColor={COLORS.textDim}
-              value={inputName}
-              onChangeText={setInputName}
-              autoFocus
-              returnKeyType="done"
-            />
+              <TextInput
+                style={styles.input}
+                placeholder="Name der Gewohnheit"
+                placeholderTextColor={COLORS.textDim}
+                value={inputName}
+                onChangeText={setInputName}
+                autoFocus
+                returnKeyType="done"
+              />
 
-            <Text style={styles.dayLabel}>An welchen Tagen?</Text>
+              <Text style={styles.dayLabel}>An welchen Tagen?</Text>
 
-            <View style={styles.modalDayRow}>
-              {DAYS.map((day, index) => {
-                const active = allDays || modalDays.has(index);
+              <View style={styles.modalDayRow}>
+                {DAYS.map((day, index) => {
+                  const active = allDays || modalDays.has(index);
 
-                return (
-                  <Pressable
-                    key={day}
-                    style={[styles.modalDayBtn, active && styles.modalDayBtnActive]}
-                    onPress={() => toggleModalDay(index)}
-                  >
-                    <Text style={[styles.modalDayText, active && styles.modalDayTextActive]}>
-                      {day}
+                  return (
+                    <Pressable
+                      key={day}
+                      style={[styles.modalDayBtn, active && styles.modalDayBtnActive]}
+                      onPress={() => toggleModalDay(index)}
+                    >
+                      <Text style={[styles.modalDayText, active && styles.modalDayTextActive]}>
+                        {day}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Pressable style={styles.allDaysRow} onPress={toggleAllDays}>
+                <View style={[styles.checkboxSmall, allDays && styles.checkboxSmallDone]}>
+                  {allDays && (
+                    <Ionicons name="checkmark" size={s(11)} color={COLORS.black} />
+                  )}
+                </View>
+                <Text style={styles.allDaysText}>An allen Tagen</Text>
+              </Pressable>
+
+              <Text style={styles.dayLabel}>Optional mit Tool verknüpfen</Text>
+
+              {linkedTool ? (
+                <View style={styles.selectedToolBox}>
+                  <View style={styles.selectedToolTextWrap}>
+                    <Text style={styles.selectedToolLabel}>Verknüpft mit</Text>
+                    <Text style={styles.selectedToolTitle} numberOfLines={1}>
+                      {linkedTool.title}
                     </Text>
+                  </View>
+
+                  <Pressable style={styles.clearToolBtn} onPress={onClearLinkedTool} hitSlop={s(8)}>
+                    <Ionicons name="close" size={s(16)} color={COLORS.textSecondary} />
                   </Pressable>
-                );
-              })}
-            </View>
+                </View>
+              ) : (
+                <Text style={styles.linkHint}>
+                  Wähle z.B. Deep Work, wenn diese Gewohnheit direkt zu einem Tool führen soll.
+                </Text>
+              )}
 
-            <Pressable style={styles.allDaysRow} onPress={toggleAllDays}>
-              <View style={[styles.checkboxSmall, allDays && styles.checkboxSmallDone]}>
-                {allDays && (
-                  <Ionicons name="checkmark" size={s(11)} color={COLORS.black} />
-                )}
+              <View style={styles.toolPickerGrid}>
+                {linkableTools.map((tool) => {
+                  const active = linkedTool?.id === tool.id;
+
+                  return (
+                    <Pressable
+                      key={tool.id}
+                      style={[styles.toolOption, active && styles.toolOptionActive]}
+                      onPress={() => onSelectLinkedTool(tool)}
+                    >
+                      <Text
+                        style={[styles.toolOptionText, active && styles.toolOptionTextActive]}
+                        numberOfLines={1}
+                      >
+                        {tool.title}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
               </View>
-              <Text style={styles.allDaysText}>An allen Tagen</Text>
-            </Pressable>
 
-            {addError && (
-              <View style={styles.modalErrorRow}>
-                <Ionicons name="alert-circle-outline" size={s(15)} color="#FF6B6B" />
-                <Text style={styles.modalErrorText}>{addError}</Text>
+              {addError && (
+                <View style={styles.modalErrorRow}>
+                  <Ionicons name="alert-circle-outline" size={s(15)} color="#FF6B6B" />
+                  <Text style={styles.modalErrorText}>{addError}</Text>
+                </View>
+              )}
+
+              <View style={styles.modalButtons}>
+                <Pressable style={styles.cancelBtn} onPress={onClose}>
+                  <Text style={styles.cancelBtnText}>Abbrechen</Text>
+                </Pressable>
+
+                <Pressable
+                  style={[styles.confirmBtn, (!canAdd || adding) && styles.confirmBtnDisabled]}
+                  onPress={onAdd}
+                  disabled={!canAdd || adding}
+                >
+                  {adding ? (
+                    <ActivityIndicator color={COLORS.black} />
+                  ) : (
+                    <Text style={styles.confirmBtnText}>Hinzufügen</Text>
+                  )}
+                </Pressable>
               </View>
-            )}
-
-            <View style={styles.modalButtons}>
-              <Pressable style={styles.cancelBtn} onPress={onClose}>
-                <Text style={styles.cancelBtnText}>Abbrechen</Text>
-              </Pressable>
-
-              <Pressable
-                style={[styles.confirmBtn, (!canAdd || adding) && styles.confirmBtnDisabled]}
-                onPress={onAdd}
-                disabled={!canAdd || adding}
-              >
-                {adding ? (
-                  <ActivityIndicator color={COLORS.black} />
-                ) : (
-                  <Text style={styles.confirmBtnText}>Hinzufügen</Text>
-                )}
-              </Pressable>
-            </View>
             </ScrollView>
           </Pressable>
         </Pressable>
@@ -223,6 +269,75 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: sf(13),
     fontWeight: '700',
+  },
+  selectedToolBox: {
+    minHeight: sv(48),
+    borderRadius: s(14),
+    borderWidth: 1,
+    borderColor: 'rgba(212,175,55,0.42)',
+    backgroundColor: 'rgba(212,175,55,0.08)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: s(12),
+    gap: s(10),
+  },
+  selectedToolTextWrap: {
+    flex: 1,
+  },
+  selectedToolLabel: {
+    color: COLORS.textDim,
+    fontSize: sf(11),
+    fontWeight: '700',
+    marginBottom: sv(2),
+  },
+  selectedToolTitle: {
+    color: COLORS.paleGold,
+    fontSize: sf(14),
+    fontWeight: '900',
+  },
+  clearToolBtn: {
+    width: s(30),
+    height: s(30),
+    borderRadius: s(15),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  linkHint: {
+    color: COLORS.textDim,
+    fontSize: sf(12),
+    fontWeight: '600',
+    lineHeight: sf(17),
+  },
+  toolPickerGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: s(8),
+    marginTop: sv(10),
+  },
+  toolOption: {
+    maxWidth: '48%',
+    minHeight: sv(36),
+    borderRadius: s(11),
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(10,10,12,0.76)',
+    paddingHorizontal: s(11),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolOptionActive: {
+    borderColor: COLORS.gold,
+    backgroundColor: COLORS.gold,
+  },
+  toolOptionText: {
+    color: COLORS.textSecondary,
+    fontSize: sf(12),
+    fontWeight: '800',
+  },
+  toolOptionTextActive: {
+    color: COLORS.black,
   },
   modalErrorRow: {
     flexDirection: 'row',

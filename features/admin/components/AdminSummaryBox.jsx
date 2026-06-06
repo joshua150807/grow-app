@@ -6,13 +6,17 @@ import { s, sv, sf } from '../../../constants/layout';
 export default function AdminSummaryBox({ label, value }) {
   return (
     <View style={styles.summaryBox}>
-      <Text style={styles.summaryValue}>{formatNumber(value)}</Text>
+      <Text style={styles.summaryValue} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.75}>{formatNumber(value)}</Text>
       <Text style={styles.summaryLabel}>{label}</Text>
     </View>
   );
 }
 
 function formatNumber(value) {
+  if (typeof value === 'string') {
+    return value;
+  }
+
   return Number(value ?? 0).toLocaleString('de-DE');
 }
 
@@ -27,8 +31,9 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     color: COLORS.white,
-    fontSize: sf(25),
+    fontSize: sf(23),
     fontWeight: '900',
+    lineHeight: sf(27),
   },
   summaryLabel: {
     color: COLORS.textSecondary,

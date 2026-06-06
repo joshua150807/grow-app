@@ -18,8 +18,10 @@ export async function loadAdminVideoAnalytics(limit = 100) {
     savesCount: Number(item.saves_count ?? 0),
     ratingsCount: Number(item.ratings_count ?? 0),
     thumbsDownCount: Number(item.thumbs_down_count ?? 0),
+    negativeCount: Number(item.thumbs_down_count ?? 0),
     neutralCount: Number(item.neutral_count ?? 0),
     thumbsUpCount: Number(item.thumbs_up_count ?? 0),
+    goodCount: Number(item.thumbs_up_count ?? 0),
     fireCount: Number(item.fire_count ?? 0),
     score: Number(item.score ?? 0),
   }));

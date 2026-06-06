@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
+  FlatList,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -120,15 +121,120 @@ export default function AdminVideoAnalyticsScreen() {
     );
   }, [videos]);
 
+  const changeSortMode = useCallback((nextSortMode) => {
+    setSortMode((currentSortMode) => {
+      if (currentSortMode === nextSortMode) return currentSortMode;
+      return nextSortMode;
+    });
+  }, []);
+
+  const renderHeader = useCallback(() => (
+    <>
+      <View style={styles.header}>
+        <Pressable style={styles.backButton} onPress={() => router.back()}>
+          <Feather name="chevron-left" size={s(24)} color={COLORS.softGold} />
+        </Pressable>
+
+        <View style={styles.headerTextBox}>
+          <Text style={styles.topLabel}>GROW INTERNAL</Text>
+          <Text style={styles.title}>Video Analytics</Text>
+          <Text style={styles.subtitle}>
+            Auswertung von Views, Saves und Bewertungen pro Video.
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.summaryGrid}>
+        <AdminSummaryBox label="Videos" value={videos.length} />
+        <AdminSummaryBox label="Views" value={summary.views} />
+        <AdminSummaryBox label="Saves" value={summary.saves} />
+        <AdminSummaryBox label="Ratings" value={summary.ratings} />
+      </View>
+
+      <View style={styles.sortSection}>
+        <Text style={styles.sortTitle}>Sortieren nach</Text>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.sortRow}>
+            <AdminFilterChip
+              label="Views"
+              active={sortMode === 'views'}
+              onPress={() => changeSortMode('views')}
+            />
+            <AdminFilterChip
+              label="Saves"
+              active={sortMode === 'saves'}
+              onPress={() => changeSortMode('saves')}
+            />
+            <AdminFilterChip
+              label="Ratings"
+              active={sortMode === 'ratings'}
+              onPress={() => changeSortMode('ratings')}
+            />
+            <AdminFilterChip
+              label="Score"
+              active={sortMode === 'score'}
+              onPress={() => changeSortMode('score')}
+            />
+            <AdminFilterChip
+              label="Meiste 👎"
+              active={sortMode === 'bad'}
+              onPress={() => changeSortMode('bad')}
+            />
+          </View>
+        </ScrollView>
+      </View>
+
+      {errorText && (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{errorText}</Text>
+
+          <Pressable onPress={() => loadVideos()}>
+            <Text style={styles.retryText}>Erneut laden</Text>
+          </Pressable>
+        </View>
+      )}
+    </>
+  ), [changeSortMode, errorText, loadVideos, sortMode, summary.ratings, summary.saves, summary.views, videos.length]);
+
+  const renderVideo = useCallback(({ item }) => (
+    <AdminVideoAnalyticsCard video={item} />
+  ), []);
+
+  const keyExtractor = useCallback((item, index) => {
+    return String(item.id ?? item.videoId ?? item.videoUrl ?? `video-${index}`);
+  }, []);
+
+  const renderEmptyState = useCallback(() => {
+    if (errorText) return null;
+
+    return (
+      <AdminEmptyState
+        icon="inbox"
+        title="Noch keine Videos"
+        text="Sobald Videos Views, Saves oder Ratings haben, erscheinen sie hier."
+      />
+    );
+  }, [errorText]);
+
   if (isLoading) {
-    return <AdminLoadingState text="Video Analytics werden geladen..." />
+    return <AdminLoadingState text="Video Analytics werden geladen..." />;
   }
 
   return (
     <View style={styles.screen}>
-      <ScrollView
+      <FlatList
+        data={errorText ? [] : sortedVideos}
+        keyExtractor={keyExtractor}
+        renderItem={renderVideo}
+        ListHeaderComponent={renderHeader}
+        ListEmptyComponent={renderEmptyState}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}
+        initialNumToRender={8}
+        maxToRenderPerBatch={8}
+        windowSize={7}
+        removeClippedSubviews
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -136,86 +242,7 @@ export default function AdminVideoAnalyticsScreen() {
             tintColor={COLORS.softGold}
           />
         }
-      >
-        <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Feather name="chevron-left" size={s(24)} color={COLORS.softGold} />
-          </Pressable>
-
-          <View style={styles.headerTextBox}>
-            <Text style={styles.topLabel}>GROW INTERNAL</Text>
-            <Text style={styles.title}>Video Analytics</Text>
-            <Text style={styles.subtitle}>
-              Auswertung von Views, Saves und Bewertungen pro Video.
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.summaryGrid}>
-          <AdminSummaryBox label="Videos" value={videos.length} />
-          <AdminSummaryBox label="Views" value={summary.views} />
-          <AdminSummaryBox label="Saves" value={summary.saves} />
-          <AdminSummaryBox label="Ratings" value={summary.ratings} />
-        </View>
-
-        <View style={styles.sortSection}>
-          <Text style={styles.sortTitle}>Sortieren nach</Text>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.sortRow}>
-              <AdminFilterChip
-                label="Views"
-                active={sortMode === 'views'}
-                onPress={() => setSortMode('views')}
-              />
-              <AdminFilterChip
-                label="Saves"
-                active={sortMode === 'saves'}
-                onPress={() => setSortMode('saves')}
-              />
-              <AdminFilterChip
-                label="Ratings"
-                active={sortMode === 'ratings'}
-                onPress={() => setSortMode('ratings')}
-              />
-              <AdminFilterChip
-                label="Score"
-                active={sortMode === 'score'}
-                onPress={() => setSortMode('score')}
-              />
-              <AdminFilterChip
-                label="Meiste 👎"
-                active={sortMode === 'bad'}
-                onPress={() => setSortMode('bad')}
-              />
-            </View>
-          </ScrollView>
-        </View>
-
-        {errorText && (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{errorText}</Text>
-
-            <Pressable onPress={() => loadVideos()}>
-              <Text style={styles.retryText}>Erneut laden</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {!errorText && sortedVideos.length === 0 && (
-          <AdminEmptyState
-            icon="inbox"
-            title="Noch keine Videos"
-            text="Sobald Videos Views, Saves oder Ratings haben, erscheinen sie hier."
-          />
-        )}
-
-
-        {!errorText &&
-          sortedVideos.map((video) => (
-            <AdminVideoAnalyticsCard key={video.id} video={video} />
-          ))}
-      </ScrollView>
+      />
     </View>
   );
 }
