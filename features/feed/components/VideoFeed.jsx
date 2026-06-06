@@ -46,6 +46,7 @@ export default function VideoFeed({
   const isFocused = useIsFocused();
   const flatListRef = useRef(null);
   const currentIndexRef = useRef(initialIndex);
+  const isFeedScrollEnabledRef = useRef(true);
   const dragStartOffsetY = useRef(0);
   const isFirstFocus = useRef(true);
   const videoReadyFallbackTimerRef = useRef(null);
@@ -68,6 +69,19 @@ export default function VideoFeed({
       scrollFrameRef.current = null;
     }
   }, []);
+
+  const setFeedScrollEnabledSafely = useCallback((nextValue) => {
+    isFeedScrollEnabledRef.current = nextValue;
+    setIsFeedScrollEnabled(nextValue);
+  }, []);
+
+  const disableFeedScroll = useCallback(() => {
+    setFeedScrollEnabledSafely(false);
+  }, [setFeedScrollEnabledSafely]);
+
+  const enableFeedScroll = useCallback(() => {
+    setFeedScrollEnabledSafely(true);
+  }, [setFeedScrollEnabledSafely]);
 
   const scrollToIndex = useCallback(
     (index, animated = false) => {
@@ -330,11 +344,20 @@ export default function VideoFeed({
   );
 
   const handleScrollBeginDrag = useCallback((event) => {
+    if (!isFeedScrollEnabledRef.current) {
+      return;
+    }
+
     dragStartOffsetY.current = event.nativeEvent.contentOffset.y;
   }, []);
 
   const handleScrollEndDrag = useCallback(
     (event) => {
+      if (!isFeedScrollEnabledRef.current) {
+        scrollToIndex(currentIndexRef.current, true);
+        return;
+      }
+
       const endOffsetY = event.nativeEvent.contentOffset.y;
       const dragDelta = endOffsetY - dragStartOffsetY.current;
       const velocityY = event.nativeEvent.velocity?.y ?? 0;
@@ -389,8 +412,10 @@ export default function VideoFeed({
         isMuted={isMuted}
         setIsMuted={setIsMuted}
         onToggleSaved={() => handleToggleSaved(item.id)}
-        onScrubStart={() => setIsFeedScrollEnabled(false)}
-        onScrubEnd={() => setIsFeedScrollEnabled(true)}
+        onScrubStart={disableFeedScroll}
+        onScrubEnd={enableFeedScroll}
+        onRatingDragStart={disableFeedScroll}
+        onRatingDragEnd={enableFeedScroll}
         onVideoReady={
           index === currentIndexRef.current
             ? handleInitialVideoReady
@@ -400,6 +425,8 @@ export default function VideoFeed({
     ),
     [
       activeVideoId,
+      disableFeedScroll,
+      enableFeedScroll,
       handleInitialVideoReady,
       handleToggleSaved,
       isAppActive,

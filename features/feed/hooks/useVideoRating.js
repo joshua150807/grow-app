@@ -57,14 +57,15 @@ export function useVideoRating({ userId, videoId, isActive }) {
       if (!userId || !videoId || loading) return;
 
       const previousRating = activeRating;
+      const shouldClearRating = ratingKey === null;
       const shouldRemoveRating = previousRating === ratingKey;
-      const nextRating = shouldRemoveRating ? null : ratingKey;
+      const nextRating = shouldClearRating || shouldRemoveRating ? null : ratingKey;
 
       setActiveRating(nextRating);
       setLoading(true);
 
       try {
-        if (shouldRemoveRating) {
+        if (shouldClearRating || shouldRemoveRating) {
           await deleteRating(userId, videoId);
         } else {
           await upsertRating(userId, videoId, ratingKey);

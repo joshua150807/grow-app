@@ -3,7 +3,9 @@ import { getActiveVideos } from '../../features/feed/services/videos';
 import { useOnboarding } from '../../features/onboarding/context/OnboardingContext';
 
 export default function FeedScreen() {
-  const { isTourActive } = useOnboarding();
+  const { isTourActive, isPromptVisible } = useOnboarding();
+
+  const shouldPauseFeed = isTourActive || isPromptVisible;
 
   return (
     <VideoFeed
@@ -12,7 +14,7 @@ export default function FeedScreen() {
       emptyText="Aktuell sind keine aktiven Videos verfügbar."
       errorMessage="Videos konnten nicht geladen werden."
       syncSavedStateOnFocus
-      isDisabled={isTourActive}
+      isDisabled={shouldPauseFeed}
     />
   );
 }

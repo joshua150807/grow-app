@@ -27,6 +27,8 @@ export default function FeedItem({
   onVideoReady,
   onScrubStart,
   onScrubEnd,
+  onRatingDragStart,
+  onRatingDragEnd,
   isInteractionDisabled = false,
 }) {
   const [isHolding, setIsHolding] = useState(false);
@@ -229,6 +231,8 @@ export default function FeedItem({
           showPointReward={showPointReward}
           activeRating={activeRating}
           onRate={rate}
+          onRatingDragStart={onRatingDragStart}
+          onRatingDragEnd={onRatingDragEnd}
           onResume={() => setIsPausedByUser(false)}
           onMuteAndResume={() => {
             setIsMuted((prev) => !prev);

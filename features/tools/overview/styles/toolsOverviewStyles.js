@@ -83,6 +83,7 @@ export const styles = StyleSheet.create({
   rightHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    transform: [{ translateY: -sv(8) }],
   },
 
   pointsBox: {

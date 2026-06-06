@@ -24,7 +24,7 @@ import RootErrorBoundary from '../components/system/RootErrorBoundary';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const AuthContext = createContext(null);
-const STARTUP_LOGO = require('../assets/images/grow-loading.webp');
+const STARTUP_LOGO = require('../assets/images/grow-loading.png');
 
 export function useAuth() {
   return useContext(AuthContext);

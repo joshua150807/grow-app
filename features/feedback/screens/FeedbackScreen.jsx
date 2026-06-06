@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Text,
   StyleSheet,
   ScrollView,
+  View,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,9 +17,30 @@ import FeedbackInfoCards from '../components/FeedbackInfoCards';
 import FeedbackSendButton from '../components/FeedbackSendButton';
 import { useFeedbackForm } from '../hooks/useFeedbackForm';
 import { COLORS } from '../../../constants/colors';
+import { preloadFeedbackImageAssets } from '../../../constants/toolAssets';
 import { s, sv, sf } from '../../../constants/layout';
  
 export default function FeedbackScreen() {
+  const [feedbackAssetsReady, setFeedbackAssetsReady] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    preloadFeedbackImageAssets()
+      .catch((err) => {
+        console.warn('Feedback image preloading failed', err);
+      })
+      .finally(() => {
+        if (mounted) {
+          setFeedbackAssetsReady(true);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const {
     selectedType,
     setSelectedType,
@@ -36,6 +59,17 @@ export default function FeedbackScreen() {
     clearStatus,
   } = useFeedbackForm();
  
+  if (!feedbackAssetsReady) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator color={COLORS.gold} />
+          <Text style={styles.loadingText}>Feedback wird geladen...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -117,6 +151,19 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.backgroundDeep,
+  },
+  loadingWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: s(24),
+  },
+  loadingText: {
+    color: COLORS.textDim,
+    fontSize: sf(13),
+    fontWeight: '600',
+    marginTop: sv(12),
+    textAlign: 'center',
   },
   content: {
     paddingHorizontal: s(20),

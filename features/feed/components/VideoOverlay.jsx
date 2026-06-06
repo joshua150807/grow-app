@@ -1,12 +1,11 @@
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
+
 import { COLORS } from '../../../constants/colors';
 import { s, sv, sf, SCREEN } from '../../../constants/layout';
-import { RATINGS } from '../hooks/useVideoRating';
 import TourTarget from '../../onboarding/components/TourTarget';
- 
-const { height } = Dimensions.get('window');
- 
+import VideoRatingSlider from './VideoRatingSlider';
+
 export default function VideoOverlay({
   saved = false,
   onToggleSaved = () => {},
@@ -17,33 +16,31 @@ export default function VideoOverlay({
   showPointReward = false,
   activeRating = null,
   onRate = () => {},
+  onRatingDragStart = () => {},
+  onRatingDragEnd = () => {},
   isActive = false,
 }) {
+  const handleClearRating = () => {
+    onRate(null);
+  };
+
   return (
     <View style={styles.container} pointerEvents="box-none">
       <Text style={styles.logo}>GROW</Text>
- 
+
       <View style={styles.rightSide} pointerEvents="box-none">
         <TourTarget
           id={isActive ? 'feed-actions' : null}
           style={styles.actionsTarget}
           pointerEvents="box-none"
         >
-          {RATINGS.map(({ key, emoji }) => {
-            const isActiveRating = activeRating === key;
-            return (
-              <TouchableOpacity
-                key={key}
-                style={[styles.circle, isActiveRating && styles.circleActive]}
-                activeOpacity={0.75}
-                onPress={() => onRate(key)}
-              >
-                <Text style={[styles.emoji, isActiveRating && styles.emojiActive]}>
-                  {emoji}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+          <VideoRatingSlider
+            currentRating={activeRating}
+            onRatingSubmit={onRate}
+            onRatingClear={handleClearRating}
+            onDragStart={onRatingDragStart}
+            onDragEnd={onRatingDragEnd}
+          />
 
           <TouchableOpacity
             style={styles.saveButton}
@@ -65,7 +62,7 @@ export default function VideoOverlay({
           )}
         </TourTarget>
       </View>
- 
+
       {isPaused && (
         <View style={styles.pauseOverlay} pointerEvents="box-none">
           <TouchableOpacity
@@ -79,7 +76,7 @@ export default function VideoOverlay({
               color={COLORS.white}
             />
           </TouchableOpacity>
- 
+
           <TouchableOpacity
             style={styles.playButton}
             onPress={onResume}
@@ -92,11 +89,12 @@ export default function VideoOverlay({
     </View>
   );
 }
- 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+
   logo: {
     position: 'absolute',
     top: sv(58),
@@ -109,50 +107,28 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 8,
   },
+
   rightSide: {
     position: 'absolute',
     right: s(10),
-    top: SCREEN.height * 0.38,
+    top: SCREEN.height * 0.32,
     alignItems: 'center',
+    transform: [{ translateY: -sv(90) }]
   },
+
   actionsTarget: {
     alignItems: 'center',
   },
-  circle: {
-    width: s(34),
-    height: s(34),
-    borderRadius: s(17),
-    borderWidth: 1.5,
-    borderColor: COLORS.gold,
-    marginBottom: sv(10),
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.35)',
-  },
-  circleActive: {
-    backgroundColor: 'rgba(212,175,55,0.25)',
-    borderColor: COLORS.softGold,
-    shadowColor: COLORS.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: s(8),
-    elevation: 6,
-  },
-  emoji: {
-    fontSize: sf(14),
-    opacity: 0.6,
-  },
-  emojiActive: {
-    opacity: 1,
-    transform: [{ scale: 1.15 }],
-  },
+
   saveButton: {
-    marginTop: sv(20),
+    marginTop: sv(36),
     width: s(42),
     height: s(42),
     justifyContent: 'center',
     alignItems: 'center',
+    transform: [{ translateX: s(2) }]
   },
+
   pauseOverlay: {
     position: 'absolute',
     top: '50%',
@@ -161,6 +137,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     transform: [{ translateY: -sv(72) }],
   },
+
   muteResumeButton: {
     width: s(46),
     height: s(46),
@@ -170,6 +147,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
+
   playButton: {
     width: s(72),
     height: s(72),
@@ -179,6 +157,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.45)',
     paddingLeft: s(4),
   },
+
   pointBubble: {
     marginTop: sv(8),
     width: s(30),
@@ -193,6 +172,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
+
   pointBubbleText: {
     color: COLORS.nearBlack,
     fontSize: sf(11),

@@ -14,6 +14,7 @@ export const TOOL_IMAGES = {
 };
 
 export const MENTOR_BG = require('../assets/tool-icons/mentor-bg.webp');
+export const GROW_COIN = require('../assets/images/grow_coin.webp');
 export const TRACKER_BG = require('../assets/tool-icons/active-tracker-bg.webp');
 export const TODO_PAGE_BG = require('../assets/tool-icons/backgrounds/todo-page-bg.webp');
 export const TRAINING_PAGE_BG = require('../assets/tool-icons/backgrounds/training-page-bg.webp');
@@ -25,12 +26,26 @@ export const AFFIRMATIONS_PAGE_BG = require('../assets/tool-icons/backgrounds/af
 export const RECOMMENDATIONS_PAGE_BG = require('../assets/tool-icons/backgrounds/recommendations-page-bg.webp');
 export const NOTES_PAGE_BG = require('../assets/tool-icons/backgrounds/notes-page-bg.webp');
 export const JOURNAL_PAGE_BG = require('../assets/tool-icons/backgrounds/journal-page-bg.webp')
-export const GROW_COIN = require('../assets/images/grow_coin.webp');
 
 export const STARTUP_IMAGE_ASSETS = [
   ...Object.values(TOOL_IMAGES),
   MENTOR_BG,
   TRACKER_BG,
+];
+
+
+export const FEEDBACK_IMAGE_ASSETS = [
+  require('../assets/feedback/feedback-hero.webp'),
+  require('../assets/feedback/feedback-card-idea.webp'),
+  require('../assets/feedback/feedback-card-bug.webp'),
+  require('../assets/feedback/feedback-card-praise.webp'),
+  require('../assets/feedback/feedback-large-field.webp'),
+  require('../assets/feedback/feedback-importance-circle.webp'),
+  require('../assets/feedback/feedback-upload-field.webp'),
+  require('../assets/feedback/feedback-info-opinion.webp'),
+  require('../assets/feedback/feedback-info-growth.webp'),
+  require('../assets/feedback/feedback-info-points.webp'),
+  require('../assets/feedback/feedback-send-button.webp'),
 ];
 
 export const TOOL_PAGE_BACKGROUND_ASSETS = [
@@ -47,6 +62,7 @@ export const TOOL_PAGE_BACKGROUND_ASSETS = [
 ];  
 
 let toolPageBackgroundsPreloaded = false;
+let feedbackImagesPreloaded = false;
 
 export async function preloadStartupImageAssets() {
   await Asset.loadAsync(STARTUP_IMAGE_ASSETS);
@@ -61,6 +77,20 @@ export async function preloadToolPageBackgroundAssets() {
     await Asset.loadAsync(TOOL_PAGE_BACKGROUND_ASSETS);
   } catch (err) {
     toolPageBackgroundsPreloaded = false;
+    throw err;
+  }
+}
+
+
+export async function preloadFeedbackImageAssets() {
+  if (feedbackImagesPreloaded) return;
+
+  feedbackImagesPreloaded = true;
+
+  try {
+    await Asset.loadAsync(FEEDBACK_IMAGE_ASSETS);
+  } catch (err) {
+    feedbackImagesPreloaded = false;
     throw err;
   }
 }
