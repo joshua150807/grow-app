@@ -25,6 +25,7 @@ export const AFFIRMATIONS_PAGE_BG = require('../assets/tool-icons/backgrounds/af
 export const RECOMMENDATIONS_PAGE_BG = require('../assets/tool-icons/backgrounds/recommendations-page-bg.webp');
 export const NOTES_PAGE_BG = require('../assets/tool-icons/backgrounds/notes-page-bg.webp');
 export const JOURNAL_PAGE_BG = require('../assets/tool-icons/backgrounds/journal-page-bg.webp')
+export const GROW_COIN = require('../assets/images/grow_coin.webp');
 
 export const STARTUP_IMAGE_ASSETS = [
   ...Object.values(TOOL_IMAGES),
