@@ -248,6 +248,28 @@ export async function fetchTrainingPlan() {
 }
 
 
+async function deleteTrainingDays(dayIds) {
+  const cleanDayIds = Array.isArray(dayIds)
+    ? dayIds.filter(Boolean)
+    : [];
+
+  if (cleanDayIds.length === 0) return;
+
+  const { error: deleteExercisesError } = await supabase
+    .from('training_exercises')
+    .delete()
+    .in('day_id', cleanDayIds);
+
+  if (deleteExercisesError) throw deleteExercisesError;
+
+  const { error: deleteDaysError } = await supabase
+    .from('training_days')
+    .delete()
+    .in('id', cleanDayIds);
+
+  if (deleteDaysError) throw deleteDaysError;
+}
+
 async function deletePlanTree(planId, userId) {
   if (!planId || !userId) return;
 
@@ -258,23 +280,7 @@ async function deletePlanTree(planId, userId) {
 
   if (existingDaysError) throw existingDaysError;
 
-  const existingDayIds = (existingDays || []).map((day) => day.id);
-
-  if (existingDayIds.length > 0) {
-    const { error: deleteExercisesError } = await supabase
-      .from('training_exercises')
-      .delete()
-      .in('day_id', existingDayIds);
-
-    if (deleteExercisesError) throw deleteExercisesError;
-
-    const { error: deleteDaysError } = await supabase
-      .from('training_days')
-      .delete()
-      .eq('plan_id', planId);
-
-    if (deleteDaysError) throw deleteDaysError;
-  }
+  await deleteTrainingDays((existingDays || []).map((day) => day.id));
 
   const { error: deletePlanError } = await supabase
     .from('training_plans')
@@ -309,15 +315,9 @@ export async function createTrainingPlan(planName, daysData) {
     exerciseCount: cleanDaysData.reduce((sum, day) => sum + day.exercises.length, 0),
   });
 
-  // Erst validieren. Danach erstellen wir den neuen Plan vollständig,
-  // bevor der bestehende Plan entfernt wird. So verliert der Nutzer bei
-  // Netzwerkfehlern oder App-Abbruch nicht seinen alten Trainingsplan.
   validateTrainingDays(cleanDaysData);
 
   if (requiresDayTypeColumn(cleanDaysData)) {
-    // Ohne day_type könnten Lauf-/Resttage nur als leere Gym-Tage gespeichert werden.
-    // Deshalb lassen wir Gym-Pläne auf alten Schemas weiterlaufen, blockieren aber
-    // neue Tagesarten mit einer klaren Fehlermeldung.
     const { error: schemaProbeError } = await supabase
       .from('training_days')
       .select('day_type')
@@ -339,6 +339,73 @@ export async function createTrainingPlan(planName, daysData) {
   if (existingPlanError) throw existingPlanError;
 
   const oldPlanIds = (existingPlans || []).map((existingPlan) => existingPlan.id);
+  const targetPlanId = oldPlanIds[0] || null;
+
+  async function insertPlanContent(planId) {
+    const createdDayIds = [];
+
+    try {
+      for (let i = 0; i < cleanDaysData.length; i++) {
+        const day = cleanDaysData[i];
+        const createdDay = await insertTrainingDay(planId, day);
+        createdDayIds.push(createdDay.id);
+
+        for (let j = 0; j < day.exercises.length; j++) {
+          const ex = day.exercises[j];
+
+          const { error: exError } = await supabase
+            .from('training_exercises')
+            .insert({
+              day_id: createdDay.id,
+              name: ex.name,
+              weight: ex.weight,
+              sets: ex.sets,
+              reps: ex.reps,
+              note: ex.note,
+            });
+
+          if (exError) throw exError;
+        }
+      }
+
+      return createdDayIds;
+    } catch (contentError) {
+      await deleteTrainingDays(createdDayIds);
+      throw contentError;
+    }
+  }
+
+  if (targetPlanId) {
+    const { data: oldDays, error: oldDaysError } = await supabase
+      .from('training_days')
+      .select('id')
+      .eq('plan_id', targetPlanId);
+
+    if (oldDaysError) throw oldDaysError;
+
+    const oldDayIds = (oldDays || []).map((day) => day.id);
+
+    const { data: updatedPlan, error: updatePlanError } = await supabase
+      .from('training_plans')
+      .update({ name: cleanPlanName })
+      .eq('id', targetPlanId)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (updatePlanError) throw updatePlanError;
+
+    await insertPlanContent(targetPlanId);
+    await deleteTrainingDays(oldDayIds);
+
+    for (const extraPlanId of oldPlanIds.slice(1)) {
+      await deletePlanTree(extraPlanId, userId);
+    }
+
+    console.log('[Training] createTrainingPlan success', { planId: updatedPlan.id });
+    return updatedPlan;
+  }
+
   let plan = null;
 
   try {
@@ -351,39 +418,12 @@ export async function createTrainingPlan(planName, daysData) {
     if (planError) throw planError;
     plan = createdPlan;
 
-    for (let i = 0; i < cleanDaysData.length; i++) {
-      const day = cleanDaysData[i];
-
-      const createdDay = await insertTrainingDay(plan.id, day);
-
-      for (let j = 0; j < day.exercises.length; j++) {
-        const ex = day.exercises[j];
-
-        const { error: exError } = await supabase
-          .from('training_exercises')
-          .insert({
-            day_id: createdDay.id,
-            name: ex.name,
-            weight: ex.weight,
-            sets: ex.sets,
-            reps: ex.reps,
-            note: ex.note,
-          });
-
-        if (exError) throw exError;
-      }
-    }
+    await insertPlanContent(plan.id);
   } catch (creationError) {
     if (plan?.id) {
       await cleanupCreatedPlan(plan.id, userId);
     }
     throw creationError;
-  }
-
-  for (const oldPlanId of oldPlanIds) {
-    if (oldPlanId !== plan.id) {
-      await deletePlanTree(oldPlanId, userId);
-    }
   }
 
   console.log('[Training] createTrainingPlan success', { planId: plan.id });

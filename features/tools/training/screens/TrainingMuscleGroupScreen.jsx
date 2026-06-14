@@ -28,6 +28,20 @@ export default function TrainingMuscleGroupScreen() {
     });
   };
 
+  const handleOpenGroupDescription = () => {
+    router.push({
+      pathname: '/tools/training-muscle-group-description',
+      params: { groupId },
+    });
+  };
+
+  const handleOpenGroupAnatomy = () => {
+    router.push({
+      pathname: '/tools/training-muscle-group-anatomy',
+      params: { groupId },
+    });
+  };
+
   if (!group) {
     return (
       <View style={styles.screen}>
@@ -76,20 +90,80 @@ export default function TrainingMuscleGroupScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.muscleExerciseHeader}>
-          <View style={styles.iconCircle}>
-            <Ionicons
-              name="barbell-outline"
-              size={s(34)}
-              color={COLORS.gold}
-            />
-          </View>
-
+        <View style={styles.muscleExerciseHeaderCompact}>
           <Text style={styles.title}>{group.label}</Text>
 
           <Text style={styles.muscleExerciseSubtitle}>
             {group.subtitle}
           </Text>
+        </View>
+
+        <View style={styles.muscleGroupInfoCardList}>
+          <Pressable
+            style={styles.exerciseDirectoryItem}
+            onPress={handleOpenGroupDescription}
+            hitSlop={4}
+            android_ripple={{ color: 'rgba(212,175,55,0.10)' }}
+          >
+            <View style={styles.exerciseDirectoryIcon}>
+              <Ionicons
+                name="document-text-outline"
+                size={s(24)}
+                color={COLORS.gold}
+              />
+            </View>
+
+            <View style={styles.exerciseDirectoryContent}>
+              <Text style={styles.exerciseDirectoryName}>
+                Beschreibung
+              </Text>
+
+              <Text style={styles.exerciseDirectoryCategory}>
+                Muskelgruppe allgemein erklärt
+              </Text>
+            </View>
+
+            <Ionicons
+              name="chevron-forward"
+              size={s(20)}
+              color={COLORS.textFaint}
+            />
+          </Pressable>
+
+          <Pressable
+            style={styles.exerciseDirectoryItem}
+            onPress={handleOpenGroupAnatomy}
+            hitSlop={4}
+            android_ripple={{ color: 'rgba(212,175,55,0.10)' }}
+          >
+            <View style={styles.exerciseDirectoryIcon}>
+              <Ionicons
+                name="body-outline"
+                size={s(24)}
+                color={COLORS.gold}
+              />
+            </View>
+
+            <View style={styles.exerciseDirectoryContent}>
+              <Text style={styles.exerciseDirectoryName}>
+                Anatomie
+              </Text>
+
+              <Text style={styles.exerciseDirectoryCategory}>
+                Aufbau und Funktion des Muskels
+              </Text>
+            </View>
+
+            <Ionicons
+              name="chevron-forward"
+              size={s(20)}
+              color={COLORS.textFaint}
+            />
+          </Pressable>
+        </View>
+
+        <View style={styles.exerciseSectionHeaderWrap}>
+          <Text style={styles.exerciseSectionTitle}>Übungen</Text>
         </View>
 
         <View style={styles.exerciseDirectoryList}>

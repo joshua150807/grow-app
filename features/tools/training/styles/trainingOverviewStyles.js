@@ -106,6 +106,12 @@ export const trainingOverviewStyles = {
     marginBottom: sv(24),
   },
 
+  muscleExerciseHeaderCompact: {
+    alignItems: 'center',
+    marginTop: sv(-10),
+    marginBottom: sv(20),
+  },
+
   muscleExerciseSubtitle: {
     color: COLORS.textDim,
     fontSize: sf(13),
@@ -113,6 +119,26 @@ export const trainingOverviewStyles = {
     marginTop: sv(8),
     lineHeight: sf(19),
     paddingHorizontal: s(8),
+  },
+
+  muscleGroupInfoCardList: {
+    gap: sv(0),
+    borderTopWidth: 1,
+    borderTopColor: COLORS.borderSubtle,
+  },
+
+  exerciseSectionHeaderWrap: {
+    alignItems: 'center',
+    marginTop: sv(28),
+    marginBottom: sv(12),
+  },
+
+  exerciseSectionTitle: {
+    color: COLORS.paleGold,
+    fontSize: sf(18),
+    fontWeight: '900',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
 
   exerciseDirectoryList: {
@@ -162,6 +188,12 @@ export const trainingOverviewStyles = {
   exerciseDetailHeader: {
     alignItems: 'center',
     marginBottom: sv(24),
+  },
+
+  exerciseDetailHeaderCompact: {
+    alignItems: 'center',
+    marginTop: sv(-10),
+    marginBottom: sv(22),
   },
 
   exerciseDetailCategory: {
@@ -241,4 +273,23 @@ export const trainingOverviewStyles = {
     lineHeight: sf(21),
     fontWeight: '500',
   },
+
+  muscleAnatomyImagePlaceholder: {
+    minHeight: sv(220),
+    borderRadius: s(22),
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    backgroundColor: 'rgba(212,175,55,0.065)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: sv(14),
+    gap: sv(10),
+  },
+
+  muscleAnatomyImageText: {
+    color: COLORS.textDim,
+    fontSize: sf(14),
+    fontWeight: '700',
+  },
+
 };
