@@ -1,23 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
- 
+
 import { supabase } from '../../services/supabaseClient';
 import { COLORS } from '../../constants/colors';
 import { s, sv, sf } from '../../constants/layout';
- 
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USERNAME_REGEX = /^[a-z0-9_\.]{3,24}$/;
+
 export default function RegisterScreen() {
   const [username, setUsername] = useState('');
+  const [recoveryEmail, setRecoveryEmail] = useState('');
   const [code, setCode] = useState('');
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
@@ -38,76 +45,74 @@ export default function RegisterScreen() {
       setErrorText(message);
     }
   }
- 
+
   async function handleRegister() {
     if (isSubmittingRef.current) return;
 
+    Keyboard.dismiss();
     showError('');
- 
+
     const cleanUsername = username.trim().toLowerCase();
+    const cleanRecoveryEmail = recoveryEmail.trim().toLowerCase();
     const cleanCode = code.trim().toUpperCase();
- 
-    if (!cleanUsername || !password || !password2 || !cleanCode) {
+
+    if (!cleanUsername || !cleanRecoveryEmail || !password || !password2 || !cleanCode) {
       showError('Bitte alle Felder ausfüllen.');
       return;
     }
- 
+
+    if (!USERNAME_REGEX.test(cleanUsername)) {
+      showError('Username: 3–24 Zeichen, nur Buchstaben, Zahlen, Punkt oder Unterstrich.');
+      return;
+    }
+
+    if (!EMAIL_REGEX.test(cleanRecoveryEmail)) {
+      showError('Bitte eine gültige Recovery-Mail eingeben.');
+      return;
+    }
+
     if (password !== password2) {
       showError('Passwörter stimmen nicht überein.');
       return;
     }
- 
-    if (cleanUsername.length < 3) {
-      showError('Username zu kurz.');
-      return;
-    }
- 
+
     try {
       isSubmittingRef.current = true;
       setLoading(true);
- 
-      // Beta Code prüfen
-      const { data: betaRow, error: betaError } = await supabase
-        .from('beta_access_codes')
-        .select('*')
-        .eq('code', cleanCode)
-        .is('used_by', null)
-        .single();
- 
-      if (betaError || !betaRow) {
-        showError('Ungültiger oder bereits genutzter Beta-Code.');
-        return;
-      }
- 
-      const email = `${cleanUsername}@growapp.com`;
- 
-      const { data: existingProfile, error: usernameError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('username', cleanUsername)
-        .maybeSingle();
- 
+
+      const { data: usernameAvailable, error: usernameError } = await supabase.rpc(
+        'is_username_available',
+        {
+          input_username: cleanUsername,
+        }
+      );
+
       if (usernameError) {
+        console.log('USERNAME CHECK ERROR:', usernameError);
         showError('Username konnte nicht geprüft werden.');
         return;
       }
- 
-      if (existingProfile) {
+
+      if (!usernameAvailable) {
         showError('Username ist bereits vergeben.');
         return;
       }
- 
-      // Auth Account erstellen
+
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: cleanRecoveryEmail,
         password,
+        options: {
+          data: {
+            username: cleanUsername,
+          },
+        },
       });
- 
+
       if (error || !data.user) {
         const message = error?.message?.toLowerCase() || '';
- 
+
         if (message.includes('already registered') || message.includes('already been registered')) {
-          showError('Username ist bereits vergeben.');
+          showError('Diese Recovery-Mail ist bereits für einen Account vergeben.');
         } else if (message.includes('password')) {
           showError('Passwort ist zu schwach oder zu kurz.');
         } else if (message.includes('rate limit')) {
@@ -115,38 +120,43 @@ export default function RegisterScreen() {
         } else {
           showError('Registrierung fehlgeschlagen. Bitte prüfe deine Eingaben.');
         }
- 
+
         return;
       }
- 
-      // Profil anlegen
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          username: cleanUsername,
-          grow_points: 0,
-        });
- 
-        if (profileError) {
+
+      const { error: profileError } = await supabase.from('profiles').insert({
+        id: data.user.id,
+        username: cleanUsername,
+        recovery_email: cleanRecoveryEmail,
+        grow_points: 0,
+      });
+
+      if (profileError) {
         console.log('PROFILE ERROR:', profileError);
-        showError(profileError.message);
+
+        if (profileError.code === '23505') {
+          showError('Username oder Recovery-Mail ist bereits vergeben.');
+        } else {
+          showError(profileError.message);
+        }
+
         return;
-        }
-        const { data: claimed, error: claimError } = await supabase.rpc(
-          'claim_beta_code',
-          {
-            input_code: cleanCode,
-            input_user_id: data.user.id,
-          }
-        );
- 
-        if (claimError || !claimed) {
-          showError('Beta-Code konnte nicht aktiviert werden.');
-          return;
-        }
+      }
+
+      const { data: claimed, error: claimError } = await supabase.rpc('claim_beta_code', {
+        input_code: cleanCode,
+        input_user_id: data.user.id,
+      });
+
+      if (claimError || !claimed) {
+        console.log('BETA CLAIM ERROR:', claimError);
+        showError('Ungültiger oder bereits genutzter Beta-Code.');
+        return;
+      }
+
       router.replace('/(tabs)');
     } catch (err) {
+      console.log('REGISTER ERROR:', err);
       showError('Registrierung fehlgeschlagen.');
     } finally {
       isSubmittingRef.current = false;
@@ -155,90 +165,141 @@ export default function RegisterScreen() {
       }
     }
   }
- 
+
   return (
     <KeyboardAvoidingView
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.card}>
-        <Text style={styles.logo}>Grow</Text>
-        <Text style={styles.subtitle}>Beta Zugang erstellen</Text>
- 
-        <TextInput
-          style={styles.input}
-          placeholder="Username"
-          placeholderTextColor={COLORS.mutedGold}
-          value={username}
-          onChangeText={setUsername}
-          autoCapitalize="none"
-        />
- 
-        <TextInput
-          style={styles.input}
-          placeholder="Beta Code"
-          placeholderTextColor={COLORS.mutedGold}
-          value={code}
-          onChangeText={setCode}
-        />
- 
-        <View style={styles.passwordWrap}>
-          <TextInput
-            style={styles.passwordInput}
-            placeholder="Passwort"
-            placeholderTextColor={COLORS.mutedGold}
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry={!showPassword}
-          />
-          <Pressable onPress={() => setShowPassword(!showPassword)}>
-            <Ionicons
-              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-              size={22}
-              color={COLORS.gold}
-            />
-          </Pressable>
-        </View>
- 
-        <TextInput
-          style={styles.input}
-          placeholder="Passwort wiederholen"
-          placeholderTextColor={COLORS.mutedGold}
-          value={password2}
-          onChangeText={setPassword2}
-          secureTextEntry={!showPassword}
-        />
- 
-        {!!errorText && <Text style={styles.error}>{errorText}</Text>}
- 
-        <Pressable
-          style={[styles.button, loading && { opacity: 0.7 }]}
-          onPress={handleRegister}
-          disabled={loading}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
-          {loading ? (
-            <ActivityIndicator color={COLORS.black} />
-          ) : (
-            <Text style={styles.buttonText}>Registrieren</Text>
-          )}
-        </Pressable>
- 
-        <Pressable onPress={() => router.push('/(auth)/login')}>
-          <Text style={styles.link}>
-            Bereits Account? <Text style={styles.gold}>Einloggen</Text>
-          </Text>
-        </Pressable>
-      </View>
+          <View style={styles.card}>
+            <Text style={styles.logo}>Grow</Text>
+            <Text style={styles.subtitle}>Beta Zugang erstellen</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Username"
+              placeholderTextColor={COLORS.textMuted}
+              value={username}
+              onChangeText={setUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="next"
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Recovery-Mail"
+              placeholderTextColor={COLORS.textMuted}
+              value={recoveryEmail}
+              onChangeText={setRecoveryEmail}
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="next"
+            />
+
+            <Text style={styles.helperText}>
+              Die Recovery-Mail ist nur für Passwort-Reset und Username-Hilfe. Einloggen bleibt per
+              Username.
+            </Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Beta Code"
+              placeholderTextColor={COLORS.textMuted}
+              value={code}
+              onChangeText={setCode}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              returnKeyType="next"
+            />
+
+            <View style={styles.passwordWrap}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Passwort"
+                placeholderTextColor={COLORS.textMuted}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+              />
+              <Pressable onPress={() => setShowPassword((current) => !current)} hitSlop={10}>
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={22}
+                  color={COLORS.gold}
+                />
+              </Pressable>
+            </View>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Passwort wiederholen"
+              placeholderTextColor={COLORS.textMuted}
+              value={password2}
+              onChangeText={setPassword2}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={handleRegister}
+            />
+
+            {!!errorText && <Text style={styles.error}>{errorText}</Text>}
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.button,
+                pressed && !loading && styles.buttonPressed,
+                loading && styles.buttonDisabled,
+              ]}
+              onPress={handleRegister}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={COLORS.black} />
+              ) : (
+                <Text style={styles.buttonText}>Registrieren</Text>
+              )}
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                Keyboard.dismiss();
+                router.push('/(auth)/login');
+              }}
+            >
+              <Text style={styles.link}>
+                Bereits Account? <Text style={styles.gold}>Einloggen</Text>
+              </Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 }
- 
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: COLORS.background,
+  },
+  content: {
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: s(24),
+    paddingVertical: sv(28),
   },
   card: {
     backgroundColor: COLORS.darkCard,
@@ -254,8 +315,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    color: COLORS.mutedLilac,
+    color: COLORS.textPrimary,
     textAlign: 'center',
+    fontSize: sf(15),
     marginBottom: sv(22),
     marginTop: sv(6),
   },
@@ -267,6 +329,13 @@ const styles = StyleSheet.create({
     borderRadius: s(14),
     padding: s(14),
     marginTop: sv(12),
+    fontSize: sf(15),
+  },
+  helperText: {
+    color: COLORS.textSecondary,
+    fontSize: sf(12),
+    lineHeight: sf(17),
+    marginTop: sv(8),
   },
   passwordWrap: {
     backgroundColor: COLORS.black,
@@ -282,6 +351,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: COLORS.white,
     paddingVertical: sv(14),
+    fontSize: sf(15),
   },
   button: {
     backgroundColor: COLORS.gold,
@@ -289,6 +359,12 @@ const styles = StyleSheet.create({
     paddingVertical: sv(14),
     alignItems: 'center',
     marginTop: sv(22),
+  },
+  buttonPressed: {
+    opacity: 0.82,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   buttonText: {
     color: COLORS.black,
@@ -301,12 +377,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   link: {
-    color: COLORS.mutedLilac,
+    color: COLORS.textSecondary,
     textAlign: 'center',
     marginTop: sv(18),
+    fontSize: sf(13),
   },
   gold: {
     color: COLORS.gold,
-    fontWeight: '800',
+    fontWeight: '900',
   },
 });

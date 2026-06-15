@@ -7,10 +7,11 @@ import {
   useMemo,
 } from 'react';
 import { Image, View } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Pedometer } from 'expo-sensors';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Linking from 'expo-linking';
 
 import { supabase } from '../services/supabaseClient';
 import { COLORS } from '../constants/colors';
@@ -26,6 +27,29 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 const AuthContext = createContext(null);
 const STARTUP_LOGO = require('../assets/images/grow-loading.png');
 
+function getAuthParamsFromUrl(url) {
+  if (!url) return null;
+
+  const queryString = url.includes('?') ? url.split('?')[1]?.split('#')[0] : '';
+  const hashString = url.includes('#') ? url.split('#')[1] : '';
+  const combined = [queryString, hashString].filter(Boolean).join('&');
+
+  if (!combined) return null;
+
+  const params = new URLSearchParams(combined);
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+  const type = params.get('type');
+
+  if (!accessToken || !refreshToken) return null;
+
+  return {
+    accessToken,
+    refreshToken,
+    type,
+  };
+}
+
 export function useAuth() {
   return useContext(AuthContext);
 }
@@ -39,6 +63,50 @@ export default function RootLayout() {
     preloadStartupImageAssets().catch((err) => {
       console.log('Tool-Bilder konnten nicht vorgeladen werden:', err);
     });
+  }, []);
+
+  useEffect(() => {
+    async function handleRecoveryUrl(url) {
+      const authParams = getAuthParamsFromUrl(url);
+
+      if (!authParams) return;
+
+      try {
+        const { error } = await supabase.auth.setSession({
+          access_token: authParams.accessToken,
+          refresh_token: authParams.refreshToken,
+        });
+
+        if (error) {
+          console.log('Recovery-Link konnte nicht verarbeitet werden:', error);
+          return;
+        }
+
+        if (authParams.type === 'recovery') {
+          router.replace('/reset-password');
+        }
+      } catch (err) {
+        console.log('Recovery-Link Fehler:', err);
+      }
+    }
+
+    Linking.getInitialURL()
+      .then((url) => {
+        if (url) {
+          handleRecoveryUrl(url);
+        }
+      })
+      .catch((err) => {
+        console.log('Initialer Link konnte nicht gelesen werden:', err);
+      });
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleRecoveryUrl(url);
+    });
+
+    return () => {
+      subscription?.remove?.();
+    };
   }, []);
 
   useEffect(() => {

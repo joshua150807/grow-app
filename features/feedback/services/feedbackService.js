@@ -66,48 +66,24 @@ async function deleteUploadedFeedbackImage(imagePath) {
 }
 
 async function awardFeedbackGrowPoints(userId) {
+  if (!userId) {
+    return false;
+  }
+
   try {
-    const { data: profile, error: profileFetchError } = await supabase
-      .from('profiles')
-      .select('grow_points')
-      .eq('id', userId)
-      .single();
+    const { data: awarded, error } = await supabase.rpc('award_feedback_points');
 
-    if (profileFetchError) {
-      throw profileFetchError;
+    if (error) {
+      throw error;
     }
 
-    const currentGrowPoints = Number(profile?.grow_points ?? 0);
-
-    const { error: profileUpdateError } = await supabase
-      .from('profiles')
-      .update({
-        grow_points: currentGrowPoints + 5,
-      })
-      .eq('id', userId);
-
-    if (profileUpdateError) {
-      throw profileUpdateError;
-    }
-
-    const { error: logError } = await supabase
-      .from('grow_points_log')
-      .insert({
-        user_id: userId,
-        points: 5,
-        reason: 'feedback_sent',
-      });
-
-    if (logError) {
-      throw logError;
-    }
-
-    return true;
+    return Boolean(awarded);
   } catch (error) {
     console.log('Grow Points für Feedback konnten nicht vergeben werden:', error);
     return false;
   }
 }
+
 
 export async function sendFeedback({
   userId,

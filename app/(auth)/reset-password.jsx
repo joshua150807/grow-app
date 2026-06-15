@@ -19,73 +19,70 @@ import { supabase } from '../../services/supabaseClient';
 import { COLORS } from '../../constants/colors';
 import { s, sv, sf } from '../../constants/layout';
 
-export default function LoginScreen() {
-  const [username, setUsername] = useState('');
+export default function ResetPasswordScreen() {
   const [password, setPassword] = useState('');
+  const [password2, setPassword2] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [errorText, setErrorText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorText, setErrorText] = useState('');
+  const [successText, setSuccessText] = useState('');
+  const [hasSession, setHasSession] = useState(false);
   const isMountedRef = useRef(true);
-  const isSubmittingRef = useRef(false);
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (isMountedRef.current) {
+        setHasSession(Boolean(data.session?.user?.id));
+      }
+    });
+
     return () => {
       isMountedRef.current = false;
     };
   }, []);
 
-  async function getLoginEmail(cleanUsername) {
-    const { data, error } = await supabase.rpc('get_auth_email_for_username', {
-      input_username: cleanUsername,
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
-  }
-
-  async function handleLogin() {
-    if (isSubmittingRef.current) return;
-
+  async function handleResetPassword() {
     Keyboard.dismiss();
     setErrorText('');
+    setSuccessText('');
 
-    const cleanUsername = username.trim().toLowerCase();
+    if (!password || !password2) {
+      setErrorText('Bitte beide Passwortfelder ausfüllen.');
+      return;
+    }
 
-    if (!cleanUsername || !password) {
-      setErrorText('Bitte Username und Passwort eingeben.');
+    if (password.length < 6) {
+      setErrorText('Das Passwort muss mindestens 6 Zeichen haben.');
+      return;
+    }
+
+    if (password !== password2) {
+      setErrorText('Passwörter stimmen nicht überein.');
       return;
     }
 
     try {
-      isSubmittingRef.current = true;
       setLoading(true);
 
-      const resolvedEmail = await getLoginEmail(cleanUsername);
-      const email = resolvedEmail || `${cleanUsername}@growapp.com`;
-
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
+      const { error } = await supabase.auth.updateUser({
         password,
       });
 
       if (error) {
-        if (isMountedRef.current) {
-          setErrorText('Username oder Passwort ist falsch.');
-        }
+        console.log('PASSWORD UPDATE ERROR:', error);
+        setErrorText('Passwort konnte nicht geändert werden. Öffne den Link bitte erneut.');
         return;
       }
 
-      router.replace('/(tabs)');
+      setSuccessText('Passwort geändert. Du wirst jetzt eingeloggt.');
+
+      setTimeout(() => {
+        router.replace('/(tabs)');
+      }, 700);
     } catch (err) {
-      console.log('LOGIN ERROR:', err);
-      if (isMountedRef.current) {
-        setErrorText('Login fehlgeschlagen. Bitte erneut versuchen.');
-      }
+      console.log('PASSWORD RESET ERROR:', err);
+      setErrorText('Passwort konnte nicht geändert werden.');
     } finally {
-      isSubmittingRef.current = false;
       if (isMountedRef.current) {
         setLoading(false);
       }
@@ -105,32 +102,28 @@ export default function LoginScreen() {
         >
           <View style={styles.card}>
             <Text style={styles.logo}>Grow</Text>
-            <Text style={styles.subtitle}>Willkommen zurück</Text>
+            <Text style={styles.subtitle}>Neues Passwort setzen</Text>
 
-            <Text style={styles.label}>Username</Text>
-            <TextInput
-              value={username}
-              onChangeText={setUsername}
-              placeholder="z. B. user1"
-              placeholderTextColor={COLORS.textMuted}
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="next"
-              style={styles.input}
-            />
+            {!hasSession && (
+              <View style={styles.infoBox}>
+                <Text style={styles.infoText}>
+                  Falls du diese Seite manuell geöffnet hast, fehlt der Recovery-Link. Öffne bitte
+                  den Link aus deiner E-Mail.
+                </Text>
+              </View>
+            )}
 
-            <Text style={styles.label}>Passwort</Text>
+            <Text style={styles.label}>Neues Passwort</Text>
             <View style={styles.passwordWrap}>
               <TextInput
                 value={password}
                 onChangeText={setPassword}
-                placeholder="Passwort"
+                placeholder="Neues Passwort"
                 placeholderTextColor={COLORS.textMuted}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 autoCorrect={false}
-                returnKeyType="done"
-                onSubmitEditing={handleLogin}
+                returnKeyType="next"
                 style={styles.passwordInput}
               />
 
@@ -146,43 +139,47 @@ export default function LoginScreen() {
               </Pressable>
             </View>
 
+            <Text style={styles.label}>Passwort wiederholen</Text>
+            <TextInput
+              value={password2}
+              onChangeText={setPassword2}
+              placeholder="Passwort wiederholen"
+              placeholderTextColor={COLORS.textMuted}
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+              onSubmitEditing={handleResetPassword}
+              style={styles.input}
+            />
+
             {!!errorText && <Text style={styles.error}>{errorText}</Text>}
+            {!!successText && <Text style={styles.success}>{successText}</Text>}
 
             <Pressable
               style={({ pressed }) => [
                 styles.button,
                 pressed && !loading && styles.buttonPressed,
+                loading && styles.buttonDisabled,
               ]}
-              onPress={handleLogin}
+              onPress={handleResetPassword}
               disabled={loading}
             >
               {loading ? (
                 <ActivityIndicator color={COLORS.black} />
               ) : (
-                <Text style={styles.buttonText}>Einloggen</Text>
+                <Text style={styles.buttonText}>Passwort speichern</Text>
               )}
             </Pressable>
 
             <Pressable
-              style={styles.forgotLink}
+              style={styles.loginLink}
               onPress={() => {
                 Keyboard.dismiss();
-                router.push('/forgot-password');
+                router.replace('/(auth)/login');
               }}
             >
-              <Text style={styles.forgotText}>Passwort oder Username vergessen?</Text>
-            </Pressable>
-
-            <Pressable
-              style={styles.registerLink}
-              onPress={() => {
-                Keyboard.dismiss();
-                router.push('/(auth)/register');
-              }}
-            >
-              <Text style={styles.registerText}>
-                Noch keinen Account? <Text style={styles.registerGold}>Registrieren</Text>
-              </Text>
+              <Text style={styles.loginText}>Zurück zum Login</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -220,7 +217,20 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: sf(15),
     textAlign: 'center',
-    marginBottom: sv(28),
+    marginBottom: sv(24),
+  },
+  infoBox: {
+    backgroundColor: COLORS.black,
+    borderWidth: 1,
+    borderColor: COLORS.goldBorder,
+    borderRadius: s(16),
+    padding: s(14),
+    marginBottom: sv(16),
+  },
+  infoText: {
+    color: COLORS.textSecondary,
+    fontSize: sf(13),
+    lineHeight: sf(19),
   },
   label: {
     color: COLORS.softGold,
@@ -260,6 +270,13 @@ const styles = StyleSheet.create({
     fontSize: sf(13),
     textAlign: 'center',
   },
+  success: {
+    color: COLORS.lightGold,
+    marginTop: sv(14),
+    fontSize: sf(13),
+    lineHeight: sf(18),
+    textAlign: 'center',
+  },
   button: {
     backgroundColor: COLORS.gold,
     borderRadius: s(16),
@@ -270,31 +287,21 @@ const styles = StyleSheet.create({
   buttonPressed: {
     opacity: 0.82,
   },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
   buttonText: {
     color: COLORS.black,
     fontSize: sf(16),
     fontWeight: '800',
   },
-  forgotLink: {
+  loginLink: {
     marginTop: sv(16),
     alignItems: 'center',
   },
-  forgotText: {
+  loginText: {
     color: COLORS.lightGold,
     fontSize: sf(13),
     fontWeight: '800',
-  },
-  registerLink: {
-    marginTop: sv(14),
-    alignItems: 'center',
-  },
-  registerText: {
-    color: COLORS.textSecondary,
-    fontSize: sf(13),
-    textAlign: 'center',
-  },
-  registerGold: {
-    color: COLORS.gold,
-    fontWeight: '900',
   },
 });

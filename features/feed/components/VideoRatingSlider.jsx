@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, StyleSheet, Text, View } from 'react-native';
+import { Animated, PanResponder, StyleSheet, Text, View } from 'react-native';
 
 import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout';
@@ -51,9 +51,13 @@ export default function VideoRatingSlider({
   const [thumbY, setThumbY] = useState(() => getSnapYForRating(currentRating));
   const [previewIndex, setPreviewIndex] = useState(() => getZoneIndexFromY(thumbY));
   const [isDragging, setIsDragging] = useState(false);
+  const [flyoutEmoji, setFlyoutEmoji] = useState(null);
 
   const latestThumbYRef = useRef(thumbY);
   const dragStartYRef = useRef(thumbY);
+  const flyoutY = useRef(new Animated.Value(0)).current;
+  const flyoutOpacity = useRef(new Animated.Value(0)).current;
+  const flyoutScale = useRef(new Animated.Value(0.92)).current;
 
   const selectedRating = RATINGS[previewIndex] ?? RATINGS[0];
 
@@ -69,6 +73,58 @@ export default function VideoRatingSlider({
     setThumbY(nextY);
     setPreviewIndex(getZoneIndexFromY(nextY));
   }, [currentRating]);
+
+  const startRatingFlyout = (rating) => {
+    if (!rating?.emoji) return;
+
+    setFlyoutEmoji({
+      id: Date.now(),
+      emoji: rating.emoji,
+      startY: getSnapYForRating(rating.key),
+    });
+
+    flyoutY.setValue(0);
+    flyoutOpacity.setValue(0);
+    flyoutScale.setValue(0.92);
+
+    Animated.parallel([
+      Animated.timing(flyoutY, {
+        toValue: -sv(58),
+        duration: 820,
+        useNativeDriver: true,
+      }),
+      Animated.sequence([
+        Animated.timing(flyoutOpacity, {
+          toValue: 1,
+          duration: 90,
+          useNativeDriver: true,
+        }),
+        Animated.timing(flyoutOpacity, {
+          toValue: 0,
+          duration: 500,
+          delay: 230,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.spring(flyoutScale, {
+          toValue: 1.18,
+          speed: 20,
+          bounciness: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(flyoutScale, {
+          toValue: 0.96,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start(({ finished }) => {
+      if (finished) {
+        setFlyoutEmoji(null);
+      }
+    });
+  };
 
   const commitRating = (yPosition) => {
     if (isInClearZone(yPosition)) {
@@ -92,6 +148,7 @@ export default function VideoRatingSlider({
     setIsDragging(false);
 
     if (nextRating?.key && nextRating.key !== currentRating) {
+      startRatingFlyout(nextRating);
       onRatingSubmit(nextRating.key);
     }
   };
@@ -180,6 +237,26 @@ export default function VideoRatingSlider({
       <View style={[styles.thumb, { top: thumbY - THUMB_SIZE / 2 }]} pointerEvents="none">
         <View style={styles.thumbCore} />
       </View>
+
+      {flyoutEmoji && (
+        <Animated.View
+          key={flyoutEmoji.id}
+          style={[
+            styles.ratingFlyout,
+            {
+              top: flyoutEmoji.startY - PREVIEW_SIZE / 2,
+              opacity: flyoutOpacity,
+              transform: [
+                { translateY: flyoutY },
+                { scale: flyoutScale },
+              ],
+            },
+          ]}
+          pointerEvents="none"
+        >
+          <Text style={styles.ratingFlyoutEmoji}>{flyoutEmoji.emoji}</Text>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -272,5 +349,25 @@ const styles = StyleSheet.create({
 
   previewEmoji: {
     fontSize: sf(18),
+  },
+
+  ratingFlyout: {
+    position: 'absolute',
+    right: s(42),
+    width: PREVIEW_SIZE,
+    height: PREVIEW_SIZE,
+    borderRadius: PREVIEW_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.42)',
+    shadowColor: COLORS.gold,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.75,
+    shadowRadius: s(9),
+    elevation: 10,
+  },
+
+  ratingFlyoutEmoji: {
+    fontSize: sf(19),
   },
 });

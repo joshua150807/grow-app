@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 
 import { COLORS } from '../../../constants/colors';
@@ -22,6 +23,57 @@ export default function VideoOverlay({
   onRatingDragEnd = () => {},
   isActive = false,
 }) {
+  const pointFlyY = useRef(new Animated.Value(0)).current;
+  const pointOpacity = useRef(new Animated.Value(0)).current;
+  const pointScale = useRef(new Animated.Value(0.86)).current;
+
+  useEffect(() => {
+    if (!showPointReward) {
+      pointFlyY.setValue(0);
+      pointOpacity.setValue(0);
+      pointScale.setValue(0.86);
+      return;
+    }
+
+    pointFlyY.setValue(0);
+    pointOpacity.setValue(0);
+    pointScale.setValue(0.86);
+
+    Animated.parallel([
+      Animated.timing(pointFlyY, {
+        toValue: -sv(54),
+        duration: 900,
+        useNativeDriver: true,
+      }),
+      Animated.sequence([
+        Animated.timing(pointOpacity, {
+          toValue: 1,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pointOpacity, {
+          toValue: 0,
+          duration: 520,
+          delay: 260,
+          useNativeDriver: true,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.spring(pointScale, {
+          toValue: 1.12,
+          speed: 18,
+          bounciness: 8,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pointScale, {
+          toValue: 0.96,
+          duration: 560,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, [pointFlyY, pointOpacity, pointScale, showPointReward]);
+
   const handleClearRating = () => {
     onRate(null);
   };
@@ -62,9 +114,21 @@ export default function VideoOverlay({
           </TouchableOpacity>
 
           {showPointReward && (
-            <View style={styles.pointBubble} pointerEvents="none">
+            <Animated.View
+              style={[
+                styles.pointBubble,
+                {
+                  opacity: pointOpacity,
+                  transform: [
+                    { translateY: pointFlyY },
+                    { scale: pointScale },
+                  ],
+                },
+              ]}
+              pointerEvents="none"
+            >
               <Text style={styles.pointBubbleText}>+1</Text>
-            </View>
+            </Animated.View>
           )}
         </TourTarget>
       </View>
