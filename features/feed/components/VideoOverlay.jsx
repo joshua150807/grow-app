@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   },
 
   pointBubble: {
-    marginTop: sv(8),
+    marginTop: sv(60),
     width: s(30),
     height: s(30),
     borderRadius: s(15),

@@ -15,7 +15,6 @@ import * as Linking from 'expo-linking';
 
 import { supabase } from '../services/supabaseClient';
 import { COLORS } from '../constants/colors';
-import { preloadStartupImageAssets } from '../constants/toolAssets';
 import { loadProfileData } from '../features/profile/services/profiles';
 import { StartupProfileContext } from '../features/profile/context/ProfileContext';
 import { OnboardingProvider } from '../features/onboarding/context/OnboardingContext';
@@ -57,13 +56,6 @@ export function useAuth() {
 export default function RootLayout() {
   const [session, setSession] = useState(undefined);
   const [startupProfile, setStartupProfile] = useState(null);
-
-  useEffect(() => {
-    // Lokale Tools-Overview-Bilder sofort anwärmen, aber niemals den Appstart blockieren.
-    preloadStartupImageAssets().catch((err) => {
-      console.log('Tool-Bilder konnten nicht vorgeladen werden:', err);
-    });
-  }, []);
 
   useEffect(() => {
     async function handleRecoveryUrl(url) {

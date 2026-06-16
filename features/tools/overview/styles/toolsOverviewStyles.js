@@ -11,6 +11,22 @@ export const styles = StyleSheet.create({
     backgroundColor: COLORS.toolsBg ?? '#050403',
   },
 
+  loadingScreen: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: s(24),
+    backgroundColor: COLORS.toolsBg ?? '#050403',
+  },
+
+  loadingText: {
+    color: COLORS.toolsTextDim,
+    fontSize: sf(13),
+    fontWeight: '600',
+    marginTop: sv(12),
+    textAlign: 'center',
+  },
+
   content: {
     flex: 1,
     paddingTop: veryCompact ? sv(44) : compact ? sv(50) : sv(62),

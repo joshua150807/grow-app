@@ -15,6 +15,7 @@ export const TOOL_IMAGES = {
 
 export const MENTOR_BG = require('../assets/tool-icons/mentor-bg.webp');
 export const GROW_COIN = require('../assets/images/grow_coin.webp');
+export const GROW_AVATAR = require('../assets/images/grow_avatar.webp');
 export const TRACKER_BG = require('../assets/tool-icons/active-tracker-bg.webp');
 export const TODO_PAGE_BG = require('../assets/tool-icons/backgrounds/todo-page-bg.webp');
 export const TRAINING_PAGE_BG = require('../assets/tool-icons/backgrounds/training-page-bg.webp');
@@ -27,15 +28,16 @@ export const RECOMMENDATIONS_PAGE_BG = require('../assets/tool-icons/backgrounds
 export const NOTES_PAGE_BG = require('../assets/tool-icons/backgrounds/notes-page-bg.webp');
 export const JOURNAL_PAGE_BG = require('../assets/tool-icons/backgrounds/journal-page-bg.webp')
 
-export const STARTUP_IMAGE_ASSETS = [
+export const TOOL_OVERVIEW_IMAGE_ASSETS = [
   ...Object.values(TOOL_IMAGES),
   MENTOR_BG,
   TRACKER_BG,
+  GROW_COIN,
+  GROW_AVATAR,
 ];
 
 
 export const FEEDBACK_IMAGE_ASSETS = [
-  require('../assets/images/grow_banner_lossless.webp'),
   require('../assets/feedback/feedback-hero.webp'),
   require('../assets/feedback/feedback-card-idea.webp'),
   require('../assets/feedback/feedback-card-bug.webp'),
@@ -62,11 +64,26 @@ export const TOOL_PAGE_BACKGROUND_ASSETS = [
   JOURNAL_PAGE_BG,
 ];  
 
+let toolOverviewImagesPreloaded = false;
+let toolOverviewImagesPromise = null;
 let toolPageBackgroundsPreloaded = false;
-let feedbackImagesPreloadPromise = null;
+let feedbackImagesPreloaded = false;
 
-export async function preloadStartupImageAssets() {
-  await Asset.loadAsync(STARTUP_IMAGE_ASSETS);
+export async function preloadToolOverviewImageAssets() {
+  if (toolOverviewImagesPreloaded) return;
+
+  if (!toolOverviewImagesPromise) {
+    toolOverviewImagesPromise = Asset.loadAsync(TOOL_OVERVIEW_IMAGE_ASSETS)
+      .then(() => {
+        toolOverviewImagesPreloaded = true;
+      })
+      .catch((err) => {
+        toolOverviewImagesPromise = null;
+        throw err;
+      });
+  }
+
+  await toolOverviewImagesPromise;
 }
 
 export async function preloadToolPageBackgroundAssets() {
@@ -84,12 +101,14 @@ export async function preloadToolPageBackgroundAssets() {
 
 
 export async function preloadFeedbackImageAssets() {
-  if (!feedbackImagesPreloadPromise) {
-    feedbackImagesPreloadPromise = Asset.loadAsync(FEEDBACK_IMAGE_ASSETS).catch((err) => {
-      feedbackImagesPreloadPromise = null;
-      throw err;
-    });
-  }
+  if (feedbackImagesPreloaded) return;
 
-  await feedbackImagesPreloadPromise;
+  feedbackImagesPreloaded = true;
+
+  try {
+    await Asset.loadAsync(FEEDBACK_IMAGE_ASSETS);
+  } catch (err) {
+    feedbackImagesPreloaded = false;
+    throw err;
+  }
 }

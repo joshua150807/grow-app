@@ -9,6 +9,7 @@ import {
   Animated,
   Easing,
   ScrollView,
+  ActivityIndicator,
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -16,7 +17,13 @@ import { router } from 'expo-router';
 
 import { COLORS } from '../../../../constants/colors';
 import { s, sv } from '../../../../constants/layout';
-import { GROW_COIN, MENTOR_BG, preloadToolPageBackgroundAssets } from '../../../../constants/toolAssets';
+import {
+  GROW_AVATAR,
+  GROW_COIN,
+  MENTOR_BG,
+  preloadToolOverviewImageAssets,
+  preloadToolPageBackgroundAssets,
+} from '../../../../constants/toolAssets';
 
 import { useProfile } from '../../../profile/hooks/useProfile';
 import { supabase } from '../../../../services/supabaseClient';
@@ -32,8 +39,6 @@ import { styles } from '../styles/toolsOverviewStyles';
 import PressableScale from '../../../../components/ui/PressableScale';
 import { useOnboarding } from '../../../onboarding/context/OnboardingContext';
 import TourTarget from '../../../onboarding/components/TourTarget';
-
-const GROW_AVATAR = require('../../../../assets/images/grow_avatar.webp');
 
 function renderToolIcon(tool) {
   const iconColor = tool.disabled ? COLORS.toolsTextDim : COLORS.toolsGold;
@@ -57,6 +62,7 @@ export default function ToolsScreen() {
   const { height, width } = useWindowDimensions();
   const layout = getToolsOverviewLayout({ width, height });
 
+  const [overviewAssetsReady, setOverviewAssetsReady] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuAnimation = useRef(new Animated.Value(0)).current;
   const mountedRef = useRef(true);
@@ -87,6 +93,16 @@ export default function ToolsScreen() {
   useEffect(() => {
     mountedRef.current = true;
     navigationLockedRef.current = false;
+
+    preloadToolOverviewImageAssets()
+      .catch((err) => {
+        console.log('Tools-Overview-Bilder konnten nicht vorgeladen werden:', err);
+      })
+      .finally(() => {
+        if (mountedRef.current) {
+          setOverviewAssetsReady(true);
+        }
+      });
 
     const preloadTask = InteractionManager.runAfterInteractions(() => {
       preloadToolPageBackgroundAssets().catch((err) => {
@@ -197,10 +213,32 @@ export default function ToolsScreen() {
     unlockNavigationSoon();
   };
 
+  const handleOpenGrowCoinInfo = () => {
+    if (reorderMode || replacementToolId) {
+      handleScreenPress();
+      return;
+    }
+
+    if (navigationLockedRef.current) return;
+
+    navigationLockedRef.current = true;
+    router.push('/tools/grow-coin');
+    unlockNavigationSoon();
+  };
+
   const handleStartTutorialFromMenu = () => {
     setMenuOpen(false);
     startTutorial();
   };
+
+  if (!overviewAssetsReady) {
+    return (
+      <View style={styles.loadingScreen}>
+        <ActivityIndicator color={COLORS.toolsGold} />
+        <Text style={styles.loadingText}>Tools werden geladen...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
@@ -250,22 +288,35 @@ export default function ToolsScreen() {
           </View>
 
           <View style={styles.rightHeader}>
-            <TourTarget id="grow-points-box" style={styles.pointsBox}>
-              <View style={styles.pointsContentRow}>
-                <Image
-                  source={GROW_COIN}
-                  style={styles.coinImage}
-                  resizeMode="contain"
-                />
+            <TourTarget id="grow-points-box">
+              <PressableScale
+                onPress={(event) => {
+                  event.stopPropagation();
+                  handleOpenGrowCoinInfo();
+                }}
+                activeScale={0.96}
+                activeOpacity={0.8}
+                style={styles.pointsBox}
+                accessibilityRole="button"
+                accessibilityLabel="Grow Points erklären"
+                hitSlop={8}
+              >
+                <View style={styles.pointsContentRow}>
+                  <Image
+                    source={GROW_COIN}
+                    style={styles.coinImage}
+                    resizeMode="contain"
+                  />
 
-                <View style={styles.pointsTextStack}>
-                  <Text style={styles.pointsValue}>
-                    {growPoints.toLocaleString('de-DE')}
-                  </Text>
+                  <View style={styles.pointsTextStack}>
+                    <Text style={styles.pointsValue}>
+                      {growPoints.toLocaleString('de-DE')}
+                    </Text>
 
-                  <Text style={styles.pointsLabel}>GROW Points</Text>
+                    <Text style={styles.pointsLabel}>GROW Points</Text>
+                  </View>
                 </View>
-              </View>
+              </PressableScale>
             </TourTarget>
 
             <PressableScale
