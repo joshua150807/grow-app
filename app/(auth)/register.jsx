@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -31,6 +32,7 @@ export default function RegisterScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorText, setErrorText] = useState('');
+  const [showRecoveryInfo, setShowRecoveryInfo] = useState(false);
   const isMountedRef = useRef(true);
   const isSubmittingRef = useRef(false);
 
@@ -167,7 +169,8 @@ export default function RegisterScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
+    <>
+      <KeyboardAvoidingView
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
@@ -192,23 +195,33 @@ export default function RegisterScreen() {
               returnKeyType="next"
             />
 
-            <TextInput
-              style={styles.input}
-              placeholder="Recovery-Mail"
-              placeholderTextColor={COLORS.textMuted}
-              value={recoveryEmail}
-              onChangeText={setRecoveryEmail}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="next"
-            />
+            <View style={styles.recoveryInputWrap}>
+              <TextInput
+                style={styles.recoveryInput}
+                placeholder="Recovery-Mail"
+                placeholderTextColor={COLORS.textMuted}
+                value={recoveryEmail}
+                onChangeText={setRecoveryEmail}
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="next"
+              />
 
-            <Text style={styles.helperText}>
-              Die Recovery-Mail ist nur für Passwort-Reset und Username-Hilfe. Einloggen bleibt per
-              Username.
-            </Text>
+              <Pressable
+                style={styles.recoveryInfoButton}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setShowRecoveryInfo(true);
+                }}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel="Informationen zur Recovery-Mail"
+              >
+                <Text style={styles.recoveryInfoButtonText}>?</Text>
+              </Pressable>
+            </View>
 
             <TextInput
               style={styles.input}
@@ -286,7 +299,36 @@ export default function RegisterScreen() {
           </View>
         </ScrollView>
       </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+
+      <Modal
+        visible={showRecoveryInfo}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRecoveryInfo(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setShowRecoveryInfo(false)}
+        >
+          <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.modalTitle}>Wofür brauchen wir deine E-Mail?</Text>
+            <Text style={styles.modalText}>
+              Wir benötigen deine E-Mail-Adresse ausschließlich, damit du dein Passwort
+              zurücksetzen und deinen Account wiederherstellen kannst. Ohne deine ausdrückliche
+              Zustimmung senden wir dir keine Werbung oder sonstigen Nachrichten.
+            </Text>
+
+            <Pressable
+              style={({ pressed }) => [styles.modalButton, pressed && styles.buttonPressed]}
+              onPress={() => setShowRecoveryInfo(false)}
+            >
+              <Text style={styles.modalButtonText}>Verstanden</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -331,11 +373,37 @@ const styles = StyleSheet.create({
     marginTop: sv(12),
     fontSize: sf(15),
   },
-  helperText: {
-    color: COLORS.textSecondary,
-    fontSize: sf(12),
-    lineHeight: sf(17),
-    marginTop: sv(8),
+  recoveryInputWrap: {
+    backgroundColor: COLORS.black,
+    borderWidth: 1,
+    borderColor: COLORS.goldBorder,
+    borderRadius: s(14),
+    paddingLeft: s(14),
+    paddingRight: s(10),
+    marginTop: sv(12),
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  recoveryInput: {
+    flex: 1,
+    color: COLORS.white,
+    paddingVertical: sv(14),
+    paddingRight: s(10),
+    fontSize: sf(15),
+  },
+  recoveryInfoButton: {
+    width: s(28),
+    height: s(28),
+    borderRadius: s(14),
+    borderWidth: 1,
+    borderColor: COLORS.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  recoveryInfoButtonText: {
+    color: COLORS.gold,
+    fontSize: sf(16),
+    fontWeight: '900',
   },
   passwordWrap: {
     backgroundColor: COLORS.black,
@@ -385,5 +453,41 @@ const styles = StyleSheet.create({
   gold: {
     color: COLORS.gold,
     fontWeight: '900',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    justifyContent: 'center',
+    paddingHorizontal: s(24),
+  },
+  modalCard: {
+    backgroundColor: COLORS.darkCard,
+    borderWidth: 1,
+    borderColor: COLORS.goldBorder,
+    borderRadius: s(20),
+    padding: s(22),
+  },
+  modalTitle: {
+    color: COLORS.gold,
+    fontSize: sf(19),
+    fontWeight: '800',
+    marginBottom: sv(12),
+  },
+  modalText: {
+    color: COLORS.textPrimary,
+    fontSize: sf(14),
+    lineHeight: sf(21),
+  },
+  modalButton: {
+    backgroundColor: COLORS.gold,
+    borderRadius: s(14),
+    paddingVertical: sv(12),
+    alignItems: 'center',
+    marginTop: sv(20),
+  },
+  modalButtonText: {
+    color: COLORS.black,
+    fontSize: sf(15),
+    fontWeight: '800',
   },
 });
