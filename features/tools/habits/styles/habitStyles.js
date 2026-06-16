@@ -16,7 +16,7 @@ export const styles = StyleSheet.create({
   },
   topBar: {
     position: 'absolute',
-    top: sv(54),
+    top: sv(64),
     left: s(16),
     zIndex: 10,
   },
@@ -31,24 +31,13 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
   content: {
-    paddingTop: sv(110),
+    paddingTop: sv(130),
     paddingHorizontal: s(20),
     paddingBottom: sv(120),
   },
   header: {
     alignItems: 'center',
     marginBottom: sv(28),
-  },
-  iconCircle: {
-    width: s(80),
-    height: s(80),
-    borderRadius: s(40),
-    borderWidth: 1.5,
-    borderColor: COLORS.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: sv(16),
-    backgroundColor: 'rgba(212,175,55,0.1)',
   },
   title: {
     color: COLORS.paleGold,

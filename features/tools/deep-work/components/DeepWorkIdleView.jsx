@@ -38,9 +38,6 @@ export default function DeepWorkIdleView({ router, openSetup, phase }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="hourglass-outline" size={s(36)} color={COLORS.gold} />
-          </View>
           <Text style={styles.title}>DEEP WORK</Text>
           <Text style={styles.subtitle}>Disziplin. Fokus. Keine Ablenkung.</Text>
         </View>

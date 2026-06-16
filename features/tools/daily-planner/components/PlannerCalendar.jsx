@@ -43,9 +43,6 @@ export function PlannerCalendar({
 
       <ScrollView contentContainerStyle={styles.calContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="calendar-outline" size={s(36)} color={COLORS.gold} />
-          </View>
           <Text style={styles.title}>DAILY PLANNER</Text>
           <Text style={styles.subtitle}>Plane deinen Tag. Gestalte dein Leben.</Text>
         </View>
@@ -129,7 +126,7 @@ const styles = StyleSheet.create({
   },
   topBar: {
     position: 'absolute',
-    top: sv(54),
+    top: sv(74),
     left: s(16),
     zIndex: 10,
   },
@@ -144,24 +141,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   calContent: {
-    paddingTop: sv(110),
+    paddingTop: sv(200),
     paddingHorizontal: s(20),
     paddingBottom: sv(100),
   },
   header: {
     alignItems: 'center',
     marginBottom: sv(26),
-  },
-  iconCircle: {
-    width: s(80),
-    height: s(80),
-    borderRadius: s(40),
-    borderWidth: 1.5,
-    borderColor: COLORS.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: sv(16),
-    backgroundColor: 'rgba(0,0,0,0.32)',
   },
   title: {
     color: COLORS.paleGold,

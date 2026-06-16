@@ -173,9 +173,6 @@ export default function TodoScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="checkmark-done-outline" size={s(36)} color={COLORS.gold} />
-          </View>
           <Text style={styles.title}>TO-DO</Text>
           <Text style={styles.subtitle}>Erledige deine Aufgaben. Gewinne deinen Tag.</Text>
         </View>

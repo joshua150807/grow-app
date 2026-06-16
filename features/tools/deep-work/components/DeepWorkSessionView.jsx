@@ -46,7 +46,6 @@ export default function DeepWorkSessionView({
       </Pressable>
 
       <View style={styles.sessionHeader}>
-        <Ionicons name="hourglass" size={s(42)} color={COLORS.gold} />
         <Text style={styles.title}>DEEP WORK</Text>
         <Text style={styles.subtitle}>Disziplin. Fokus. Keine Ablenkung.</Text>
       </View>

@@ -16,7 +16,7 @@ export const styles = StyleSheet.create({
 
   topBar: {
     position: 'absolute',
-    top: sv(54),
+    top: sv(74),
     left: s(16),
     zIndex: 10,
   },
@@ -47,7 +47,7 @@ export const styles = StyleSheet.create({
     transform: [{ scale: 0.97 }],
   },
   idleContent: {
-    paddingTop: sv(110),
+    paddingTop: sv(230),
     paddingHorizontal: s(20),
     paddingBottom: sv(100),
     alignItems: 'center',
@@ -55,17 +55,6 @@ export const styles = StyleSheet.create({
   header: {
     alignItems: 'center',
     marginBottom: sv(32),
-  },
-  iconCircle: {
-    width: s(80),
-    height: s(80),
-    borderRadius: s(40),
-    borderWidth: 1.5,
-    borderColor: COLORS.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: sv(16),
-    backgroundColor: 'rgba(212,175,55,0.08)',
   },
   title: {
     color: COLORS.paleGold,
@@ -249,7 +238,7 @@ export const styles = StyleSheet.create({
 
   sessionHeader: {
     alignItems: 'center',
-    paddingTop: sv(80),
+    paddingTop: sv(120),
     gap: sv(8),
     paddingBottom: sv(8),
   },
@@ -288,6 +277,7 @@ export const styles = StyleSheet.create({
     borderRadius: s(6),
     paddingHorizontal: s(10),
     paddingVertical: sv(4),
+    backgroundColor: COLORS.backgroundDeep,
   },
   categoryBadgeText: {
     color: COLORS.dimGold,

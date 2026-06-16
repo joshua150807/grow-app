@@ -122,9 +122,6 @@ export default function GoalsScreen() {
 
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="trophy" size={s(36)} color={COLORS.gold} />
-          </View>
           <Text style={styles.title}>Goals</Text>
           <Text style={styles.subtitle}>Set clear goals. Chase your dreams.</Text>
         </View>

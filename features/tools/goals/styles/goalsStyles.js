@@ -17,7 +17,7 @@ export const styles = StyleSheet.create({
   },
   topBar: {
     position: 'absolute',
-    top: sv(54),
+    top: sv(64),
     left: s(16),
     zIndex: 10,
   },
@@ -32,7 +32,7 @@ export const styles = StyleSheet.create({
     fontWeight: '600',
   },
   content: {
-    paddingTop: sv(110),
+    paddingTop: sv(130),
     paddingHorizontal: s(20),
     paddingBottom: sv(120),
   },

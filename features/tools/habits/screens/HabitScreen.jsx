@@ -131,9 +131,6 @@ export default function HabitsScreen() {
 
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="flame" size={s(36)} color={COLORS.gold} />
-          </View>
           <Text style={styles.title}>GEWOHNHEITEN</Text>
           <Text style={styles.subtitle}>Build life-changing habits</Text>
         </View>
