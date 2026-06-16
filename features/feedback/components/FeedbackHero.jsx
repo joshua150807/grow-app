@@ -45,7 +45,7 @@ const styles = StyleSheet.create({
     marginBottom: sv(18),
     position: 'relative',
     overflow: 'hidden',
-    backgroundColor: COLORS.backgroundDeep,
+    backgroundColor: '#000000',
   },
   heroImage: {
     position: 'absolute',

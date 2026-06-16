@@ -54,8 +54,6 @@ export default function FeedbackScreen() {
     selectedImage,
     sending,
     sendError,
-    sendSuccess,
-    pointsAwarded,
     handlePickImage,
     handleRemoveImage,
     handleSend,
@@ -138,14 +136,6 @@ export default function FeedbackScreen() {
           onPress={handleSend}
         />
  
-        {sendSuccess && (
-          <Text style={styles.successText}>
-            {pointsAwarded
-              ? 'Dein Feedback wurde gespeichert. Du hast 5 Grow Points erhalten.'
-              : 'Dein Feedback wurde gespeichert.'}
-          </Text>
-        )}
- 
         {sendError && <Text style={styles.errorText}>{sendError}</Text>}
  
         <Text style={styles.footerText}>
@@ -159,7 +149,7 @@ export default function FeedbackScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.backgroundDeep,
+    backgroundColor: '#000000',
   },
   loadingWrap: {
     flex: 1,
@@ -202,13 +192,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: COLORS.textSecondary,
     fontSize: sf(12),
-  },
-  successText: {
-    textAlign: 'center',
-    color: COLORS.gold,
-    fontSize: sf(13),
-    lineHeight: 18,
-    marginBottom: sv(14),
   },
   errorText: {
     textAlign: 'center',

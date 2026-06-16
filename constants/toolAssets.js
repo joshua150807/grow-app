@@ -35,6 +35,7 @@ export const STARTUP_IMAGE_ASSETS = [
 
 
 export const FEEDBACK_IMAGE_ASSETS = [
+  require('../assets/images/grow_banner_lossless.webp'),
   require('../assets/feedback/feedback-hero.webp'),
   require('../assets/feedback/feedback-card-idea.webp'),
   require('../assets/feedback/feedback-card-bug.webp'),
@@ -62,7 +63,7 @@ export const TOOL_PAGE_BACKGROUND_ASSETS = [
 ];  
 
 let toolPageBackgroundsPreloaded = false;
-let feedbackImagesPreloaded = false;
+let feedbackImagesPreloadPromise = null;
 
 export async function preloadStartupImageAssets() {
   await Asset.loadAsync(STARTUP_IMAGE_ASSETS);
@@ -83,14 +84,12 @@ export async function preloadToolPageBackgroundAssets() {
 
 
 export async function preloadFeedbackImageAssets() {
-  if (feedbackImagesPreloaded) return;
-
-  feedbackImagesPreloaded = true;
-
-  try {
-    await Asset.loadAsync(FEEDBACK_IMAGE_ASSETS);
-  } catch (err) {
-    feedbackImagesPreloaded = false;
-    throw err;
+  if (!feedbackImagesPreloadPromise) {
+    feedbackImagesPreloadPromise = Asset.loadAsync(FEEDBACK_IMAGE_ASSETS).catch((err) => {
+      feedbackImagesPreloadPromise = null;
+      throw err;
+    });
   }
+
+  await feedbackImagesPreloadPromise;
 }

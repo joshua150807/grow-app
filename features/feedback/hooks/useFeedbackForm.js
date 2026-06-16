@@ -20,8 +20,6 @@ export function useFeedbackForm() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(null);
-  const [sendSuccess, setSendSuccess] = useState(false);
-  const [pointsAwarded, setPointsAwarded] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -33,8 +31,6 @@ export function useFeedbackForm() {
     if (!isMountedRef.current) return;
 
     setSendError(null);
-    setSendSuccess(false);
-    setPointsAwarded(false);
   }, []);
 
   const resetForm = useCallback(() => {
@@ -148,8 +144,12 @@ export function useFeedbackForm() {
       if (!isMountedRef.current) return;
 
       resetForm();
-      setPointsAwarded(Boolean(result?.pointsAwarded));
-      setSendSuccess(true);
+      Alert.alert(
+        'Feedback gesendet',
+        result?.pointsAwarded
+          ? 'Danke für dein Feedback! Du hast 5 Grow Points erhalten.'
+          : 'Danke für dein Feedback!'
+      );
     } catch (error) {
       console.log('Fehler beim Senden von Feedback:', error);
 
@@ -175,8 +175,6 @@ export function useFeedbackForm() {
     selectedImage,
     sending,
     sendError,
-    sendSuccess,
-    pointsAwarded,
     handlePickImage,
     handleRemoveImage,
     handleSend,
