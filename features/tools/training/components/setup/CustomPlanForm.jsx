@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../../../constants/colors';
 import { s, sv, sf } from '../../../../../constants/layout';
 import { styles } from '../../styles/trainingStyles';
+import { inferMuscleGroup } from '../../utils/muscleGroupUtils';
 import {
   loadCustomTrainingPlanDraft,
   saveCustomTrainingPlanDraft,
@@ -32,7 +33,7 @@ function makeTempId() {
 }
 
 function emptyExercise() {
-  return { id: makeTempId(), name: '', weight: '', sets: '', reps: '', note: '' };
+  return { id: makeTempId(), name: '', muscle_group: '', muscleGroupEdited: false, weight: '', sets: '', reps: '', note: '' };
 }
 
 function emptyDay(type = 'gym') {
@@ -72,6 +73,7 @@ function parsePositiveInteger(value) {
 function normalizeExercise(exercise) {
   return {
     name: safeText(exercise?.name),
+    muscle_group: safeText(exercise?.muscle_group) || inferMuscleGroup(exercise?.name),
     weight: safeText(exercise?.weight),
     sets: safeText(exercise?.sets),
     reps: safeText(exercise?.reps),
@@ -255,9 +257,20 @@ export function CustomPlanForm({ onSave, onBack }) {
         d.id === dayId
           ? {
               ...d,
-              exercises: (d.exercises || []).map(ex =>
-                ex.id === exId ? { ...ex, [field]: value } : ex
-              ),
+              exercises: (d.exercises || []).map(ex => {
+                if (ex.id !== exId) return ex;
+                if (field === 'name') {
+                  return {
+                    ...ex,
+                    name: value,
+                    muscle_group: ex.muscleGroupEdited ? ex.muscle_group : inferMuscleGroup(value),
+                  };
+                }
+                if (field === 'muscle_group') {
+                  return { ...ex, muscle_group: value, muscleGroupEdited: true };
+                }
+                return { ...ex, [field]: value };
+              }),
             }
           : d
       )
@@ -422,6 +435,14 @@ export function CustomPlanForm({ onSave, onBack }) {
                           placeholderTextColor={COLORS.textFaint}
                           value={ex.name}
                           onChangeText={val => updateExercise(day.id, ex.id, 'name', val)}
+                          editable={!saving}
+                        />
+                        <TextInput
+                          style={styles.setupExerciseNameInput}
+                          placeholder="Muskelgruppe"
+                          placeholderTextColor={COLORS.textFaint}
+                          value={ex.muscle_group}
+                          onChangeText={val => updateExercise(day.id, ex.id, 'muscle_group', val)}
                           editable={!saving}
                         />
                         <View style={styles.setupExerciseDetailsRow}>

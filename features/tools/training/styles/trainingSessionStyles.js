@@ -328,4 +328,53 @@ export const trainingSessionStyles = {
     lineHeight: sf(18),
     marginTop: sv(8),
   },
+
+
+  pauseScreen: {
+    flex: 1,
+    backgroundColor: COLORS.black,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pauseTitle: {
+    color: COLORS.paleGold,
+    fontSize: sf(28),
+    fontWeight: '900',
+    marginBottom: sv(24),
+  },
+  pauseTimer: {
+    color: COLORS.gold,
+    fontSize: sf(72),
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  pauseStartButton: {
+    minHeight: sv(44),
+    borderRadius: s(12),
+    borderWidth: 1,
+    borderColor: COLORS.goldBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: sv(-4),
+    marginBottom: sv(14),
+  },
+  pauseStartButtonText: {
+    color: COLORS.softGold,
+    fontSize: sf(13),
+    fontWeight: '800',
+  },
+  sectionSecondaryButton: {
+    minHeight: sv(48),
+    borderRadius: s(14),
+    borderWidth: 1,
+    borderColor: COLORS.goldBorder,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: sv(10),
+  },
+  sectionSecondaryButtonText: {
+    color: COLORS.softGold,
+    fontSize: sf(14),
+    fontWeight: '800',
+  },
 };

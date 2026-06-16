@@ -1,4 +1,5 @@
 import { supabase } from '../../../../services/supabaseClient';
+import { resolveMuscleGroup } from '../utils/muscleGroupUtils';
 
 function safeText(value, fallback = '') {
   if (value === null || value === undefined) return fallback;
@@ -52,6 +53,7 @@ function normalizeDaysData(daysData) {
         ? exercises
             .map((exercise) => ({
               name: safeText(exercise?.name),
+              muscle_group: resolveMuscleGroup(exercise?.muscle_group ?? exercise?.muscleGroup, exercise?.name),
               weight: parseOptionalNumber(exercise?.weight),
               sets: parsePositiveInteger(exercise?.sets),
               reps: parsePositiveInteger(exercise?.reps),
@@ -237,7 +239,10 @@ export async function fetchTrainingPlan() {
           ...day,
           // Ohne DB-Migration wird ein Lauftag als Tag ohne Übungen gespeichert.
           type: normalizeDayType(day.day_type || day.type),
-          exercises: dayExercises,
+          exercises: dayExercises.map((exercise) => ({
+            ...exercise,
+            muscle_group: resolveMuscleGroup(exercise.muscle_group, exercise.name),
+          })),
         };
       }),
     };
@@ -358,6 +363,7 @@ export async function createTrainingPlan(planName, daysData) {
             .insert({
               day_id: createdDay.id,
               name: ex.name,
+              muscle_group: ex.muscle_group,
               weight: ex.weight,
               sets: ex.sets,
               reps: ex.reps,
@@ -433,6 +439,7 @@ export async function createTrainingPlan(planName, daysData) {
 export async function addExerciseToDay(dayId, exerciseData) {
   const cleanExercise = {
     name: safeText(exerciseData?.name),
+    muscle_group: resolveMuscleGroup(exerciseData?.muscle_group ?? exerciseData?.muscleGroup, exerciseData?.name),
     weight: parseOptionalNumber(exerciseData?.weight),
     sets: parsePositiveInteger(exerciseData?.sets),
     reps: parsePositiveInteger(exerciseData?.reps),
@@ -446,6 +453,7 @@ export async function addExerciseToDay(dayId, exerciseData) {
     .insert({
       day_id: dayId,
       name: cleanExercise.name,
+      muscle_group: cleanExercise.muscle_group,
       weight: cleanExercise.weight,
       sets: cleanExercise.sets,
       reps: cleanExercise.reps,
@@ -464,6 +472,7 @@ export async function addExerciseToDay(dayId, exerciseData) {
 export async function updateExercise(exerciseId, exerciseData) {
   const cleanExercise = {
     name: safeText(exerciseData?.name),
+    muscle_group: resolveMuscleGroup(exerciseData?.muscle_group ?? exerciseData?.muscleGroup, exerciseData?.name),
     weight: parseOptionalNumber(exerciseData?.weight),
     sets: parsePositiveInteger(exerciseData?.sets),
     reps: parsePositiveInteger(exerciseData?.reps),
@@ -476,6 +485,7 @@ export async function updateExercise(exerciseId, exerciseData) {
     .from('training_exercises')
     .update({
       name: cleanExercise.name,
+      muscle_group: cleanExercise.muscle_group,
       weight: cleanExercise.weight,
       sets: cleanExercise.sets,
       reps: cleanExercise.reps,

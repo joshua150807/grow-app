@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../../constants/colors';
 import { s, sv } from '../../../../constants/layout';
 import { styles } from '../styles/trainingStyles';
+import { inferMuscleGroup } from '../utils/muscleGroupUtils';
 
 const softPress = (baseStyle, disabled = false) => ({ pressed }) => [
   baseStyle,
@@ -27,6 +28,8 @@ const iconPress = (disabled = false) => ({ pressed }) => [
 
 export function EditExerciseModal({ visible, exercise, onClose, onSave, onDelete }) {
   const [name, setName] = useState('');
+  const [muscleGroup, setMuscleGroup] = useState('');
+  const [muscleGroupEdited, setMuscleGroupEdited] = useState(false);
   const [weight, setWeight] = useState('');
   const [sets, setSets] = useState('');
   const [reps, setReps] = useState('');
@@ -38,6 +41,8 @@ export function EditExerciseModal({ visible, exercise, onClose, onSave, onDelete
   useEffect(() => {
     if (exercise) {
       setName(exercise.name ?? '');
+      setMuscleGroup(exercise.muscle_group || inferMuscleGroup(exercise.name));
+      setMuscleGroupEdited(Boolean(exercise.muscle_group));
       setWeight(exercise.weight != null ? String(exercise.weight) : '');
       setSets(exercise.sets != null ? String(exercise.sets) : '');
       setReps(exercise.reps != null ? String(exercise.reps) : '');
@@ -51,7 +56,7 @@ export function EditExerciseModal({ visible, exercise, onClose, onSave, onDelete
     setSaving(true);
     setError(null);
     try {
-      await onSave({ name, weight, sets, reps, note });
+      await onSave({ name, muscle_group: muscleGroup || inferMuscleGroup(name), weight, sets, reps, note });
     } catch (e) {
       setError(e?.message || 'Übung konnte nicht gespeichert werden.');
       setSaving(false);
@@ -94,7 +99,24 @@ export function EditExerciseModal({ visible, exercise, onClose, onSave, onDelete
               placeholder="z.B. Bankdrücken"
               placeholderTextColor={COLORS.textFaint}
               value={name}
-              onChangeText={setName}
+              onChangeText={(value) => {
+                setName(value);
+                if (!muscleGroupEdited) setMuscleGroup(inferMuscleGroup(value));
+              }}
+              editable={!busy}
+            />
+
+
+            <Text style={styles.modalLabel}>MUSKELGRUPPE</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="z.B. Brust"
+              placeholderTextColor={COLORS.textFaint}
+              value={muscleGroup}
+              onChangeText={(value) => {
+                setMuscleGroup(value);
+                setMuscleGroupEdited(true);
+              }}
               editable={!busy}
             />
 

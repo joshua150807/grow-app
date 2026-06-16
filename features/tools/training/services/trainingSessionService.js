@@ -198,6 +198,7 @@ export async function createTrainingSession({
         sets: exercise.sets,
         reps: exercise.reps,
         note: exercise.note || null,
+        muscle_group: exercise.muscleGroup || exercise.muscle_group || 'Sonstiges',
       }))
     : [];
 
@@ -295,6 +296,7 @@ export async function fetchTrainingSessionDetail(sessionId) {
       training_session_exercises (
         id,
         exercise_name,
+        muscle_group,
         weight,
         sets,
         reps,
