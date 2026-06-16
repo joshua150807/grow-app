@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deleteRating, fetchRating, upsertRating } from "../services/ratings";
+import { RATING_ICONS } from "../../../constants/ratingAssets";
 
 export const RATINGS = [
-  { key: "fire", emoji: "🔥" },
-  { key: "thumbs_up", emoji: "👍" },
-  { key: "neutral", emoji: "😐" },
-  { key: "thumbs_down", emoji: "👎" },
+  { key: "fire", icon: RATING_ICONS.fire },
+  { key: "thumbs_up", icon: RATING_ICONS.thumbsUp },
+  { key: "neutral", icon: RATING_ICONS.neutral },
+  { key: "thumbs_down", icon: RATING_ICONS.thumbsDown },
 ];
 
 export function useVideoRating({ userId, videoId, isActive }) {

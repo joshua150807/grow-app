@@ -292,4 +292,35 @@ export const trainingOverviewStyles = {
     fontWeight: '700',
   },
 
+
+  anatomyPosterScreen: {
+    flex: 1,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    overflow: 'hidden',
+  },
+
+  anatomyPosterImage: {
+    marginTop: sv(100),
+  },
+
+  anatomyPosterBackButton: {
+    position: 'absolute',
+    top: sv(44),
+    left: s(18),
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: sv(8),
+    paddingRight: s(14),
+  },
+
+  anatomyPosterBackText: {
+    color: COLORS.softGold,
+    fontSize: sf(16),
+    fontWeight: '600',
+    marginLeft: s(2),
+  },
+
 };

@@ -20,6 +20,7 @@ import { StartupProfileContext } from '../features/profile/context/ProfileContex
 import { OnboardingProvider } from '../features/onboarding/context/OnboardingContext';
 import OnboardingLayer from '../features/onboarding/components/OnboardingLayer';
 import RootErrorBoundary from '../components/system/RootErrorBoundary';
+import { preloadRatingIconAssets } from '../constants/ratingAssets';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -139,6 +140,14 @@ export default function RootLayout() {
     // Sobald die Session bekannt ist, darf der Feed rendern.
     // Profil/Tool-Daten laufen danach im Hintergrund.
     SplashScreen.hideAsync().catch(() => {});
+  }, [session]);
+
+  useEffect(() => {
+    if (session === undefined) return;
+
+    preloadRatingIconAssets().catch((err) => {
+      console.log('Rating-Icons konnten beim Start nicht vorgeladen werden:', err);
+    });
   }, [session]);
 
   const reloadStartupProfile = useCallback(async () => {

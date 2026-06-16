@@ -19,15 +19,15 @@ export const COLORS = {
   borderDeep: '#24202b',
 
   // Gold-Familie
-  gold: '#D4AF37',
+  gold: '#E7C98A',
   softGold: '#f2dfb4',
   paleGold: '#f4e7c5',
-  lightGold: '#F2D37A',
+  lightGold: '#E7C98A',
   warmGold: '#e8c978',
-  goldBorder: '#7f6236',
-  goldBorderLight: '#a88446',
-  mutedGold: '#9c8f78',
-  dimGold: '#a07d47',
+  goldBorder: 'rgba(231,201,138,0.24)',
+  goldBorderLight: 'rgba(231,201,138,0.38)',
+  mutedGold: '#BFA36B',
+  dimGold: '#9C8251',
 
   // Text
   white: '#FFFFFF',

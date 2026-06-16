@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, StyleSheet, Text, View } from 'react-native';
+import { Animated, Image, PanResponder, StyleSheet, View } from 'react-native';
 
 import { COLORS } from '../../../constants/colors';
-import { s, sv, sf } from '../../../constants/layout';
+import { s, sv } from '../../../constants/layout';
 import { RATINGS } from '../hooks/useVideoRating';
 
 const TRACK_HEIGHT = sv(200);
 const TRACK_WIDTH = s(2);
 const THUMB_SIZE = s(13);
 const PREVIEW_SIZE = s(38);
+const PREVIEW_ICON_SIZE = s(29);
 const HIT_WIDTH = s(48);
 const CLEAR_ZONE_RADIUS = sv(18);
 
@@ -51,7 +52,7 @@ export default function VideoRatingSlider({
   const [thumbY, setThumbY] = useState(() => getSnapYForRating(currentRating));
   const [previewIndex, setPreviewIndex] = useState(() => getZoneIndexFromY(thumbY));
   const [isDragging, setIsDragging] = useState(false);
-  const [flyoutEmoji, setFlyoutEmoji] = useState(null);
+  const [flyoutIcon, setFlyoutIcon] = useState(null);
 
   const latestThumbYRef = useRef(thumbY);
   const dragStartYRef = useRef(thumbY);
@@ -75,11 +76,11 @@ export default function VideoRatingSlider({
   }, [currentRating]);
 
   const startRatingFlyout = (rating) => {
-    if (!rating?.emoji) return;
+    if (!rating?.icon) return;
 
-    setFlyoutEmoji({
+    setFlyoutIcon({
       id: Date.now(),
-      emoji: rating.emoji,
+      icon: rating.icon,
       startY: getSnapYForRating(rating.key),
     });
 
@@ -121,7 +122,7 @@ export default function VideoRatingSlider({
       ]),
     ]).start(({ finished }) => {
       if (finished) {
-        setFlyoutEmoji(null);
+        setFlyoutIcon(null);
       }
     });
   };
@@ -213,7 +214,11 @@ export default function VideoRatingSlider({
           style={[styles.previewBubble, { top: thumbY - PREVIEW_SIZE / 2 }]}
           pointerEvents="none"
         >
-          <Text style={styles.previewEmoji}>{selectedRating.emoji}</Text>
+          <Image
+            source={selectedRating.icon}
+            style={styles.previewIcon}
+            resizeMode="contain"
+          />
         </View>
       )}
 
@@ -238,13 +243,13 @@ export default function VideoRatingSlider({
         <View style={styles.thumbCore} />
       </View>
 
-      {flyoutEmoji && (
+      {flyoutIcon && (
         <Animated.View
-          key={flyoutEmoji.id}
+          key={flyoutIcon.id}
           style={[
             styles.ratingFlyout,
             {
-              top: flyoutEmoji.startY - PREVIEW_SIZE / 2,
+              top: flyoutIcon.startY - PREVIEW_SIZE / 2,
               opacity: flyoutOpacity,
               transform: [
                 { translateY: flyoutY },
@@ -254,7 +259,11 @@ export default function VideoRatingSlider({
           ]}
           pointerEvents="none"
         >
-          <Text style={styles.ratingFlyoutEmoji}>{flyoutEmoji.emoji}</Text>
+          <Image
+            source={flyoutIcon.icon}
+            style={styles.ratingFlyoutIcon}
+            resizeMode="contain"
+          />
         </Animated.View>
       )}
     </View>
@@ -347,8 +356,9 @@ const styles = StyleSheet.create({
     elevation: 9,
   },
 
-  previewEmoji: {
-    fontSize: sf(18),
+  previewIcon: {
+    width: PREVIEW_ICON_SIZE,
+    height: PREVIEW_ICON_SIZE,
   },
 
   ratingFlyout: {
@@ -367,7 +377,8 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
 
-  ratingFlyoutEmoji: {
-    fontSize: sf(19),
+  ratingFlyoutIcon: {
+    width: PREVIEW_ICON_SIZE,
+    height: PREVIEW_ICON_SIZE,
   },
 });
