@@ -71,22 +71,58 @@ export const MUSCLE_GROUP_DETAILS = {
       'Hintere Schulter: zieht den Arm nach hinten und unterstützt eine stabile Schulterposition.',
     ],
   },
-  arms: {
-    descriptionTitle: 'Arme verstehen',
+  biceps: {
+    descriptionTitle: 'Bizeps verstehen',
     description:
-      'Die Arme bestehen vor allem aus Bizeps, Trizeps und Unterarmmuskulatur. Der Trizeps macht einen großen Teil des Oberarmumfangs aus, während der Bizeps für Armbeugung und Supination wichtig ist.',
+      'Der Bizeps ist vor allem für die Beugung des Ellenbogens und die Drehung des Unterarms zuständig. Für eine vollständige Entwicklung sollten Übungen für den langen und kurzen Kopf sowie den darunterliegenden Brachialis kombiniert werden.',
     focusPoints: [
-      'Bizeps profitiert von Curls mit sauberer Kontrolle und voller Streckung.',
-      'Trizeps braucht sowohl Pushdown-/Extensions-Varianten als auch schwere Druckbewegungen.',
-      'Unterarme und Griffkraft werden durch Ziehübungen, Curls und Haltearbeit mittrainiert.',
+      'Schrägbankcurls betonen durch die gedehnte Armposition stärker den langen Kopf.',
+      'Scottcurls und Maschinenvarianten ermöglichen eine stabile Belastung des kurzen Kopfes.',
+      'Hammer-Curl-Varianten trainieren besonders den Brachialis und tragen zur Armdicke bei.',
     ],
-    anatomyTitle: 'Aufbau der Armmuskulatur',
+    anatomyTitle: 'Aufbau des Bizeps',
     anatomyDescription:
-      'Für starke und optisch volle Arme müssen Vorder- und Rückseite des Oberarms trainiert werden. Beide übernehmen unterschiedliche Bewegungen im Ellenbogen- und Schultergelenk.',
+      'Der Bizeps brachii besteht aus einem langen und einem kurzen Kopf. Unterhalb des Bizeps liegt der Brachialis, der ebenfalls wesentlich an der Armbeugung beteiligt ist.',
     anatomyParts: [
-      'Bizeps brachii: beugt den Arm und dreht den Unterarm nach außen.',
+      'Langer Kopf: verläuft außen am Oberarm und prägt die sichtbare Bizepsspitze.',
+      'Kurzer Kopf: liegt stärker auf der Innenseite und trägt zur Breite des Bizeps bei.',
       'Brachialis: liegt unter dem Bizeps und unterstützt die Armbeugung.',
-      'Trizeps brachii: streckt den Arm und macht einen großen Teil des Oberarms aus.',
+    ],
+  },
+  triceps: {
+    descriptionTitle: 'Trizeps verstehen',
+    description:
+      'Der Trizeps streckt den Arm und macht einen großen Teil des Oberarmumfangs aus. Seine drei Köpfe arbeiten gemeinsam, können durch unterschiedliche Armpositionen aber verschieden stark betont werden.',
+    focusPoints: [
+      'Überkopfvarianten dehnen und belasten besonders den langen Kopf.',
+      'Pushdowns eignen sich gut für kontrollierte Spannung auf dem seitlichen und mittleren Kopf.',
+      'Dips und andere Druckübungen ermöglichen eine hohe Gesamtbelastung des Trizeps.',
+    ],
+    anatomyTitle: 'Aufbau des Trizeps',
+    anatomyDescription:
+      'Der Trizeps brachii besteht aus einem langen, einem seitlichen und einem mittleren Kopf. Gemeinsam strecken sie den Ellenbogen.',
+    anatomyParts: [
+      'Langer Kopf: verläuft über das Schultergelenk und wird in Überkopfpositionen stark gedehnt.',
+      'Seitlicher Kopf: liegt außen und prägt die sichtbare Form des Oberarms.',
+      'Mittlerer Kopf: liegt tiefer und unterstützt nahezu jede Streckbewegung.',
+    ],
+  },
+  forearms: {
+    descriptionTitle: 'Unterarme verstehen',
+    description:
+      'Die Unterarme steuern Handgelenk, Finger und Griffkraft. Sie arbeiten bei nahezu allen Zugübungen mit und können zusätzlich gezielt über Beuge-, Streck- und Haltebewegungen trainiert werden.',
+    focusPoints: [
+      'Handgelenkcurls trainieren vor allem die Beuger auf der Unterarminnenseite.',
+      'Zugübungen und schwere Haltearbeit verbessern die Griffkraft.',
+      'Kontrollierte Wiederholungen sind wichtiger als sehr hohe Gewichte.',
+    ],
+    anatomyTitle: 'Aufbau der Unterarme',
+    anatomyDescription:
+      'Die Unterarme bestehen aus zahlreichen Muskeln, die Handgelenk und Finger bewegen sowie den Griff stabilisieren.',
+    anatomyParts: [
+      'Unterarmbeuger: beugen Handgelenk und Finger.',
+      'Unterarmstrecker: strecken und stabilisieren das Handgelenk.',
+      'Griffmuskulatur: unterstützt das sichere Halten von Hanteln und Griffen.',
     ],
   },
   core: {

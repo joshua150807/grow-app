@@ -26,7 +26,9 @@ const MUSCLE_GROUPS = [
   { id: 'back', label: 'Rücken', icon: 'accessibility-outline' },
   { id: 'legs', label: 'Beine', icon: 'walk-outline' },
   { id: 'shoulders', label: 'Schulter', icon: 'fitness-outline' },
-  { id: 'arms', label: 'Arme', icon: 'barbell-outline' },
+  { id: 'biceps', label: 'Bizeps', icon: 'barbell-outline' },
+  { id: 'triceps', label: 'Trizeps', icon: 'barbell-outline' },
+  { id: 'forearms', label: 'Unterarme', icon: 'hand-left-outline' },
   { id: 'core', label: 'Bauch', icon: 'ellipse-outline' },
 ];
 

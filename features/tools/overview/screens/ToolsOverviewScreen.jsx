@@ -441,7 +441,9 @@ export default function ToolsScreen() {
                 <View style={styles.mentorTextBox}>
                   <Text style={styles.mentorTitle}>KI Mentor</Text>
                   <Text style={styles.mentorDescription} numberOfLines={2}>
-                    Dein persönlicher Mentor. Klare Tipps & Motivation.
+                    Dein persönlicher Mentor.
+                    {'\n'}
+                    Klare Tipps & Motivation.
                   </Text>
                 </View>
               </View>

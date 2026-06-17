@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   },
   cardPressable: {
     flex: 1,
-    height: sv(120),
+    height: sv(115),
     overflow: 'visible',
     alignItems: 'center',
     justifyContent: 'center',

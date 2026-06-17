@@ -379,6 +379,7 @@ export const styles = StyleSheet.create({
 
   mentorTextBox: {
     flex: 1,
+    marginLeft: s(18),
   },
 
   mentorTitle: {
