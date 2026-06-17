@@ -277,10 +277,21 @@ export default function VideoFeed({
         return;
       }
 
+      const previousSavedState = video.saved;
+      const optimisticSavedState = !previousSavedState;
+
       bookmarkRequestRef.current.add(id);
 
+      // Sofortiges visuelles Feedback: Das Bookmark wird direkt umgeschaltet,
+      // während die Supabase-Anfrage im Hintergrund läuft.
+      setFeedData((prevData) =>
+        prevData.map((item) =>
+          item.id === id ? { ...item, saved: optimisticSavedState } : item,
+        ),
+      );
+
       try {
-        const newSavedState = await toggleVideoBookmark(id, video.saved);
+        const newSavedState = await toggleVideoBookmark(id, previousSavedState);
 
         if (!isMountedRef.current) {
           return;
@@ -319,6 +330,14 @@ export default function VideoFeed({
         );
       } catch (error) {
         console.log("Fehler beim Speichern des Videos:", error);
+
+        if (isMountedRef.current) {
+          setFeedData((prevData) =>
+            prevData.map((item) =>
+              item.id === id ? { ...item, saved: previousSavedState } : item,
+            ),
+          );
+        }
       } finally {
         bookmarkRequestRef.current.delete(id);
       }

@@ -447,7 +447,7 @@ export default function ToolsScreen() {
               </View>
 
               <View style={styles.mentorButton} pointerEvents="none">
-                <Text style={styles.mentorButtonText}>Erfahre mehr!</Text>
+                <Text style={styles.mentorButtonText}>Erfahre mehr! &gt;</Text>
               </View>
             </View>
           </ImageBackground>

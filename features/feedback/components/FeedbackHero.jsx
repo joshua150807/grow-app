@@ -40,7 +40,7 @@ export default function FeedbackHero() {
 
 const styles = StyleSheet.create({
   heroStage: {
-    height: sv(420),
+    height: sv(380),
     marginHorizontal: -s(20),
     marginBottom: sv(18),
     position: 'relative',
@@ -49,11 +49,10 @@ const styles = StyleSheet.create({
   },
   heroImage: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    top: sv(52),
-    width: '100%',
-    height: sv(350),
+    top: sv(57),
+    alignSelf: 'center',
+    width: '94%',
+    height: sv(290),
   },
   topFade: {
     position: 'absolute',
@@ -89,7 +88,7 @@ const styles = StyleSheet.create({
     fontSize: sf(15),
     fontWeight: '700',
     lineHeight: sv(20),
-    marginBottom: sv(9),
+    marginBottom: sv(4),
   },
   description: {
     color: COLORS.textDim,

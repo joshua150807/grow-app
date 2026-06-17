@@ -185,12 +185,12 @@ const styles = StyleSheet.create({
   },
 
   saveButton: {
-    marginTop: sv(36),
+    marginTop: sv(30),
     width: s(42),
     height: s(42),
     justifyContent: 'center',
     alignItems: 'center',
-    transform: [{ translateX: s(2) }]
+    transform: [{ translateX: s(2,2) }]
   },
 
   pauseOverlay: {

@@ -397,12 +397,9 @@ export const styles = StyleSheet.create({
   },
 
   mentorButton: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(231,201,138,0.32)',
-    borderRadius: 999,
     paddingVertical: compact ? sv(5) : sv(6),
     paddingHorizontal: compact ? s(8) : s(10),
-    backgroundColor: 'rgba(255,255,255,0.025)',
+    transform: [{ translateY: -sv(30)}]
   },
 
   mentorButtonText: {

@@ -226,17 +226,6 @@ export default function VideoRatingSlider({
         <View style={styles.trackGlow} />
         <View style={styles.track} />
 
-        {[0, 0.25, 0.5, 0.75, 1].map((position) => (
-          <View
-            key={position}
-            style={[
-              styles.tick,
-              {
-                top: TRACK_HEIGHT * position - StyleSheet.hairlineWidth,
-              },
-            ]}
-          />
-        ))}
       </View>
 
       <View style={[styles.thumb, { top: thumbY - THUMB_SIZE / 2 }]} pointerEvents="none">
@@ -305,15 +294,6 @@ const styles = StyleSheet.create({
     opacity: 0.72,
   },
 
-  tick: {
-    position: 'absolute',
-    right: s(2),
-    width: s(8),
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: COLORS.gold,
-    opacity: 0.55,
-  },
-
   thumb: {
     position: 'absolute',
     right: s(16.5),
@@ -340,7 +320,7 @@ const styles = StyleSheet.create({
 
   previewBubble: {
     position: 'absolute',
-    right: s(42),
+    right: s(76),
     width: PREVIEW_SIZE,
     height: PREVIEW_SIZE,
     borderRadius: PREVIEW_SIZE / 2,
