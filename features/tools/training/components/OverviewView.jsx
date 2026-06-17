@@ -88,10 +88,6 @@ export function OverviewView({ plan, onChangePlan }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="barbell-outline" size={s(36)} color={COLORS.gold} />
-          </View>
-
           <Text style={styles.title}>Trainingsplan</Text>
         </View>
 

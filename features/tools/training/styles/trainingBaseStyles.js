@@ -78,17 +78,6 @@ export const trainingBaseStyles = {
     alignItems: 'center',
     marginBottom: sv(28),
   },
-  iconCircle: {
-    width: s(80),
-    height: s(80),
-    borderRadius: s(40),
-    borderWidth: 1.5,
-    borderColor: COLORS.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: sv(16),
-    backgroundColor: 'rgba(212,175,55,0.08)',
-  },
   title: {
     color: COLORS.paleGold,
     fontSize: sf(26),

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Alert,
-  KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, AppState,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,6 +52,7 @@ export default function TrainingSessionActiveScreen() {
   const [sectionIndex, setSectionIndex] = useState(0);
   const [pauseSeconds, setPauseSeconds] = useState(PAUSE_SECONDS);
   const [pauseTargetIndex, setPauseTargetIndex] = useState(null);
+  const [pauseEndsAt, setPauseEndsAt] = useState(null);
 
   const selectedDay = useMemo(() => plan?.days?.find(day => String(day.id) === String(dayId)) || null, [plan, dayId]);
   const exercises = selectedDay?.exercises || [];
@@ -64,16 +65,31 @@ export default function TrainingSessionActiveScreen() {
   const isPausing = pauseTargetIndex !== null;
 
   useEffect(() => {
-    if (!isPausing) return undefined;
-    if (pauseSeconds <= 0) {
-      setSectionIndex(pauseTargetIndex);
-      setPauseTargetIndex(null);
-      setPauseSeconds(PAUSE_SECONDS);
-      return undefined;
-    }
-    const timer = setInterval(() => setPauseSeconds(value => Math.max(0, value - 1)), 1000);
-    return () => clearInterval(timer);
-  }, [isPausing, pauseSeconds, pauseTargetIndex]);
+    if (!isPausing || !pauseEndsAt) return undefined;
+
+    const syncPauseTimer = () => {
+      const remainingSeconds = Math.max(0, Math.ceil((pauseEndsAt - Date.now()) / 1000));
+      setPauseSeconds(remainingSeconds);
+
+      if (remainingSeconds === 0) {
+        setSectionIndex(pauseTargetIndex);
+        setPauseTargetIndex(null);
+        setPauseEndsAt(null);
+        setPauseSeconds(PAUSE_SECONDS);
+      }
+    };
+
+    syncPauseTimer();
+    const timer = setInterval(syncPauseTimer, 1000);
+    const subscription = AppState.addEventListener('change', nextState => {
+      if (nextState === 'active') syncPauseTimer();
+    });
+
+    return () => {
+      clearInterval(timer);
+      subscription.remove();
+    };
+  }, [isPausing, pauseEndsAt, pauseTargetIndex]);
 
   const getExerciseValue = (exercise, field) => {
     const local = exerciseValues[exercise.id]?.[field];
@@ -87,16 +103,21 @@ export default function TrainingSessionActiveScreen() {
   const updateExerciseValue = (id, field, value) => setExerciseValues(prev => ({
     ...prev, [id]: { ...prev[id], [field]: value },
   }));
+  const startPause = targetIndex => {
+    setPauseSeconds(PAUSE_SECONDS);
+    setPauseEndsAt(Date.now() + PAUSE_SECONDS * 1000);
+    setPauseTargetIndex(targetIndex);
+  };
   const skipPause = () => {
     if (pauseTargetIndex === null) return;
     setSectionIndex(pauseTargetIndex);
     setPauseTargetIndex(null);
+    setPauseEndsAt(null);
     setPauseSeconds(PAUSE_SECONDS);
   };
   const startSectionPause = () => {
     if (sectionIndex >= sections.length - 1) return;
-    setPauseSeconds(PAUSE_SECONDS);
-    setPauseTargetIndex(sectionIndex + 1);
+    startPause(sectionIndex + 1);
   };
 
   const saveSession = async () => {
@@ -204,7 +225,7 @@ export default function TrainingSessionActiveScreen() {
               </View>
               <TextInput style={styles.sessionNoteInput} placeholder="Notiz zur Übung" placeholderTextColor={COLORS.textFaint} value={getExerciseValue(exercise, 'note')} onChangeText={value => updateExerciseValue(exercise.id, 'note', value)} editable={!saving} multiline />
             </View>
-            {index < shownExercises.length - 1 ? <Pressable style={softPress(styles.pauseStartButton)} onPress={() => { setPauseSeconds(PAUSE_SECONDS); setPauseTargetIndex(sectionIndex); }}><Text style={styles.pauseStartButtonText}>Pause starten</Text></Pressable> : null}
+            {index < shownExercises.length - 1 ? <Pressable style={softPress(styles.pauseStartButton)} onPress={() => startPause(sectionIndex)}><Text style={styles.pauseStartButtonText}>Pause starten</Text></Pressable> : null}
           </View>
         ))}
 
