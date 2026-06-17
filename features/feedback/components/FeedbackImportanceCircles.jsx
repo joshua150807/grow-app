@@ -10,15 +10,30 @@ import {
 import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout';
 
-const circleImage = require('../../../assets/feedback/feedback-importance-circle.webp');
-
-const values = [1, 2, 3, 4];
+const importanceOptions = [
+  {
+    value: 1,
+    image: require('../../../assets/feedback/feedback-importance-circle-1.webp'),
+  },
+  {
+    value: 2,
+    image: require('../../../assets/feedback/feedback-importance-circle-2.webp'),
+  },
+  {
+    value: 3,
+    image: require('../../../assets/feedback/feedback-importance-circle-3.webp'),
+  },
+  {
+    value: 4,
+    image: require('../../../assets/feedback/feedback-importance-circle-4.webp'),
+  },
+];
 
 export default function FeedbackImportanceCircles({ selectedImportance, onSelect }) {
   return (
     <View style={styles.wrap}>
       <View style={styles.row}>
-        {values.map((value) => {
+        {importanceOptions.map(({ value, image }) => {
           const active = selectedImportance === value;
 
           return (
@@ -31,7 +46,7 @@ export default function FeedbackImportanceCircles({ selectedImportance, onSelect
             >
               <View style={[styles.circleScaleWrap, active && styles.circleScaleWrapActive]}>
                 <ImageBackground
-                  source={circleImage}
+                  source={image}
                   style={styles.circleBackground}
                   imageStyle={styles.circleImage}
                   resizeMode="cover"
