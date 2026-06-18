@@ -65,10 +65,10 @@ const styles = StyleSheet.create({
     borderRadius: s(999),
   },
   text: {
-    color: COLORS.nearBlack,
+    color: COLORS.white,
     fontSize: sf(17),
     lineHeight: sv(22),
-    fontWeight: '900',
+    fontWeight: '90',
     textAlign: 'center',
     letterSpacing: 0.1,
     textShadowColor: 'rgba(255,255,255,0.22)',

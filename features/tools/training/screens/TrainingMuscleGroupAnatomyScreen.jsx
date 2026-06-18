@@ -17,38 +17,61 @@ import { MUSCLE_GROUP_EXERCISES } from '../utils/muscleGroupExercises';
 import { getMuscleGroupDetails } from '../utils/muscleGroupDetails';
 
 const ANATOMY_IMAGES = {
-  chest: require('../../../../assets/training-anatomy/chest.webp'),
-  back: require('../../../../assets/training-anatomy/back.webp'),
+  chest: {
+    source: require('../../../../assets/training-anatomy/chest.webp'),
+    aspectRatio: 941 / 1672,
+  },
+  back: {
+    source: require('../../../../assets/training-anatomy/back.webp'),
+    aspectRatio: 941 / 1672,
+  },
+  legs: {
+    source: require('../../../../assets/training-anatomy/legs.webp'),
+    aspectRatio: 1024 / 1536,
+  },
+  shoulders: {
+    source: require('../../../../assets/training-anatomy/shoulders.webp'),
+    aspectRatio: 1024 / 1536,
+  },
+  biceps: {
+    source: require('../../../../assets/training-anatomy/biceps.webp'),
+    aspectRatio: 853 / 1844,
+  },
+  triceps: {
+    source: require('../../../../assets/training-anatomy/triceps.webp'),
+    aspectRatio: 1024 / 1536,
+  },
 };
 
 const TAB_BAR_SPACE = sv(88);
 const IMAGE_HORIZONTAL_PADDING = s(6);
-const IMAGE_ASPECT_RATIO = 941 / 1672;
 
 export default function TrainingMuscleGroupAnatomyScreen() {
   const { groupId } = useLocalSearchParams();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const group = MUSCLE_GROUP_EXERCISES[groupId];
   const details = getMuscleGroupDetails(groupId);
-  const anatomyImage = ANATOMY_IMAGES[groupId];
+  const anatomyPoster = ANATOMY_IMAGES[groupId];
 
   const imageSize = useMemo(() => {
     const maxWidth = screenWidth - IMAGE_HORIZONTAL_PADDING * 2;
     const maxHeight = screenHeight - TAB_BAR_SPACE;
 
     let width = maxWidth;
-    let height = width / IMAGE_ASPECT_RATIO;
+    const aspectRatio = anatomyPoster?.aspectRatio ?? 941 / 1672;
+
+    let height = width / aspectRatio;
 
     if (height > maxHeight) {
       height = maxHeight;
-      width = height * IMAGE_ASPECT_RATIO;
+      width = height * aspectRatio;
     }
 
     return {
       width: Math.round(width),
       height: Math.round(height),
     };
-  }, [screenHeight, screenWidth]);
+  }, [anatomyPoster?.aspectRatio, screenHeight, screenWidth]);
 
   if (!group || !details) {
     return (
@@ -67,11 +90,11 @@ export default function TrainingMuscleGroupAnatomyScreen() {
     );
   }
 
-  if (anatomyImage) {
+  if (anatomyPoster) {
     return (
       <View style={styles.anatomyPosterScreen}>
         <Image
-          source={anatomyImage}
+          source={anatomyPoster.source}
           style={[styles.anatomyPosterImage, imageSize]}
           resizeMode="contain"
         />

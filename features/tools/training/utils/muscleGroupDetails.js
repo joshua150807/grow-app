@@ -2,11 +2,14 @@ export const MUSCLE_GROUP_DETAILS = {
   chest: {
     descriptionTitle: 'Brust verstehen',
     description:
-      'Die Brustmuskulatur ist vor allem für Druckbewegungen zuständig. Sie arbeitet bei Bankdrücken, Liegestützen, Dips und Flys zusammen mit vorderer Schulter und Trizeps. Für einen guten Aufbau sind schwere Grundübungen und kontrollierte Dehnungsbewegungen sinnvoll.',
+      'Die Brust besteht aus einem oberen, mittleren und unteren Faserverlauf. Alle Bereiche arbeiten bei Druckbewegungen zusammen, je nach Winkel kann der Fokus jedoch leicht verschoben werden.',
     focusPoints: [
-      'Oberer Brustbereich wird stärker durch Schrägbank-Varianten getroffen.',
-      'Mittlerer und unterer Brustbereich profitieren von flachen Druckübungen, Dips und Fly-Varianten.',
-      'Saubere Schulterblattposition ist wichtig, damit die Schulter nicht unnötig belastet wird.',
+      'Der obere Brustbereich wird durch schräge Druckbewegungen stärker trainiert.',
+      'Der mittlere Brustbereich arbeitet besonders bei flachen Druckbewegungen oder Flys.',
+      'Der untere Brustbereich wird häufig bei Bewegungen von oben nach unten stärker belastet.',
+      'Die Brust reagiert besonders gut auf kontrollierte Dehnung und saubere Wiederholungen.',
+      'Denke bei Fly-Bewegungen daran, die Ellenbogen zusammenzuführen und nicht nur die Hände.',
+      'Bilde bei den Übungen kein zu starkes Hohlkreuz, da sonst die Zielmuskulatur weniger effektiv belastet wird.',
     ],
     anatomyTitle: 'Aufbau der Brustmuskulatur',
     anatomyDescription:
@@ -20,11 +23,14 @@ export const MUSCLE_GROUP_DETAILS = {
   back: {
     descriptionTitle: 'Rücken verstehen',
     description:
-      'Der Rücken ist keine einzelne Muskelgruppe, sondern ein Zusammenspiel aus Lat, Trapezmuskel, Rhomboiden, hinterer Schulter und Rückenstreckern. Gute Rückenentwicklung braucht vertikale Züge, horizontales Rudern und stabile Hüftstreckbewegungen.',
+      'Der Rücken besteht aus mehreren Muskelgruppen. Der Latissimus sorgt vor allem für Breite, während Rhomboiden, Trapez und Rückenstrecker für Tiefe, Stabilität und Haltung verantwortlich sind.',
     focusPoints: [
-      'Vertikale Zugübungen wie Klimmzüge und Latzug betonen die Rückenbreite.',
-      'Ruderübungen trainieren Rückenmitte, oberen Rücken und hintere Schulter.',
-      'Rückenstrecker und Rumpf sorgen für Stabilität bei schweren Grundübungen.',
+      'Für den Latissimus die Ellenbogen Richtung Hüfte oder Hosentaschen ziehen.',
+      'Für den oberen Rücken die Schulterblätter aktiv zusammenführen.',
+      'Breite Griffe belasten häufig stärker den oberen Rücken.',
+      'Enge Griffe ermöglichen oft mehr Bewegungsradius und Latissimus-Aktivierung.',
+      'Die Dehnung am Ende der Bewegung bewusst nutzen.',
+      'Wenn du die Schulterblätter zusammenführst, trainierst du stärker den oberen Rücken.',
     ],
     anatomyTitle: 'Aufbau der Rückenmuskulatur',
     anatomyDescription:
@@ -54,13 +60,15 @@ export const MUSCLE_GROUP_DETAILS = {
     ],
   },
   shoulders: {
-    descriptionTitle: 'Schultern verstehen',
+    descriptionTitle: 'Schulter verstehen',
     description:
-      'Die Schulter besteht aus mehreren Anteilen und ist stark an Push- und Zugbewegungen beteiligt. Für breite, stabile Schultern sollten vordere, seitliche und hintere Schulter trainiert werden, ohne die Gelenke unnötig zu reizen.',
+      'Die Schulter besteht aus einer vorderen, seitlichen und hinteren Schulter. Für eine ausgewogene Entwicklung sollten alle drei Bereiche trainiert werden.',
     focusPoints: [
-      'Seitliches Schulterheben ist zentral für optische Schulterbreite.',
-      'Schulterdrücken trainiert vor allem vordere und seitliche Schulter.',
-      'Hintere Schulter und Rotatorenmanschette sind wichtig für Haltung und gesunde Schultern.',
+      'Bewegungen nach vorne trainieren hauptsächlich die vordere Schulter.',
+      'Bewegungen zur Seite trainieren hauptsächlich die seitliche Schulter.',
+      'Bewegungen nach hinten trainieren hauptsächlich die hintere Schulter.',
+      'Beim Seitheben die Ellenbogen anheben und nicht die Hände.',
+      'Die Schultern während der Übung nicht Richtung Ohren ziehen, sondern unten fixieren.',
     ],
     anatomyTitle: 'Aufbau der Schultermuskulatur',
     anatomyDescription:
@@ -74,11 +82,14 @@ export const MUSCLE_GROUP_DETAILS = {
   biceps: {
     descriptionTitle: 'Bizeps verstehen',
     description:
-      'Der Bizeps ist vor allem für die Beugung des Ellenbogens und die Drehung des Unterarms zuständig. Für eine vollständige Entwicklung sollten Übungen für den langen und kurzen Kopf sowie den darunterliegenden Brachialis kombiniert werden.',
+      'Der Bizeps besteht aus einem langen und einem kurzen Kopf. Darunter liegt der Brachialis, der wesentlich zur Armdicke beiträgt.',
     focusPoints: [
-      'Schrägbankcurls betonen durch die gedehnte Armposition stärker den langen Kopf.',
-      'Scottcurls und Maschinenvarianten ermöglichen eine stabile Belastung des kurzen Kopfes.',
-      'Hammer-Curl-Varianten trainieren besonders den Brachialis und tragen zur Armdicke bei.',
+      'Arme hinter dem Körper belasten den langen Kopf stärker.',
+      'Arme vor dem Körper belasten den kurzen Kopf stärker.',
+      'Ein neutraler Griff trainiert den Brachialis besonders intensiv.',
+      'Die Oberarme während der Bewegung möglichst ruhig halten und die Schultern fixieren.',
+      'Die Dehnung am unteren Punkt bewusst nutzen.',
+      'Keinen Schwung einsetzen.',
     ],
     anatomyTitle: 'Aufbau des Bizeps',
     anatomyDescription:
@@ -92,11 +103,13 @@ export const MUSCLE_GROUP_DETAILS = {
   triceps: {
     descriptionTitle: 'Trizeps verstehen',
     description:
-      'Der Trizeps streckt den Arm und macht einen großen Teil des Oberarmumfangs aus. Seine drei Köpfe arbeiten gemeinsam, können durch unterschiedliche Armpositionen aber verschieden stark betont werden.',
+      'Der Trizeps besteht aus einem langen, seitlichen und medialen Kopf. Gemeinsam sorgen sie für die Streckung des Arms.',
     focusPoints: [
-      'Überkopfvarianten dehnen und belasten besonders den langen Kopf.',
-      'Pushdowns eignen sich gut für kontrollierte Spannung auf dem seitlichen und mittleren Kopf.',
-      'Dips und andere Druckübungen ermöglichen eine hohe Gesamtbelastung des Trizeps.',
+      'Überkopfbewegungen belasten den langen Kopf besonders stark.',
+      'Drückbewegungen neben dem Körper treffen häufig stärker den seitlichen Kopf.',
+      'Die Arme am Ende jeder Wiederholung vollständig ausstrecken.',
+      'Die Ellenbogen während der Bewegung möglichst ruhig halten.',
+      'Die Dehnung bewusst nutzen und keinen Schwung einsetzen.',
     ],
     anatomyTitle: 'Aufbau des Trizeps',
     anatomyDescription:
