@@ -74,6 +74,7 @@ const styles = StyleSheet.create({
   textLayer: {
     alignItems: 'center',
     width: '100%',
+    transform: [{ translateX: s(-3)}]
   },
   title: {
     color: COLORS.lightGold,

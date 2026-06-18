@@ -321,17 +321,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Langhantelrudern',
         category: 'Rücken',
         description:
-          'Langhantelrudern ist eine schwere Grundübung für oberen Rücken, Lat, hintere Schulter und Rumpfstabilität.',
+          'Langhantelrudern trainiert den gesamten Rücken und belastet besonders Latissimus, Rhomboiden und den oberen Rücken.',
         execution: [
-          'Stelle dich etwa hüftbreit hin und greife die Langhantel.',
-          'Beuge die Hüfte nach hinten und halte den Rücken gerade.',
+          'Beuge den Oberkörper nach vorne und halte den Rücken gerade.',
           'Ziehe die Hantel kontrolliert Richtung Bauch.',
-          'Senke die Hantel langsam wieder ab.',
+          'Senke das Gewicht langsam wieder ab.',
         ],
         tips: [
-          'Halte den Rücken neutral.',
-          'Vermeide Schwung aus dem Oberkörper.',
-          'Ziehe die Ellenbogen bewusst nach hinten.',
+          'Ziehe die Ellenbogen nach hinten.',
+          'Halte den Rücken während der gesamten Bewegung stabil.',
+          'Nutze die Dehnung am unteren Punkt.',
         ],
       },
       {
@@ -339,17 +338,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Einarmiges Kurzhantelrudern',
         category: 'Rücken',
         description:
-          'Einarmiges Kurzhantelrudern trainiert den Lat und oberen Rücken einseitig und hilft, muskuläre Unterschiede auszugleichen.',
+          'Diese Übung trainiert vor allem den Latissimus und ermöglicht es, jede Seite einzeln zu trainieren.',
         execution: [
-          'Stütze dich mit einer Hand und einem Knie auf einer Bank ab.',
-          'Halte den Rücken gerade.',
-          'Ziehe die Kurzhantel kontrolliert Richtung Hüfte.',
-          'Senke sie langsam wieder ab.',
+          'Stütze dich mit einer Hand auf einer Bank ab.',
+          'Ziehe die Hantel Richtung Hüfte.',
+          'Senke das Gewicht kontrolliert wieder ab.',
         ],
         tips: [
-          'Ziehe den Ellenbogen Richtung Hüfte.',
-          'Drehe den Oberkörper nicht stark auf.',
-          'Kontrolliere die negative Phase.',
+          'Ziehe den Ellenbogen Richtung Hosentasche.',
+          'Nutze die Dehnung am unteren Punkt.',
+          'Vermeide Rotation im Oberkörper.',
         ],
       },
       {
@@ -432,17 +430,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Kniebeugen',
         category: 'Beine',
         description:
-          'Kniebeugen sind eine Grundübung für Beine, Gesäß und Rumpfstabilität.',
+          'Kniebeugen trainieren vor allem Quadrizeps, Gesäß und Beinbeuger und gehören zu den wichtigsten Beinübungen.',
         execution: [
-          'Stelle dich etwa schulterbreit hin.',
-          'Spanne den Rumpf an und halte den Oberkörper stabil.',
-          'Beuge Knie und Hüfte kontrolliert.',
-          'Drücke dich kraftvoll wieder nach oben.',
+          'Stelle die Füße etwa schulterbreit auf.',
+          'Gehe kontrolliert in die Kniebeuge.',
+          'Drücke dich wieder nach oben.',
         ],
         tips: [
-          'Die Knie sollten stabil in Richtung der Zehen zeigen.',
-          'Halte die Fersen am Boden.',
-          'Gehe nur so tief, wie du die Technik sauber halten kannst.',
+          'Halte den Rücken stabil.',
+          'Nutze einen möglichst großen Bewegungsradius.',
+          'Lasse die Knie in Richtung der Fußspitzen laufen.',
         ],
       },
       {
@@ -450,17 +447,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Beinpresse',
         category: 'Beine',
         description:
-          'Die Beinpresse trainiert Quadrizeps, Gesäß und Beinbeuger mit geführter Bewegung.',
+          'Die Beinpresse trainiert hauptsächlich den Quadrizeps sowie Gesäß und Beinbeuger.',
         execution: [
-          'Setze dich stabil in die Maschine.',
-          'Platziere die Füße etwa schulterbreit auf der Plattform.',
+          'Positioniere die Füße stabil auf der Plattform.',
           'Senke das Gewicht kontrolliert ab.',
-          'Drücke die Plattform wieder nach oben, ohne die Knie komplett hart durchzudrücken.',
+          'Drücke die Plattform wieder nach oben.',
         ],
         tips: [
-          'Lasse die Knie nicht nach innen fallen.',
-          'Halte den unteren Rücken an der Lehne.',
-          'Kontrolliere die Tiefe der Bewegung.',
+          'Löse das Gesäß nicht vom Polster.',
+          'Nutze die Dehnung im unteren Bereich.',
+          'Strecke die Knie nicht vollständig durch.',
         ],
       },
       {
@@ -468,17 +464,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Ausfallschritte',
         category: 'Beine',
         description:
-          'Ausfallschritte trainieren Beine und Gesäß einseitig und verbessern Stabilität.',
+          'Ausfallschritte trainieren Quadrizeps, Gesäß und Beinbeuger und verbessern zusätzlich Stabilität und Koordination.',
         execution: [
-          'Mache einen kontrollierten Schritt nach vorne.',
-          'Senke den Körper ab, bis beide Knie etwa gebeugt sind.',
-          'Drücke dich über das vordere Bein zurück nach oben.',
-          'Wechsle die Seite oder führe alle Wiederholungen auf einer Seite aus.',
+          'Mache einen großen Schritt nach vorne.',
+          'Senke den Körper kontrolliert ab.',
+          'Drücke dich wieder zurück in die Ausgangsposition.',
         ],
         tips: [
           'Halte den Oberkörper aufrecht.',
-          'Das vordere Knie bleibt stabil.',
-          'Starte ohne Zusatzgewicht, wenn die Balance schwerfällt.',
+          'Arbeite kontrolliert.',
+          'Nutze einen ausreichend großen Schritt.',
         ],
       },
       {
@@ -486,17 +481,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Beinstrecker',
         category: 'Beine',
         description:
-          'Der Beinstrecker isoliert hauptsächlich den Quadrizeps an der Vorderseite des Oberschenkels.',
+          'Der Beinstrecker isoliert den Quadrizeps und eignet sich hervorragend für den Aufbau der Oberschenkelvorderseite.',
         execution: [
-          'Setze dich stabil in die Maschine.',
-          'Positioniere das Polster oberhalb der Fußgelenke.',
-          'Strecke die Beine kontrolliert nach vorne.',
+          'Positioniere die Beine unter dem Polster.',
+          'Strecke die Beine kontrolliert aus.',
           'Senke das Gewicht langsam wieder ab.',
         ],
         tips: [
-          'Arbeite kontrolliert ohne Schwung.',
-          'Halte oben kurz die Spannung.',
-          'Wähle ein Gewicht, bei dem die Knie sich gut anfühlen.',
+          'Nutze den gesamten Bewegungsradius.',
+          'Spanne den Quadrizeps am oberen Punkt bewusst an.',
+          'Lasse die Zehenspitzen nach oben zeigen.',
         ],
       },
       {
@@ -504,17 +498,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Beinbeuger',
         category: 'Beine',
         description:
-          'Der Beinbeuger trainiert die hintere Oberschenkelmuskulatur.',
+          'Der Beinbeuger trainiert gezielt die Muskulatur auf der Rückseite des Oberschenkels.',
         execution: [
-          'Positioniere dich korrekt in der Maschine.',
-          'Ziehe das Polster kontrolliert Richtung Gesäß.',
-          'Halte kurz die Spannung.',
-          'Führe das Gewicht langsam zurück.',
+          'Positioniere die Beine korrekt an der Maschine.',
+          'Beuge die Beine kontrolliert.',
+          'Lasse das Gewicht langsam zurück.',
         ],
         tips: [
-          'Vermeide Schwung.',
+          'Nutze die Dehnung am unteren Punkt.',
           'Halte die Hüfte stabil.',
-          'Kontrolliere besonders die Rückbewegung.',
+          'Spanne die Beinbeuger bewusst an.',
         ],
       },
       {
@@ -522,17 +515,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Rumänisches Kreuzheben',
         category: 'Beine',
         description:
-          'Rumänisches Kreuzheben trainiert Beinbeuger, Gesäß und Rückenstrecker.',
+          'Rumänisches Kreuzheben trainiert besonders Beinbeuger, Gesäß und unteren Rücken.',
         execution: [
           'Halte die Hantel vor dem Körper.',
-          'Schiebe die Hüfte nach hinten und halte den Rücken gerade.',
-          'Senke die Hantel kontrolliert entlang der Beine ab.',
-          'Richte dich über Hüfte und Gesäß wieder auf.',
+          'Schiebe die Hüfte nach hinten und senke das Gewicht ab.',
+          'Richte dich kontrolliert wieder auf.',
         ],
         tips: [
-          'Die Knie bleiben leicht gebeugt.',
-          'Spüre die Dehnung in den hinteren Oberschenkeln.',
-          'Runde den Rücken nicht ein.',
+          'Halte den Rücken gerade.',
+          'Nutze die Dehnung in den Beinbeugern.',
+          'Beuge die Knie nur leicht.',
         ],
       },
       {
@@ -540,19 +532,70 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Wadenheben',
         category: 'Waden',
         description:
-          'Wadenheben trainiert die Wadenmuskulatur und kann stehend oder sitzend ausgeführt werden.',
+          'Wadenheben trainiert die Wadenmuskulatur und verbessert Kraft und Stabilität im Sprunggelenk.',
         execution: [
-          'Stelle dich stabil auf oder in die Maschine.',
           'Senke die Fersen kontrolliert ab.',
-          'Drücke dich über die Fußballen nach oben.',
-          'Halte oben kurz die Spannung.',
+          'Drücke dich möglichst weit auf die Zehenspitzen.',
+          'Senke die Fersen langsam wieder ab.',
         ],
         tips: [
-          'Nutze den vollen Bewegungsradius.',
-          'Arbeite langsam und kontrolliert.',
-          'Vermeide Wippen mit Schwung.',
+          'Nutze die volle Dehnung.',
+          'Arbeite kontrolliert.',
+          'Spanne die Waden am oberen Punkt bewusst an.',
         ],
       },
+,
+      {
+        id: 'adductor_machine',
+        name: 'Adduktoren Maschine',
+        category: 'Beine',
+        description:
+          'Diese Übung trainiert die Innenseite der Oberschenkel.',
+        execution: [
+          'Positioniere die Beine an den Polstern.',
+          'Drücke die Beine kontrolliert zusammen.',
+          'Lasse das Gewicht langsam zurück.',
+        ],
+        tips: [
+          'Nutze die Dehnung am Startpunkt.',
+          'Bleibe mit dem Rücken am Polster.',
+          'Spanne die Innenseite der Oberschenkel bewusst an.',
+        ],
+      },
+      {
+        id: 'abductor_machine',
+        name: 'Abduktoren Maschine',
+        category: 'Beine',
+        description:
+          'Die Abduktoren Maschine trainiert die äußere Gesäßmuskulatur und die Hüftstabilisatoren.',
+        execution: [
+          'Positioniere die Beine an den Polstern.',
+          'Drücke die Beine kontrolliert nach außen.',
+          'Führe das Gewicht langsam zurück.',
+        ],
+        tips: [
+          'Halte den Oberkörper stabil.',
+          'Arbeite kontrolliert.',
+          'Spanne das Gesäß am Endpunkt bewusst an.',
+        ],
+      },
+      {
+        id: 'hip_thrust',
+        name: 'Hip Thrust',
+        category: 'Beine',
+        description:
+          'Hip Thrusts trainieren vor allem die Gesäßmuskulatur und gehören zu den effektivsten Übungen für den Muskelaufbau des Gesäßes.',
+        execution: [
+          'Lehne den oberen Rücken an eine Bank.',
+          'Drücke die Hüfte kontrolliert nach oben.',
+          'Senke die Hüfte langsam wieder ab.',
+        ],
+        tips: [
+          'Spanne das Gesäß am oberen Punkt bewusst an.',
+          'Halte die Rippen unten.',
+          'Vermeide ein Überstrecken im unteren Rücken.',
+        ],
+      }
     ],
   },
 
@@ -596,19 +639,19 @@ export const MUSCLE_GROUP_EXERCISES = {
       },
       {
         id: 'arnold_press',
-        name: 'Arnold Press',
+        name: 'Arnold Schulterdrücken',
         category: 'Schulter',
         description:
-          'Die Arnold Press ist eine Schulterübung mit Rotation und beansprucht mehrere Schulteranteile.',
+          'Die Arnold Press trainiert die gesamte Schulter mit besonderem Fokus auf die vordere Schulter.',
         execution: [
-          'Starte mit den Kurzhanteln vor der Brust, Handflächen zu dir.',
-          'Drücke die Hanteln nach oben und rotiere die Handflächen nach vorne.',
-          'Senke die Hanteln kontrolliert zurück in die Startposition.',
+          'Starte mit den Handflächen zum Körper.',
+          'Drehe die Hanteln beim Hochdrücken nach außen.',
+          'Drehe sie beim Absenken wieder zurück.',
         ],
         tips: [
-          'Nutze eher moderate Gewichte.',
-          'Führe die Rotation kontrolliert aus.',
-          'Halte den Rumpf stabil.',
+          'Führe die Drehung kontrolliert aus.',
+          'Halte den Oberkörper stabil.',
+          'Arbeite über den gesamten Bewegungsradius.',
         ],
       },
       {
@@ -735,17 +778,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Aufrechtes Rudern',
         category: 'Schulter',
         description:
-          'Aufrechtes Rudern trainiert Schulter und oberen Trapezmuskel.',
+          'Aufrechtes Rudern trainiert vor allem die seitliche Schulter und den Trapezmuskel.',
         execution: [
-          'Halte eine Langhantel, Kurzhanteln oder ein Kabel vor dem Körper.',
-          'Ziehe das Gewicht kontrolliert nach oben.',
-          'Führe die Ellenbogen nach außen oben.',
-          'Senke das Gewicht langsam wieder ab.',
+          'Halte die Hantel vor dem Körper.',
+          'Ziehe die Ellenbogen nach oben.',
+          'Senke das Gewicht kontrolliert wieder ab.',
         ],
         tips: [
-          'Gehe nur so hoch, wie es sich für deine Schultern gut anfühlt.',
-          'Vermeide ruckartige Bewegungen.',
-          'Bei Schulterproblemen vorsichtig einsetzen.',
+          'Halte den Rücken gerade.',
+          'Arbeite kontrolliert.',
+          'Ziehe nicht höher, als es für die Schulter angenehm ist.',
         ],
       },
     ],
@@ -756,23 +798,22 @@ export const MUSCLE_GROUP_EXERCISES = {
     subtitle: 'Übungen für Bizeps, Brachialis und Armbeugung',
     exercises: [
       {
-              id: 'biceps_curl',
-              name: 'Bizeps Curls',
-              category: 'Bizeps',
-              description:
-                'Bizeps Curls trainieren hauptsächlich den Bizeps und sind eine klassische Armübung.',
-              execution: [
-                'Halte die Hanteln seitlich am Körper.',
-                'Beuge die Ellenbogen und führe die Hanteln kontrolliert nach oben.',
-                'Spanne den Bizeps oben kurz an.',
-                'Senke die Hanteln langsam wieder ab.',
-              ],
-              tips: [
-                'Die Ellenbogen bleiben möglichst ruhig.',
-                'Vermeide Schwung aus dem Oberkörper.',
-                'Kontrolliere besonders die Abwärtsbewegung.',
-              ],
-            },
+        id: 'biceps_curl',
+        name: 'Bizepscurls',
+        category: 'Bizeps',
+        description:
+          'Bizepscurls trainieren den gesamten Bizeps und gehören zu den klassischen Übungen für den Oberarm.',
+        execution: [
+          'Halte die Hanteln neben dem Körper.',
+          'Beuge die Arme kontrolliert nach oben.',
+          'Senke das Gewicht langsam wieder ab.',
+        ],
+        tips: [
+          'Halte die Oberarme ruhig.',
+          'Nutze die Dehnung am unteren Punkt.',
+          'Spanne den Bizeps am oberen Punkt bewusst an.',
+        ],
+      },
       {
               id: 'preacher_curl',
               name: 'Scottcurl',
@@ -1026,23 +1067,22 @@ export const MUSCLE_GROUP_EXERCISES = {
     subtitle: 'Übungen für Unterarme und Griffkraft',
     exercises: [
       {
-              id: 'wrist_curl',
-              name: 'Wrist Curls',
-              category: 'Unterarme',
-              description:
-                'Wrist Curls trainieren die Unterarmbeuger und Griffkraft.',
-              execution: [
-                'Setze dich hin und lege die Unterarme auf die Oberschenkel oder eine Bank.',
-                'Halte eine leichte Hantel.',
-                'Beuge die Handgelenke kontrolliert nach oben.',
-                'Senke sie langsam wieder ab.',
-              ],
-              tips: [
-                'Nutze leichte Gewichte.',
-                'Arbeite langsam und sauber.',
-                'Bewege nicht aus den Ellenbogen.',
-              ],
-            },
+        id: 'wrist_curl',
+        name: 'Handgelenkcurls',
+        category: 'Unterarme',
+        description:
+          'Wrist Curls trainieren die Unterarmbeuger und verbessern Griffkraft und Unterarmmuskulatur.',
+        execution: [
+          'Lege die Unterarme auf einer Bank oder den Oberschenkeln ab.',
+          'Rolle das Gewicht kontrolliert über die Finger.',
+          'Beuge die Handgelenke wieder nach oben.',
+        ],
+        tips: [
+          'Bewege nur die Handgelenke.',
+          'Arbeite kontrolliert.',
+          'Nutze den gesamten Bewegungsradius.',
+        ],
+      },
     ],
   },
 
@@ -1055,125 +1095,118 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Crunches',
         category: 'Bauch',
         description:
-          'Crunches trainieren die gerade Bauchmuskulatur und eignen sich gut für kontrollierte Bauchspannung.',
+          'Crunches trainieren hauptsächlich den geraden Bauchmuskel.',
         execution: [
-          'Lege dich auf den Rücken und stelle die Beine auf.',
-          'Hebe den oberen Rücken kontrolliert vom Boden ab.',
-          'Spanne den Bauch oben bewusst an.',
-          'Senke dich langsam wieder ab.',
+          'Lege dich auf den Rücken.',
+          'Rolle den Oberkörper leicht nach vorne.',
+          'Senke ihn kontrolliert wieder ab.',
         ],
         tips: [
           'Ziehe nicht am Nacken.',
-          'Die Bewegung ist klein und kontrolliert.',
-          'Atme beim Hochkommen aus.',
+          'Spanne den Bauch bewusst an.',
+          'Arbeite kontrolliert.',
         ],
       },
       {
         id: 'leg_raises',
-        name: 'Leg Raises',
+        name: 'Beinheben',
         category: 'Bauch',
         description:
-          'Leg Raises trainieren vor allem unteren Bauchbereich und Hüftbeuger.',
+          'Leg Raises trainieren die Bauchmuskulatur mit besonderem Fokus auf den unteren Bauchbereich.',
         execution: [
-          'Lege dich flach auf den Rücken.',
-          'Halte die Beine möglichst gestreckt.',
-          'Hebe die Beine kontrolliert nach oben.',
-          'Senke sie langsam ab, ohne den unteren Rücken stark abzuheben.',
+          'Strecke die Beine aus.',
+          'Hebe sie kontrolliert an.',
+          'Senke sie langsam wieder ab.',
         ],
         tips: [
-          'Spanne den Bauch aktiv an.',
-          'Gehe nur so tief, wie du die Kontrolle hältst.',
-          'Bei Bedarf die Knie leicht beugen.',
+          'Halte den unteren Rücken stabil.',
+          'Arbeite kontrolliert.',
+          'Nutze die Bauchmuskulatur statt Schwung.',
         ],
       },
       {
         id: 'plank',
-        name: 'Plank',
+        name: 'Unterarmstütz',
         category: 'Core',
         description:
-          'Die Plank trainiert die Rumpfstabilität, Bauchmuskulatur, Schultern und Gesäß.',
+          'Planks trainieren die gesamte Rumpfmuskulatur und verbessern Stabilität und Körperspannung.',
         execution: [
-          'Stütze dich auf Unterarme und Zehen.',
-          'Halte den Körper in einer geraden Linie.',
-          'Spanne Bauch und Gesäß aktiv an.',
-          'Halte die Position kontrolliert.',
+          'Stütze dich auf Unterarmen und Fußspitzen ab.',
+          'Halte den Körper gerade.',
+          'Halte die Position für die gewünschte Zeit.',
         ],
         tips: [
-          'Lasse die Hüfte nicht durchhängen.',
-          'Halte den Nacken neutral.',
-          'Qualität ist wichtiger als lange Zeit.',
+          'Spanne Bauch und Gesäß an.',
+          'Vermeide ein Hohlkreuz.',
+          'Halte den Körper möglichst ruhig.',
         ],
       },
       {
         id: 'russian_twists',
-        name: 'Russian Twists',
+        name: 'Russische Drehung',
         category: 'Core',
         description:
-          'Russian Twists trainieren die seitliche Bauchmuskulatur und Rumpfrotation.',
+          'Russian Twists trainieren vor allem die seitliche Bauchmuskulatur.',
         execution: [
-          'Setze dich auf den Boden und lehne den Oberkörper leicht zurück.',
-          'Spanne den Bauch an.',
-          'Rotiere den Oberkörper kontrolliert von Seite zu Seite.',
-          'Optional kannst du ein Gewicht halten.',
+          'Lehne den Oberkörper leicht zurück.',
+          'Drehe den Oberkörper kontrolliert von Seite zu Seite.',
+          'Halte die Spannung im Bauch.',
         ],
         tips: [
-          'Bewege nicht nur die Arme, sondern rotiere den Oberkörper.',
-          'Halte den Rücken stabil.',
-          'Arbeite langsam statt hektisch.',
+          'Drehe den Oberkörper bewusst.',
+          'Arbeite kontrolliert.',
+          'Vermeide Schwung.',
         ],
       },
       {
         id: 'ab_wheel',
-        name: 'Ab Wheel',
+        name: 'Ab Wheel Rollout',
         category: 'Core',
         description:
-          'Das Ab Wheel ist eine anspruchsvolle Core-Übung für Bauch, Rumpfspannung und Schulterstabilität.',
+          'Das Ab Wheel trainiert die gesamte Rumpfmuskulatur und zählt zu den anspruchsvollsten Bauchübungen.',
         execution: [
-          'Starte kniend mit dem Ab Wheel vor dir.',
-          'Spanne Bauch und Gesäß fest an.',
-          'Rolle kontrolliert nach vorne.',
-          'Ziehe dich über die Bauchspannung wieder zurück.',
+          'Rolle das Rad kontrolliert nach vorne.',
+          'Halte den Körper unter Spannung.',
+          'Ziehe dich wieder zurück.',
         ],
         tips: [
-          'Nicht ins Hohlkreuz fallen.',
-          'Starte mit kleinem Bewegungsradius.',
-          'Diese Übung ist deutlich schwerer als sie aussieht.',
+          'Halte den Rücken stabil.',
+          'Spanne den Bauch dauerhaft an.',
+          'Gehe nur so weit nach vorne, wie du die Bewegung kontrollieren kannst.',
         ],
       },
       {
         id: 'cable_crunch',
-        name: 'Cable Crunches',
+        name: 'Kabel Crunches',
         category: 'Bauch',
         description:
-          'Cable Crunches trainieren die Bauchmuskulatur mit Zusatzgewicht am Kabelzug.',
+          'Cable Crunches trainieren den geraden Bauchmuskel durch zusätzlichen Widerstand.',
         execution: [
-          'Knie dich vor den Kabelzug und greife das Seil.',
-          'Halte die Hüfte relativ stabil.',
-          'Rolle den Oberkörper kontrolliert nach unten ein.',
-          'Führe den Oberkörper langsam zurück.',
+          'Greife das Seil am Kabelturm.',
+          'Rolle den Oberkörper kontrolliert nach vorne ein.',
+          'Lasse das Gewicht langsam zurück.',
         ],
         tips: [
-          'Ziehe nicht nur mit den Armen.',
-          'Konzentriere dich auf das Einrollen des Bauchs.',
-          'Nutze ein moderates Gewicht.',
+          'Rolle die Wirbelsäule bewusst ein.',
+          'Spanne den Bauch am Endpunkt an.',
+          'Arbeite kontrolliert.',
         ],
       },
       {
         id: 'hanging_knee_raise',
-        name: 'Hanging Knee Raises',
+        name: 'Hängendes Knieheben',
         category: 'Bauch',
         description:
-          'Hanging Knee Raises trainieren Bauch, Hüftbeuger und Griffkraft.',
+          'Hanging Knee Raises trainieren die Bauchmuskulatur und fordern zusätzlich Griffkraft und Körperspannung.',
         execution: [
-          'Hänge dich stabil an eine Stange oder nutze eine Dip-Station.',
-          'Spanne den Bauch an.',
-          'Ziehe die Knie kontrolliert Richtung Brust.',
+          'Hänge stabil an einer Stange.',
+          'Ziehe die Knie kontrolliert nach oben.',
           'Senke die Beine langsam wieder ab.',
         ],
         tips: [
-          'Vermeide starkes Schwingen.',
-          'Arbeite kontrolliert.',
-          'Für mehr Schwierigkeit kannst du gestreckte Beine nutzen.',
+          'Vermeide Schwung.',
+          'Ziehe die Knie aktiv mit dem Bauch nach oben.',
+          'Nutze den gesamten Bewegungsradius.',
         ],
       },
     ],

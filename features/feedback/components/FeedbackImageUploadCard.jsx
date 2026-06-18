@@ -86,6 +86,7 @@ const styles = StyleSheet.create({
   },
   textLayer: {
     alignItems: 'center',
+    transform: [{ translateY: sv(-10) }],
   },
   uploadTitle: {
     color: COLORS.lightGold,
