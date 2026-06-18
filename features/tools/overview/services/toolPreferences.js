@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SELECTED_TOOLS_KEY = '@grow_selected_overview_tools';
@@ -29,7 +30,7 @@ export async function getSelectedOverviewToolIds(defaultIds = []) {
 
     return normalizeToolIds(parsed, defaultIds);
   } catch (error) {
-    console.log('[ToolPreferences] Failed to read selected tools:', error);
+    logger.debug('[ToolPreferences] Failed to read selected tools:', error);
     return normalizeToolIds(defaultIds);
   }
 }
@@ -40,7 +41,7 @@ export async function saveSelectedOverviewToolIds(ids) {
     await AsyncStorage.setItem(SELECTED_TOOLS_KEY, JSON.stringify(cleanedIds));
     return true;
   } catch (error) {
-    console.log('[ToolPreferences] Failed to save selected tools:', error);
+    logger.debug('[ToolPreferences] Failed to save selected tools:', error);
     return false;
   }
 }
@@ -50,7 +51,7 @@ export async function getToolsOverviewMode() {
     const raw = await AsyncStorage.getItem(VIEW_MODE_KEY);
     return raw === 'expanded' ? 'expanded' : 'compact';
   } catch (error) {
-    console.log('[ToolPreferences] Failed to read overview mode:', error);
+    logger.debug('[ToolPreferences] Failed to read overview mode:', error);
     return 'compact';
   }
 }
@@ -63,7 +64,7 @@ export async function saveToolsOverviewMode(mode) {
     );
     return true;
   } catch (error) {
-    console.log('[ToolPreferences] Failed to save overview mode:', error);
+    logger.debug('[ToolPreferences] Failed to save overview mode:', error);
     return false;
   }
 }
@@ -75,7 +76,7 @@ export async function setPendingReplacementToolId(toolId) {
     await AsyncStorage.setItem(PENDING_REPLACEMENT_TOOL_KEY, toolId);
     return true;
   } catch (error) {
-    console.log('[ToolPreferences] Failed to set pending replacement:', error);
+    logger.debug('[ToolPreferences] Failed to set pending replacement:', error);
     return false;
   }
 }
@@ -84,7 +85,7 @@ export async function getPendingReplacementToolId() {
   try {
     return await AsyncStorage.getItem(PENDING_REPLACEMENT_TOOL_KEY);
   } catch (error) {
-    console.log('[ToolPreferences] Failed to read pending replacement:', error);
+    logger.debug('[ToolPreferences] Failed to read pending replacement:', error);
     return null;
   }
 }
@@ -94,7 +95,7 @@ export async function clearPendingReplacementToolId() {
     await AsyncStorage.removeItem(PENDING_REPLACEMENT_TOOL_KEY);
     return true;
   } catch (error) {
-    console.log('[ToolPreferences] Failed to clear pending replacement:', error);
+    logger.debug('[ToolPreferences] Failed to clear pending replacement:', error);
     return false;
   }
 }

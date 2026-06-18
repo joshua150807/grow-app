@@ -1,12 +1,7 @@
 import { supabase } from "../../../../services/supabaseClient";
+import { getCurrentUserId } from '../../../../services/authUser';
 
 const CATEGORY_MAP = ['monthly', 'yearly', 'lifetime'];
-
-async function getCurrentUserId() {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error) throw error;
-  return user?.id ?? null;
-}
 
 export async function getGoals(categoryIndex) {
   const userId = await getCurrentUserId();

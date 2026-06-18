@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import { useCallback, useRef, useState } from 'react';
 import {
   Pressable,
@@ -49,7 +50,7 @@ export default function AdminFeedbackScreen() {
     } catch (error) {
       if (loadRequestIdRef.current !== requestId) return;
 
-      console.log('Fehler beim Laden der Admin-Feedbacks:', error);
+      logger.debug('Fehler beim Laden der Admin-Feedbacks:', error);
 
       if (String(error.message ?? '').includes('Not allowed')) {
         setErrorText('Kein Zugriff auf diese Feedback-Übersicht.');
@@ -90,7 +91,7 @@ export default function AdminFeedbackScreen() {
                 prevFeedbacks.filter((item) => item.id !== feedback.id)
               );
             } catch (error) {
-              console.log('Fehler beim Löschen des Feedbacks:', error);
+              logger.debug('Fehler beim Löschen des Feedbacks:', error);
 
               Alert.alert(
                 'Fehler',

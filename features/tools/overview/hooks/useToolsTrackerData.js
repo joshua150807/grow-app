@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { useEffect, useMemo, useState } from 'react';
 
 import { getHabitStreak, getTodayHabitProgress } from '../../habits/services/habits';
@@ -62,7 +63,7 @@ export function useToolsTrackerData() {
         setStreak(Math.max(0, Number(nextStreak) || 0));
         setHabitProgress(normalizeHabitProgress(nextProgress));
       } catch (error) {
-        console.log('[ToolsTracker] Failed to load habit summary:', error);
+        logger.debug('[ToolsTracker] Failed to load habit summary:', error);
 
         if (!mounted) return;
 
@@ -89,7 +90,7 @@ export function useToolsTrackerData() {
           setDeepWorkTime(Math.max(0, Number(seconds) || 0));
         }
       } catch (error) {
-        console.log('[ToolsTracker] Failed to load deep work time:', error);
+        logger.debug('[ToolsTracker] Failed to load deep work time:', error);
 
         if (mounted) {
           setDeepWorkTime(0);

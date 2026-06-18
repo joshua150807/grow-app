@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
@@ -50,7 +51,7 @@ export default function AdminVideoAnalyticsScreen() {
 
       setVideos(Array.isArray(list) ? list : []);
     } catch (error) {
-      console.log('Fehler beim Laden der Video Analytics:', error);
+      logger.debug('Fehler beim Laden der Video Analytics:', error);
 
       if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
 

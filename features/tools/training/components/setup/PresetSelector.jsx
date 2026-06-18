@@ -1,3 +1,4 @@
+import { logger } from '../../../../../lib/logger';
 import { useState, useCallback } from 'react';
 import {
   View,
@@ -54,7 +55,7 @@ export function PresetSelector({ onSave, onBack, existingPlan = null }) {
       try {
         await onSave(preset.name, preset.days);
       } catch (e) {
-        console.error('[Training Setup] Preset save failed:', e);
+        logger.error('[Training Setup] Preset save failed:', e);
         setSaveError('Plan konnte nicht ausgewählt werden. Bitte versuche es erneut.');
       } finally {
         setSaving(false);

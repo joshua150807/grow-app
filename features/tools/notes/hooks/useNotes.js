@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 
@@ -45,7 +46,7 @@ export function useNotes() {
       setPreloadedToolData('notes', safeNotes);
       hasLoadedOnceRef.current = true;
     } catch (error) {
-      console.log('[Notes] Load failed:', error);
+      logger.debug('[Notes] Load failed:', error);
 
       if (mountedRef.current && requestId === loadRequestRef.current) {
         setLoadError('Notizen konnten nicht geladen werden.');
@@ -90,7 +91,7 @@ export function useNotes() {
       try {
         await deleteNote(id);
       } catch (error) {
-        console.log('[Notes] Delete failed:', error);
+        logger.debug('[Notes] Delete failed:', error);
 
         if (mountedRef.current) {
           setNotes(previousNotes);
@@ -137,7 +138,7 @@ export function useNotes() {
       try {
         await updateNote(note.id, { pinned: nextPinned });
       } catch (error) {
-        console.log('[Notes] Pin failed:', error);
+        logger.debug('[Notes] Pin failed:', error);
 
         if (mountedRef.current) {
           setNotes(previousNotes);

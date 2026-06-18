@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -69,7 +70,7 @@ export default function ResetPasswordScreen() {
       });
 
       if (error) {
-        console.log('PASSWORD UPDATE ERROR:', error);
+        logger.debug('PASSWORD UPDATE ERROR:', error);
         setErrorText('Passwort konnte nicht geändert werden. Öffne den Link bitte erneut.');
         return;
       }
@@ -80,7 +81,7 @@ export default function ResetPasswordScreen() {
         router.replace('/(tabs)');
       }, 700);
     } catch (err) {
-      console.log('PASSWORD RESET ERROR:', err);
+      logger.debug('PASSWORD RESET ERROR:', err);
       setErrorText('Passwort konnte nicht geändert werden.');
     } finally {
       if (isMountedRef.current) {

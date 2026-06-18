@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { useState, useCallback, useRef, useMemo } from 'react';
 import {
   ImageBackground,
@@ -176,7 +177,7 @@ export default function DailyPlannerScreen() {
       });
 
       if (!savedEvent) {
-        console.log('[DailyPlanner] Kein Termin gespeichert.');
+        logger.debug('[DailyPlanner] Kein Termin gespeichert.');
         return;
       }
 
@@ -187,7 +188,7 @@ export default function DailyPlannerScreen() {
       setModalColor(EVENT_COLORS[0].value);
       setModalShowPicker(false);
     } catch (error) {
-      console.log('[DailyPlanner] Save failed:', error);
+      logger.debug('[DailyPlanner] Save failed:', error);
     } finally {
       setSaving(false);
     }

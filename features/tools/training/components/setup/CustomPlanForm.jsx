@@ -1,3 +1,4 @@
+import { logger } from '../../../../../lib/logger';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
@@ -299,7 +300,7 @@ export function CustomPlanForm({ onSave, onBack }) {
         return;
       }
 
-      console.log('[Training Setup] Saving custom plan', {
+      logger.debug('[Training Setup] Saving custom plan', {
         planName: cleanPlanName,
         dayCount: daysData.length,
         gymDayCount: daysData.filter((day) => day.type === 'gym').length,
@@ -311,7 +312,7 @@ export function CustomPlanForm({ onSave, onBack }) {
       await onSave(cleanPlanName, daysData);
       await clearCustomTrainingPlanDraft();
     } catch (e) {
-      console.error('[Training Setup] Custom plan save failed:', e);
+      logger.error('[Training Setup] Custom plan save failed:', e);
       setSaveError(e?.message || 'Trainingsplan konnte nicht gespeichert werden. Bitte versuche es erneut.');
     } finally {
       setSaving(false);

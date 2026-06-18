@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
@@ -101,7 +102,7 @@ export default function AllToolsScreen() {
           );
         }
       } catch (error) {
-        console.log('[AllTools] Failed to load selected tools:', error);
+        logger.debug('[AllTools] Failed to load selected tools:', error);
 
         if (mounted) {
           setSelectedIds(defaultOverviewToolIds);

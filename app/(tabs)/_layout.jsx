@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import { Tabs, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, View } from 'react-native';
@@ -57,7 +58,7 @@ function CustomTabButton(props) {
         return;
       }
     } catch (error) {
-      console.log('[Tabs] Deep Work session check failed:', error);
+      logger.debug('[Tabs] Deep Work session check failed:', error);
     }
 
     void triggerHaptic('selection');

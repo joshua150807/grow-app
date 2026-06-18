@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -80,7 +81,7 @@ export default function LoginScreen() {
 
       router.replace('/(tabs)');
     } catch (err) {
-      console.log('LOGIN ERROR:', err);
+      logger.debug('LOGIN ERROR:', err);
       if (isMountedRef.current) {
         setErrorText('Login fehlgeschlagen. Bitte erneut versuchen.');
       }

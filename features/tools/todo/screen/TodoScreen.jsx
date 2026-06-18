@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -114,7 +115,7 @@ export default function TodoScreen() {
         closeModal();
       }
     } catch (e) {
-      console.log('Fehler beim Speichern der Todo:', e);
+      logger.debug('Fehler beim Speichern der Todo:', e);
     } finally {
       if (mountedRef.current) {
         setSaving(false);

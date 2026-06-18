@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deleteRating, fetchRating, upsertRating } from "../services/ratings";
 import { RATING_ICONS } from "../../../constants/ratingAssets";
@@ -43,7 +44,7 @@ export function useVideoRating({ userId, videoId, isActive }) {
           setActiveRating(rating);
         }
       } catch (err) {
-        console.log("Fehler beim Laden der Bewertung:", err);
+        logger.debug("Fehler beim Laden der Bewertung:", err);
       }
     }
 
@@ -81,7 +82,7 @@ export function useVideoRating({ userId, videoId, isActive }) {
           await upsertRating(userId, videoId, ratingKey);
         }
       } catch (err) {
-        console.log("Fehler beim Speichern der Bewertung:", err);
+        logger.debug("Fehler beim Speichern der Bewertung:", err);
 
         if (
           isMountedRef.current &&

@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
@@ -83,7 +84,7 @@ export function useNoteEditor(noteId) {
         setPreloadedToolData('notes', nextNotes);
         hasLoadedRef.current = true;
       } catch (loadError) {
-        console.log('[NoteEditor] Load failed:', loadError);
+        logger.debug('[NoteEditor] Load failed:', loadError);
 
         if (mounted) {
           setError('Notiz konnte nicht geladen werden.');
@@ -158,7 +159,7 @@ export function useNoteEditor(noteId) {
 
         return updatedNote;
       } catch (saveError) {
-        console.log('[NoteEditor] Save failed:', saveError);
+        logger.debug('[NoteEditor] Save failed:', saveError);
 
         if (mountedRef.current) {
           setError('Notiz konnte nicht gespeichert werden.');

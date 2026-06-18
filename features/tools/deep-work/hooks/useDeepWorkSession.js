@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, AppState } from 'react-native';
 import { useAudioPlayer } from 'expo-audio';
@@ -83,7 +84,7 @@ export function useDeepWorkSession() {
       donePlayer.seekTo(0);
       donePlayer.play();
     } catch (e) {
-      console.log('Fehler beim Abspielen des Deep-Work-Sounds:', e);
+      logger.debug('Fehler beim Abspielen des Deep-Work-Sounds:', e);
     }
   }, [donePlayer]);
 
@@ -102,7 +103,7 @@ export function useDeepWorkSession() {
         setTaskName(saved.taskName || 'Deep Work');
         setCategory(saved.category || 'Fokus');
       } catch (e) {
-        console.log('Fehler beim Wiederherstellen der Deep-Work-Session:', e);
+        logger.debug('Fehler beim Wiederherstellen der Deep-Work-Session:', e);
       }
     };
 
@@ -174,11 +175,11 @@ export function useDeepWorkSession() {
             playDoneSound();
 
             addCompletedDeepWorkSession(completedSeconds).catch((e) => {
-              console.log('Fehler beim Speichern der Deep-Work-Historie:', e);
+              logger.debug('Fehler beim Speichern der Deep-Work-Historie:', e);
             });
 
             clearDeepWorkSession().catch((e) => {
-              console.log('Fehler beim Löschen der Deep-Work-Session:', e);
+              logger.debug('Fehler beim Löschen der Deep-Work-Session:', e);
             });
           }
 
@@ -204,7 +205,7 @@ export function useDeepWorkSession() {
 
         if (snapshot.phase === 'running' || snapshot.phase === 'paused') {
           persistCurrentSession().catch((e) => {
-            console.log('Fehler beim Zwischenspeichern der Deep-Work-Session:', e);
+            logger.debug('Fehler beim Zwischenspeichern der Deep-Work-Session:', e);
           });
         }
       }
@@ -247,7 +248,7 @@ export function useDeepWorkSession() {
       setSetupVisible(false);
       setPhase('running');
     } catch (e) {
-      console.log('Fehler beim Starten der Deep-Work-Session:', e);
+      logger.debug('Fehler beim Starten der Deep-Work-Session:', e);
     } finally {
       startLockRef.current = false;
       if (mountedRef.current) {
@@ -263,7 +264,7 @@ export function useDeepWorkSession() {
       const nextPhase = prev === 'running' ? 'paused' : 'running';
 
       persistCurrentSession({ phase: nextPhase }).catch((e) => {
-        console.log('Fehler beim Speichern des Deep-Work-Pausenstatus:', e);
+        logger.debug('Fehler beim Speichern des Deep-Work-Pausenstatus:', e);
       });
 
       return nextPhase;
@@ -294,7 +295,7 @@ export function useDeepWorkSession() {
       setPhase('idle');
       setRemaining(0);
     } catch (e) {
-      console.log('Fehler beim Beenden der Deep-Work-Session:', e);
+      logger.debug('Fehler beim Beenden der Deep-Work-Session:', e);
     } finally {
       endLockRef.current = false;
       if (mountedRef.current) {

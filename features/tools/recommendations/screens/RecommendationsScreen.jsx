@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ScrollView, Pressable, Modal, ImageBackground } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -53,7 +54,7 @@ export default function RecommendationsScreen() {
         const nextIds = normalizeSavedIds(parsed);
         setSavedIds(nextIds);
       } catch (error) {
-        console.warn('Could not load saved recommendations', error);
+        logger.warn('Could not load saved recommendations', error);
       }
     }
 
@@ -94,7 +95,7 @@ export default function RecommendationsScreen() {
       );
     } catch (error) {
       if (requestId === persistRequestRef.current) {
-        console.warn('Could not save recommendations', error);
+        logger.warn('Could not save recommendations', error);
       }
     }
   }, [normalizeSavedIds]);

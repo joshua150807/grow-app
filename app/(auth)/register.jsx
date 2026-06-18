@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -90,7 +91,7 @@ export default function RegisterScreen() {
       );
 
       if (usernameError) {
-        console.log('USERNAME CHECK ERROR:', usernameError);
+        logger.debug('USERNAME CHECK ERROR:', usernameError);
         showError('Username konnte nicht geprüft werden.');
         return;
       }
@@ -134,7 +135,7 @@ export default function RegisterScreen() {
       });
 
       if (profileError) {
-        console.log('PROFILE ERROR:', profileError);
+        logger.debug('PROFILE ERROR:', profileError);
 
         if (profileError.code === '23505') {
           showError('Username oder Recovery-Mail ist bereits vergeben.');
@@ -151,14 +152,14 @@ export default function RegisterScreen() {
       });
 
       if (claimError || !claimed) {
-        console.log('BETA CLAIM ERROR:', claimError);
+        logger.debug('BETA CLAIM ERROR:', claimError);
         showError('Ungültiger oder bereits genutzter Beta-Code.');
         return;
       }
 
       router.replace('/(tabs)');
     } catch (err) {
-      console.log('REGISTER ERROR:', err);
+      logger.debug('REGISTER ERROR:', err);
       showError('Registrierung fehlgeschlagen.');
     } finally {
       isSubmittingRef.current = false;

@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import { useCallback, useEffect, useRef, useState } from "react";
 import { awardVideoPoints } from "../services/../../gamification/services/growPoints";
 
@@ -91,7 +92,7 @@ export function useWatchReward({
         }, 2200);
       }
     } catch (error) {
-      console.log("Fehler bei Video-Grow-Points:", error);
+      logger.debug("Fehler bei Video-Grow-Points:", error);
     } finally {
       isAwardingPointsRef.current = false;
     }

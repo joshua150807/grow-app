@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { logger } from '../../../../lib/logger';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, Pressable, TextInput, ActivityIndicator, Alert,
-  KeyboardAvoidingView, Platform, AppState,
+  KeyboardAvoidingView, Platform, AppState, BackHandler,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
@@ -63,6 +64,51 @@ export default function TrainingSessionActiveScreen() {
   const isRunDay = dayType === 'run';
   const isRestDay = dayType === 'rest';
   const isPausing = pauseTargetIndex !== null;
+  const hasUnsavedChanges = useMemo(() => {
+    const hasSessionNote = safeText(sessionNote).length > 0;
+    const hasRunValues = [runDurationMinutes, runDistanceKm, runPace].some(value => safeText(value).length > 0);
+    const hasExerciseValues = Object.values(exerciseValues).some(fields => (
+      Object.values(fields || {}).some(value => safeText(value).length > 0)
+    ));
+
+    return hasSessionNote || hasRunValues || hasExerciseValues;
+  }, [exerciseValues, runDistanceKm, runDurationMinutes, runPace, sessionNote]);
+
+  const showLeaveConfirmation = useCallback(() => {
+    Alert.alert(
+      'Training verlassen?',
+      'Nicht gespeicherte Eingaben gehen verloren.',
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        { text: 'Verlassen', style: 'destructive', onPress: () => router.back() },
+      ]
+    );
+  }, []);
+
+  const handleBackPress = useCallback(() => {
+    if (saving) return;
+
+    if (!hasUnsavedChanges) {
+      router.back();
+      return;
+    }
+
+    showLeaveConfirmation();
+  }, [hasUnsavedChanges, saving, showLeaveConfirmation]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        if (saving) return true;
+        if (!hasUnsavedChanges) return false;
+
+        showLeaveConfirmation();
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [hasUnsavedChanges, saving, showLeaveConfirmation])
+  );
 
   useEffect(() => {
     if (!isPausing || !pauseEndsAt) return undefined;
@@ -158,7 +204,7 @@ export default function TrainingSessionActiveScreen() {
         isRunDay ? 'Deine Laufeinheit wurde erfolgreich gespeichert.' : 'Dein Training wurde vollständig gespeichert.',
         [{ text: 'OK', onPress: () => router.back() }]);
     } catch (e) {
-      console.error('[Training Session] Save failed:', e);
+      logger.error('[Training Session] Save failed:', e);
       Alert.alert('Speichern fehlgeschlagen', e?.message || 'Trainingseinheit konnte nicht gespeichert werden.');
       setSaveError(e?.message || 'Trainingseinheit konnte nicht gespeichert werden.');
     } finally { setSaving(false); }
@@ -191,7 +237,7 @@ export default function TrainingSessionActiveScreen() {
   return (
     <KeyboardAvoidingView style={styles.screen} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => router.back()} style={softPress(styles.backButton, saving)} disabled={saving}>
+        <Pressable onPress={handleBackPress} style={softPress(styles.backButton, saving)} disabled={saving}>
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} /><Text style={styles.backText}>Zurück</Text>
         </Pressable>
       </View>

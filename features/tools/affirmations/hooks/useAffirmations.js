@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { useCallback, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 
@@ -34,7 +35,7 @@ export function useAffirmations() {
       setPreloadedToolData('affirmations', data);
       hasLoadedOnceRef.current = true;
     } catch (error) {
-      console.log('[Affirmations] Load failed:', error);
+      logger.debug('[Affirmations] Load failed:', error);
       setLoadError('Affirmationen konnten nicht geladen werden.');
     } finally {
       if (!silent) setLoading(false);
@@ -59,7 +60,7 @@ export function useAffirmations() {
       }
       return created;
     } catch (error) {
-      console.log('[Affirmations] Create failed:', error);
+      logger.debug('[Affirmations] Create failed:', error);
       setActionError('Affirmation konnte nicht gespeichert werden.');
       throw error;
     }
@@ -87,7 +88,7 @@ export function useAffirmations() {
       });
       return updated;
     } catch (error) {
-      console.log('[Affirmations] Update failed:', error);
+      logger.debug('[Affirmations] Update failed:', error);
       setAffirmations(previous);
       setPreloadedToolData('affirmations', previous);
       setActionError('Affirmation konnte nicht aktualisiert werden.');
@@ -131,7 +132,7 @@ export function useAffirmations() {
         return nextItems;
       });
     } catch (error) {
-      console.log('[Affirmations] Repeat failed:', error);
+      logger.debug('[Affirmations] Repeat failed:', error);
       setAffirmations(previous);
       setPreloadedToolData('affirmations', previous);
       setActionError('Status konnte nicht gespeichert werden.');
@@ -150,7 +151,7 @@ export function useAffirmations() {
     try {
       await deleteAffirmation(id);
     } catch (error) {
-      console.log('[Affirmations] Delete failed:', error);
+      logger.debug('[Affirmations] Delete failed:', error);
       setAffirmations(previous);
       setPreloadedToolData('affirmations', previous);
       setActionError('Affirmation konnte nicht gelöscht werden.');

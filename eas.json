@@ -19,12 +19,19 @@
       },
       "channel": "preview"
     },
-    "production": {
+    "beta": {
       "autoIncrement": true,
       "cache": {
         "disabled": true
       },
       "channel": "beta"
+    },
+    "production": {
+      "autoIncrement": true,
+      "cache": {
+        "disabled": true
+      },
+      "channel": "production"
     }
   },
   "submit": {

@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { useState, useCallback, useEffect, useRef } from 'react';
 
 import {
@@ -43,7 +44,7 @@ export function useTrainingPlan() {
       setPlan(data);
       setPreloadedToolData('trainingPlan', data);
     } catch (e) {
-      console.error('[Training Hook] Load error:', e);
+      logger.error('[Training Hook] Load error:', e);
       if (!mountedRef.current) return;
 
       setError('Trainingsplan konnte nicht geladen werden. Deine vorhandenen lokalen Daten bleiben bis zum erneuten Versuch sichtbar.');
@@ -66,7 +67,7 @@ export function useTrainingPlan() {
     try {
       await loadPlan();
     } catch (e) {
-      console.error('[Training Hook] Reload after save failed:', e);
+      logger.error('[Training Hook] Reload after save failed:', e);
 
       // Fallback, damit SetupView nicht fälschlich einen Fehler zeigt.
       const fallbackPlan = {

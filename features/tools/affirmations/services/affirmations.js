@@ -1,16 +1,6 @@
 import { supabase } from '../../../../services/supabaseClient';
 import { getTodayIsoDate, normalizeAffirmationText } from '../utils/affirmationUtils';
-
-async function getCurrentUserId() {
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
-
-  if (error) throw error;
-
-  return user?.id ?? null;
-}
+import { getCurrentUserId } from '../../../../services/authUser';
 
 export async function getAffirmations() {
   const userId = await getCurrentUserId();

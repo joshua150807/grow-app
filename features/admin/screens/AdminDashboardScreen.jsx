@@ -9,16 +9,15 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { Feather } from '@expo/vector-icons';
+import { logger } from '../../../lib/logger';
 
 import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout';
-import { supabase } from '../../../services/supabaseClient';
 import { loadAdminOverviewStats } from '../services/adminStats';
 import AdminLoadingState from '../components/AdminLoadingState';
 import AdminErrorState from '../components/AdminErrorState';
 import AdminStatCard from '../components/AdminStatCard';
 import AdminInfoRow from '../components/AdminInfoRow';
-import AdminAccessDenied from '../components/AdminAccessDenied';
 
 const emptyStats = {
   totalUsers: 0,
@@ -35,7 +34,6 @@ const emptyStats = {
 
 export default function AdminDashboardScreen() {
   const [isLoading, setIsLoading] = useState(true);
-  const [hasAccess, setHasAccess] = useState(false);
   const [stats, setStats] = useState(emptyStats);
   const [statsError, setStatsError] = useState(null);
   const activeRequestRef = useRef(0);
@@ -52,39 +50,6 @@ export default function AdminDashboardScreen() {
       }
       setStatsError(null);
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        if (isFocusedRef.current && requestId === activeRequestRef.current) {
-          setHasAccess(false);
-        }
-        return;
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (profileError) {
-        throw profileError;
-      }
-
-      const role = profile?.role ?? 'user';
-      const allowed = role === 'ceo' || role === 'admin';
-
-      if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
-
-      setHasAccess(allowed);
-
-      if (!allowed) {
-        return;
-      }
-
       const overviewStats = await loadAdminOverviewStats();
 
       if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
@@ -92,7 +57,7 @@ export default function AdminDashboardScreen() {
       setStats(overviewStats ?? emptyStats);
       hasLoadedOnceRef.current = true;
     } catch (error) {
-      console.log('Fehler beim Laden des CEO Dashboards:', error);
+      logger.debug('Fehler beim Laden des CEO Dashboards:', error);
       if (isFocusedRef.current && requestId === activeRequestRef.current) {
         setStatsError('Statistiken konnten nicht geladen werden.');
       }
@@ -119,10 +84,6 @@ export default function AdminDashboardScreen() {
 
   if (isLoading) {
     return <AdminLoadingState text="CEO Dashboard wird geladen..." />
-  }
-
-  if (!hasAccess) {
-    return <AdminAccessDenied onBack={() => router.back()} />;
   }
 
   return (

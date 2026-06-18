@@ -1,5 +1,7 @@
+import { logger } from '../../../../lib/logger';
 import { supabase } from '../../../../services/supabaseClient';
 import { resolveMuscleGroup } from '../utils/muscleGroupUtils';
+import { getCurrentUserId } from '../../../../services/authUser';
 
 function safeText(value, fallback = '') {
   if (value === null || value === undefined) return fallback;
@@ -143,7 +145,7 @@ async function insertTrainingDay(planId, day) {
     throwMissingTrainingSchemaError();
   }
 
-  console.warn('[Training] day_type column missing. Falling back to legacy gym day insert.');
+  logger.warn('[Training] day_type column missing. Falling back to legacy gym day insert.');
 
   const { data: legacyData, error: legacyError } = await supabase
     .from('training_days')
@@ -164,24 +166,18 @@ async function updateTrainingDayType(dayId, dayType) {
   if (!error) return;
 
   if (isMissingColumnError(error, 'day_type')) {
-    console.warn('[Training] day_type column missing. Skipping day_type update.');
+    logger.warn('[Training] day_type column missing. Skipping day_type update.');
     return;
   }
 
   throw error;
 }
 
-async function getCurrentUserId() {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error) throw error;
-  return user?.id ?? null;
-}
-
 export async function fetchTrainingPlan() {
   try {
     const userId = await getCurrentUserId();
     if (!userId) {
-      console.log('[Training] No user ID');
+      logger.debug('[Training] No user ID');
       return null;
     }
 
@@ -193,11 +189,11 @@ export async function fetchTrainingPlan() {
       .limit(1);
 
     if (planError) {
-      console.error('[Training] Plans query error:', planError);
+      logger.error('[Training] Plans query error:', planError);
       throw planError;
     }
     if (!plans || plans.length === 0) {
-      console.log('[Training] No plans found');
+      logger.debug('[Training] No plans found');
       return null;
     }
 
@@ -210,7 +206,7 @@ export async function fetchTrainingPlan() {
       .order('created_at', { ascending: true });
 
     if (daysError) {
-      console.error('[Training] Days query error:', daysError);
+      logger.error('[Training] Days query error:', daysError);
       throw daysError;
     }
 
@@ -225,7 +221,7 @@ export async function fetchTrainingPlan() {
         .order('created_at', { ascending: true });
 
       if (exError) {
-        console.error('[Training] Exercises query error:', exError);
+        logger.error('[Training] Exercises query error:', exError);
         throw exError;
       }
       exercises = exData || [];
@@ -247,7 +243,7 @@ export async function fetchTrainingPlan() {
       }),
     };
   } catch (e) {
-    console.error('[Training] fetchTrainingPlan error:', e);
+    logger.error('[Training] fetchTrainingPlan error:', e);
     throw e;
   }
 }
@@ -300,7 +296,7 @@ async function cleanupCreatedPlan(planId, userId) {
   try {
     await deletePlanTree(planId, userId);
   } catch (cleanupError) {
-    console.error('[Training] cleanupCreatedPlan failed:', cleanupError);
+    logger.error('[Training] cleanupCreatedPlan failed:', cleanupError);
   }
 }
 
@@ -311,7 +307,7 @@ export async function createTrainingPlan(planName, daysData) {
   const cleanPlanName = safeText(planName, 'Mein Trainingsplan');
   const cleanDaysData = normalizeDaysData(daysData);
 
-  console.log('[Training] createTrainingPlan start', {
+  logger.debug('[Training] createTrainingPlan start', {
     planName: cleanPlanName,
     dayCount: cleanDaysData.length,
     gymDayCount: cleanDaysData.filter((day) => day.type === 'gym').length,
@@ -408,7 +404,7 @@ export async function createTrainingPlan(planName, daysData) {
       await deletePlanTree(extraPlanId, userId);
     }
 
-    console.log('[Training] createTrainingPlan success', { planId: updatedPlan.id });
+    logger.debug('[Training] createTrainingPlan success', { planId: updatedPlan.id });
     return updatedPlan;
   }
 
@@ -432,7 +428,7 @@ export async function createTrainingPlan(planName, daysData) {
     throw creationError;
   }
 
-  console.log('[Training] createTrainingPlan success', { planId: plan.id });
+  logger.debug('[Training] createTrainingPlan success', { planId: plan.id });
   return plan;
 }
 

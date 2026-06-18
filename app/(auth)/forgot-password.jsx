@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
@@ -55,7 +56,7 @@ export default function ForgotPasswordScreen() {
       );
 
       if (usernameError) {
-        console.log('USERNAME RECOVERY ERROR:', usernameError);
+        logger.debug('USERNAME RECOVERY ERROR:', usernameError);
       }
 
       if (username) {
@@ -84,7 +85,7 @@ export default function ForgotPasswordScreen() {
         'Wenn diese Recovery-Mail zu einem Grow-Account gehört, wurde ein Reset-Link gesendet.'
       );
     } catch (err) {
-      console.log('PASSWORD RESET ERROR:', err);
+      logger.debug('PASSWORD RESET ERROR:', err);
       setErrorText('Recovery fehlgeschlagen. Bitte erneut versuchen.');
     } finally {
       setLoading(false);

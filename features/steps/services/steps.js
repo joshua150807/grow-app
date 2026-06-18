@@ -1,9 +1,5 @@
 import { supabase } from '../../../services/supabaseClient';
-
-async function getCurrentUserId() {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user?.id ?? null;
-}
+import { getCurrentUserId } from '../../../services/authUser';
 
 function getLocalDateKey() {
   const date = new Date();

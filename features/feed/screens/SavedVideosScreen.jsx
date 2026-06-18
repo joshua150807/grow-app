@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import { useCallback, useRef, useState } from "react";
 import {
   Dimensions,
@@ -70,7 +71,7 @@ export default function SavedVideosScreen() {
         return;
       }
 
-      console.log("Fehler beim Laden gespeicherter Videos:", error);
+      logger.debug("Fehler beim Laden gespeicherter Videos:", error);
       setErrorText("Gespeicherte Videos konnten nicht geladen werden.");
     } finally {
       if (isCurrentRequest()) {

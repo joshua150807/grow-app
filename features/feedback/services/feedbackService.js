@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import { decode } from 'base64-arraybuffer';
 import { supabase } from '../../../services/supabaseClient';
 
@@ -61,7 +62,7 @@ async function deleteUploadedFeedbackImage(imagePath) {
     .remove([imagePath]);
 
   if (error) {
-    console.log('Feedback-Bild konnte nach fehlgeschlagenem Insert nicht bereinigt werden:', error);
+    logger.debug('Feedback-Bild konnte nach fehlgeschlagenem Insert nicht bereinigt werden:', error);
   }
 }
 
@@ -79,7 +80,7 @@ async function awardFeedbackGrowPoints(userId) {
 
     return Boolean(awarded);
   } catch (error) {
-    console.log('Grow Points für Feedback konnten nicht vergeben werden:', error);
+    logger.debug('Grow Points für Feedback konnten nicht vergeben werden:', error);
     return false;
   }
 }

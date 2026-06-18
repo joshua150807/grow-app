@@ -9,7 +9,6 @@ import {
 import { Image, View } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { Pedometer } from 'expo-sensors';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Linking from 'expo-linking';
 
@@ -21,6 +20,7 @@ import { OnboardingProvider } from '../features/onboarding/context/OnboardingCon
 import OnboardingLayer from '../features/onboarding/components/OnboardingLayer';
 import RootErrorBoundary from '../components/system/RootErrorBoundary';
 import { preloadRatingIconAssets } from '../constants/ratingAssets';
+import { logger } from '../lib/logger';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -39,7 +39,25 @@ function getAuthParamsFromUrl(url) {
   const params = new URLSearchParams(combined);
   const accessToken = params.get('access_token');
   const refreshToken = params.get('refresh_token');
+  const code = params.get('code');
   const type = params.get('type');
+  const error = params.get('error');
+  const errorDescription = params.get('error_description');
+
+  if (error) {
+    return {
+      error,
+      errorDescription,
+      type,
+    };
+  }
+
+  if (code) {
+    return {
+      code,
+      type,
+    };
+  }
 
   if (!accessToken || !refreshToken) return null;
 
@@ -59,46 +77,91 @@ export default function RootLayout() {
   const [startupProfile, setStartupProfile] = useState(null);
 
   useEffect(() => {
+    let handledInitialUrl = false;
+
+    async function openResetPasswordScreen() {
+      // Einen Tick warten, damit der Router beim Kaltstart sicher bereit ist.
+      setTimeout(() => {
+        router.replace('/reset-password');
+      }, 0);
+    }
+
     async function handleRecoveryUrl(url) {
       const authParams = getAuthParamsFromUrl(url);
 
-      if (!authParams) return;
+      if (!authParams) return false;
+
+      if (authParams.error) {
+        logger.debug('Recovery-Link enthält einen Fehler:', {
+          error: authParams.error,
+          description: authParams.errorDescription,
+        });
+        return true;
+      }
 
       try {
-        const { error } = await supabase.auth.setSession({
-          access_token: authParams.accessToken,
-          refresh_token: authParams.refreshToken,
-        });
+        if (authParams.code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(authParams.code);
 
-        if (error) {
-          console.log('Recovery-Link konnte nicht verarbeitet werden:', error);
-          return;
+          if (error) {
+            logger.debug('Recovery-Code konnte nicht verarbeitet werden:', error);
+            return true;
+          }
+
+          await openResetPasswordScreen();
+          return true;
         }
 
-        if (authParams.type === 'recovery') {
-          router.replace('/reset-password');
+        if (authParams.accessToken && authParams.refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: authParams.accessToken,
+            refresh_token: authParams.refreshToken,
+          });
+
+          if (error) {
+            logger.debug('Recovery-Link konnte nicht verarbeitet werden:', error);
+            return true;
+          }
+
+          if (authParams.type === 'recovery') {
+            await openResetPasswordScreen();
+          }
+
+          return true;
         }
       } catch (err) {
-        console.log('Recovery-Link Fehler:', err);
+        logger.debug('Recovery-Link Fehler:', err);
+        return true;
       }
+
+      return false;
     }
 
     Linking.getInitialURL()
-      .then((url) => {
+      .then(async (url) => {
         if (url) {
-          handleRecoveryUrl(url);
+          handledInitialUrl = await handleRecoveryUrl(url);
         }
       })
       .catch((err) => {
-        console.log('Initialer Link konnte nicht gelesen werden:', err);
+        logger.debug('Initialer Link konnte nicht gelesen werden:', err);
       });
 
     const subscription = Linking.addEventListener('url', ({ url }) => {
       handleRecoveryUrl(url);
     });
 
+    const {
+      data: { subscription: authSubscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY' && !handledInitialUrl) {
+        openResetPasswordScreen();
+      }
+    });
+
     return () => {
       subscription?.remove?.();
+      authSubscription?.unsubscribe?.();
     };
   }, []);
 
@@ -114,7 +177,7 @@ export default function RootLayout() {
         }
       })
       .catch((err) => {
-        console.log('Session konnte beim Start nicht geladen werden:', err);
+        logger.debug('Session konnte beim Start nicht geladen werden:', err);
         if (mounted) {
           setSession(null);
         }
@@ -146,7 +209,7 @@ export default function RootLayout() {
     if (session === undefined) return;
 
     preloadRatingIconAssets().catch((err) => {
-      console.log('Rating-Icons konnten beim Start nicht vorgeladen werden:', err);
+      logger.debug('Rating-Icons konnten beim Start nicht vorgeladen werden:', err);
     });
   }, [session]);
 
@@ -162,7 +225,7 @@ export default function RootLayout() {
 
       return profile;
     } catch (err) {
-      console.log('Profil konnte nicht neu geladen werden:', err);
+      logger.debug('Profil konnte nicht neu geladen werden:', err);
       return null;
     }
   }, [session?.user?.id]);
@@ -183,7 +246,7 @@ export default function RootLayout() {
           setStartupProfile(profile);
         }
       } catch (err) {
-        console.log('Profil konnte im Hintergrund nicht geladen werden:', err);
+        logger.debug('Profil konnte im Hintergrund nicht geladen werden:', err);
       }
     }
 
@@ -204,35 +267,6 @@ export default function RootLayout() {
     [startupProfile, reloadStartupProfile]
   );
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function requestMotionPermissionAfterStartup() {
-      try {
-        // Start niemals wegen Motion Permission blockieren.
-        if (session === undefined) return;
-        if (!session?.user?.id) return;
-
-        const available = await Pedometer.isAvailableAsync();
-        if (!available || cancelled) return;
-
-        const currentPermission = await Pedometer.getPermissionsAsync();
-        if (cancelled) return;
-
-        if (currentPermission.status !== 'granted') {
-          await Pedometer.requestPermissionsAsync();
-        }
-      } catch (err) {
-        console.log('Motion Permission konnte beim Start nicht abgefragt werden:', err);
-      }
-    }
-
-    requestMotionPermissionAfterStartup();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [session]);
 
   // Nur die Session-Prüfung zeigt noch kurz das Grow-Symbol.
   // Feed, Profil, Tool-Bilder und Tool-Daten blockieren den Appstart nicht.

@@ -1,10 +1,5 @@
 import { supabase } from '../../../../services/supabaseClient'
-
-async function getCurrentUserId() {
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error) throw error;
-  return user?.id ?? null;
-}
+import { getCurrentUserId } from '../../../../services/authUser';
 
 function isValidDateString(date) {
   return typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date);

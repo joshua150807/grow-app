@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { useCallback, useEffect, useState } from 'react';
 
 import { fetchLatestTrainingSessions } from '../services/trainingSessionService';
@@ -21,7 +22,7 @@ export function useLatestTrainingSessions() {
       setSessions(data);
       setPreloadedToolData('trainingSessions', data);
     } catch (e) {
-      console.error('[Training Sessions] Load failed:', e);
+      logger.error('[Training Sessions] Load failed:', e);
       setSessionsError('Trainingseinheiten konnten nicht geladen werden.');
     } finally {
       if (!silent) {

@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import {
   Pressable,
@@ -51,7 +52,7 @@ export default function AdminBetaCodesScreen() {
 
       setCodes(Array.isArray(list) ? list : []);
     } catch (error) {
-      console.log('Fehler beim Laden der Beta Codes:', error);
+      logger.debug('Fehler beim Laden der Beta Codes:', error);
 
       if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
 

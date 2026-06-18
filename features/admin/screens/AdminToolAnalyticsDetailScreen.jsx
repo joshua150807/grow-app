@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
@@ -67,7 +68,7 @@ export default function AdminToolAnalyticsDetailScreen() {
       setItems(Array.isArray(list) ? list : []);
       hasLoadedOnceRef.current = true;
     } catch (error) {
-      console.log('Fehler beim Laden der Tool User Analytics:', error);
+      logger.debug('Fehler beim Laden der Tool User Analytics:', error);
 
       if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
 

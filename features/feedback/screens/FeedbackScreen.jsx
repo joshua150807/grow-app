@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import React, { useEffect, useState } from 'react';
 import {
   Text,
@@ -31,7 +32,7 @@ export default function FeedbackScreen() {
 
     preloadFeedbackImageAssets()
       .catch((err) => {
-        console.warn('Feedback image preloading failed', err);
+        logger.warn('Feedback image preloading failed', err);
       })
       .finally(() => {
         if (mounted) {

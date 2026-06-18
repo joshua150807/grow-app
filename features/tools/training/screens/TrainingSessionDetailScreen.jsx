@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -33,7 +34,7 @@ export default function TrainingSessionDetailScreen() {
       const data = await fetchTrainingSessionDetail(sessionId);
       setSession(data);
     } catch (e) {
-      console.error('[Training Session Detail] Load failed:', e);
+      logger.error('[Training Session Detail] Load failed:', e);
       setError('Trainingseinheit konnte nicht geladen werden.');
     } finally {
       setLoading(false);

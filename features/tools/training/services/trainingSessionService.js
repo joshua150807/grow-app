@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { supabase } from "../../../../services/supabaseClient";
 
 function normalizeSessionType(value) {
@@ -71,7 +72,7 @@ async function cleanupSession(sessionId) {
       .delete()
       .eq('id', sessionId);
   } catch (cleanupError) {
-    console.error('[Training Session] cleanupSession failed:', cleanupError);
+    logger.error('[Training Session] cleanupSession failed:', cleanupError);
   }
 }
 
@@ -170,7 +171,7 @@ export async function createTrainingSession({
       throwMissingSessionSchemaError();
     }
 
-    console.warn('[Training Session] New session columns missing. Falling back to legacy gym session insert.');
+    logger.warn('[Training Session] New session columns missing. Falling back to legacy gym session insert.');
 
     const legacyResult = await supabase
       .from('training_sessions')
@@ -245,7 +246,7 @@ export async function fetchLatestTrainingSessions(limit = null) {
   let { data, error } = await query;
 
   if (error && isTrainingSessionSchemaError(error)) {
-    console.warn('[Training Sessions] New session/day columns missing. Falling back to legacy sessions query.');
+    logger.warn('[Training Sessions] New session/day columns missing. Falling back to legacy sessions query.');
 
     let legacyQuery = supabase
       .from('training_sessions')
@@ -307,7 +308,7 @@ export async function fetchTrainingSessionDetail(sessionId) {
     .single();
 
   if (error && isTrainingSessionSchemaError(error)) {
-    console.warn('[Training Session Detail] New session/day columns missing. Falling back to legacy detail query.');
+    logger.warn('[Training Session Detail] New session/day columns missing. Falling back to legacy detail query.');
 
     const legacyResult = await supabase
       .from('training_sessions')

@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Pressable,
@@ -49,7 +50,7 @@ export default function AdminUsersScreen() {
 
       setUsers(Array.isArray(list) ? list : []);
     } catch (error) {
-      console.log('Fehler beim Laden der User Analytics:', error);
+      logger.debug('Fehler beim Laden der User Analytics:', error);
 
       if (!isFocusedRef.current || requestId !== activeRequestRef.current) return;
 

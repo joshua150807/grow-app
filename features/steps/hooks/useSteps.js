@@ -18,8 +18,9 @@ export function useSteps() {
 
   const mountedRef = useRef(true);
   const saveTimeoutRef = useRef(null);
+  const hasRequestedPermissionRef = useRef(false);
 
-  const fetchSteps = useCallback(async () => {
+  const fetchSteps = useCallback(async ({ shouldRequestPermission = false } = {}) => {
     try {
       setError(null);
 
@@ -35,9 +36,22 @@ export function useSteps() {
         return;
       }
 
-      const permission = await Pedometer.getPermissionsAsync();
+      let permission = await Pedometer.getPermissionsAsync();
 
       if (!mountedRef.current) return;
+
+      const canAskForPermission =
+        shouldRequestPermission &&
+        !hasRequestedPermissionRef.current &&
+        permission.status !== 'granted' &&
+        permission.canAskAgain !== false;
+
+      if (canAskForPermission) {
+        hasRequestedPermissionRef.current = true;
+        permission = await Pedometer.requestPermissionsAsync();
+
+        if (!mountedRef.current) return;
+      }
 
       setPermissionStatus(permission.status);
 
@@ -72,13 +86,15 @@ export function useSteps() {
   useEffect(() => {
     mountedRef.current = true;
 
-    fetchSteps();
+    fetchSteps({ shouldRequestPermission: true });
 
-    const interval = setInterval(fetchSteps, 30000);
+    const interval = setInterval(() => {
+      fetchSteps({ shouldRequestPermission: false });
+    }, 30000);
 
     const appStateSub = AppState.addEventListener('change', (state) => {
       if (state === 'active') {
-        fetchSteps();
+        fetchSteps({ shouldRequestPermission: false });
       }
     });
 
@@ -92,7 +108,7 @@ export function useSteps() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchSteps();
+      fetchSteps({ shouldRequestPermission: true });
     }, [fetchSteps])
   );
 

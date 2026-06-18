@@ -1,3 +1,4 @@
+import { logger } from '../../lib/logger';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,7 +18,7 @@ export default class RootErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    console.log('[RootErrorBoundary] Ein UI-Fehler wurde abgefangen:', error, info?.componentStack);
+    logger.debug('[RootErrorBoundary] Ein UI-Fehler wurde abgefangen:', error, info?.componentStack);
   }
 
   handleRetry = () => {

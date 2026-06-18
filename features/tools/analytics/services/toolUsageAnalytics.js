@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { tools } from '../../../../data/tools';
 import { supabase } from '../../../../services/supabaseClient';
 
@@ -64,10 +65,10 @@ export async function trackToolOpen(tool) {
     });
 
     if (error) {
-      console.log('[ToolAnalytics] open event failed:', error);
+      logger.debug('[ToolAnalytics] open event failed:', error);
     }
   } catch (error) {
-    console.log('[ToolAnalytics] open event failed:', error);
+    logger.debug('[ToolAnalytics] open event failed:', error);
   }
 }
 
@@ -92,9 +93,9 @@ export async function trackToolDuration(tool, durationSeconds) {
     });
 
     if (error) {
-      console.log('[ToolAnalytics] duration event failed:', error);
+      logger.debug('[ToolAnalytics] duration event failed:', error);
     }
   } catch (error) {
-    console.log('[ToolAnalytics] duration event failed:', error);
+    logger.debug('[ToolAnalytics] duration event failed:', error);
   }
 }

@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -78,7 +79,7 @@ export function useProfile() {
         setProfile(normalizeProfile(nextProfile));
       }
     } catch (err) {
-      console.log('Fehler beim Laden des Profils:', err);
+      logger.debug('Fehler beim Laden des Profils:', err);
     }
   }, [reloadStartupProfile]);
 

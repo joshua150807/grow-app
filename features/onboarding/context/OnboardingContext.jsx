@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import {
   createContext,
   useCallback,
@@ -66,7 +67,7 @@ export function OnboardingProvider({ children, isAuthenticated = false }) {
           setIsPromptVisible(true);
         }
       } catch (err) {
-        console.log('[Onboarding] Initiale Tutorial-Abfrage fehlgeschlagen:', err);
+        logger.debug('[Onboarding] Initiale Tutorial-Abfrage fehlgeschlagen:', err);
       }
     }
 
@@ -120,7 +121,7 @@ export function OnboardingProvider({ children, isAuthenticated = false }) {
       setIsTourActive(true);
       navigateToTourRoute('/(tabs)');
     } catch (err) {
-      console.log('[Onboarding] Tutorial konnte nicht gestartet werden:', err);
+      logger.debug('[Onboarding] Tutorial konnte nicht gestartet werden:', err);
     }
   }, [navigateToTourRoute]);
 
@@ -129,7 +130,7 @@ export function OnboardingProvider({ children, isAuthenticated = false }) {
       await markOnboardingPromptSeen();
       setIsPromptVisible(false);
     } catch (err) {
-      console.log('[Onboarding] Tutorial-Abfrage konnte nicht gespeichert werden:', err);
+      logger.debug('[Onboarding] Tutorial-Abfrage konnte nicht gespeichert werden:', err);
       setIsPromptVisible(false);
     }
   }, []);
@@ -138,7 +139,7 @@ export function OnboardingProvider({ children, isAuthenticated = false }) {
     try {
       await markTutorialFinished();
     } catch (err) {
-      console.log('[Onboarding] Tutorial-Abschluss konnte nicht gespeichert werden:', err);
+      logger.debug('[Onboarding] Tutorial-Abschluss konnte nicht gespeichert werden:', err);
     }
 
     setIsTourActive(false);

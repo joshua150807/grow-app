@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   getTodos,
@@ -69,7 +70,7 @@ export function useTodos() {
       setPreloadedToolData('todos', sorted);
     } catch (e) {
       if (!mountedRef.current || requestId !== loadRequestRef.current) return;
-      console.log('Fehler beim Laden der Todos:', e);
+      logger.debug('Fehler beim Laden der Todos:', e);
       setError('Todos konnten nicht geladen werden.');
     } finally {
       if (mountedRef.current && requestId === loadRequestRef.current && !silent) {

@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -91,7 +92,7 @@ export function useFeedbackForm() {
 
       clearStatus();
     } catch (error) {
-      console.log('Fehler beim Auswählen des Feedback-Bildes:', error);
+      logger.debug('Fehler beim Auswählen des Feedback-Bildes:', error);
 
       if (isMountedRef.current) {
         Alert.alert('Fehler', 'Bild konnte nicht ausgewählt werden.');
@@ -151,7 +152,7 @@ export function useFeedbackForm() {
           : 'Danke für dein Feedback!'
       );
     } catch (error) {
-      console.log('Fehler beim Senden von Feedback:', error);
+      logger.debug('Fehler beim Senden von Feedback:', error);
 
       if (isMountedRef.current) {
         setSendError('Feedback konnte nicht gesendet werden. Bitte versuche es erneut.');

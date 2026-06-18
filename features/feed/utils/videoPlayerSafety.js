@@ -1,3 +1,4 @@
+import { logger } from '../../../lib/logger';
 const STALE_NATIVE_OBJECT_ERRORS = [
   "NativeSharedObjectNotFoundException",
   "Unable to find the native shared object",
@@ -15,5 +16,5 @@ export function logVideoPlayerError(label, error) {
     return;
   }
 
-  console.log(label, error);
+  logger.debug(label, error);
 }

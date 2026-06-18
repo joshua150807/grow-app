@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CUSTOM_PLAN_DRAFT_KEY = '@grow/training/custom-plan-draft-v1';
@@ -86,7 +87,7 @@ export async function loadCustomTrainingPlanDraft() {
 
     return draft;
   } catch (error) {
-    console.warn('[Training Draft] Failed to load draft:', error);
+    logger.warn('[Training Draft] Failed to load draft:', error);
     return null;
   }
 }
@@ -105,7 +106,7 @@ export async function saveCustomTrainingPlanDraft(draft) {
       JSON.stringify(normalizedDraft)
     );
   } catch (error) {
-    console.warn('[Training Draft] Failed to save draft:', error);
+    logger.warn('[Training Draft] Failed to save draft:', error);
   }
 }
 
@@ -113,6 +114,6 @@ export async function clearCustomTrainingPlanDraft() {
   try {
     await AsyncStorage.removeItem(CUSTOM_PLAN_DRAFT_KEY);
   } catch (error) {
-    console.warn('[Training Draft] Failed to clear draft:', error);
+    logger.warn('[Training Draft] Failed to clear draft:', error);
   }
 }

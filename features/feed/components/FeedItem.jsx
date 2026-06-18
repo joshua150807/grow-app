@@ -10,7 +10,6 @@ import { useVideoProgress } from "../hooks/useVideoProgress";
 import { useVideoRating } from "../hooks/useVideoRating";
 import { COLORS } from "../../../constants/colors";
 import { s, sv, sf, SCREEN } from "../../../constants/layout";
-import { supabase } from "../../../services/supabaseClient";
 import { logVideoPlayerError } from "../utils/videoPlayerSafety";
 
 const { width, height } = Dimensions.get("window");
@@ -19,6 +18,7 @@ const LONG_PRESS_DELAY = 120;
 
 export default function FeedItem({
   item,
+  userId,
   isActive,
   isFeedFocused,
   isMuted,
@@ -34,7 +34,6 @@ export default function FeedItem({
   const [isHolding, setIsHolding] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isPausedByUser, setIsPausedByUser] = useState(false);
-  const [userId, setUserId] = useState(null);
 
   const hasReportedReady = useRef(false);
   const isMountedRef = useRef(true);
@@ -140,34 +139,6 @@ export default function FeedItem({
     player,
     setProgress,
   ]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadUser() {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-
-        if (!cancelled && isMountedRef.current) {
-          setUserId(user?.id ?? null);
-        }
-      } catch (error) {
-        console.log("Fehler beim Laden des Feed-Users:", error);
-
-        if (!cancelled && isMountedRef.current) {
-          setUserId(null);
-        }
-      }
-    }
-
-    loadUser();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const { showPointReward } = useWatchReward({
     isActive,

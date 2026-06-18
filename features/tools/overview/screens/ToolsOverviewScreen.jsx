@@ -1,3 +1,4 @@
+import { logger } from '../../../../lib/logger';
 import { useEffect, useRef, useState } from 'react';
 import {
   View,
@@ -96,7 +97,7 @@ export default function ToolsScreen() {
 
     preloadToolOverviewImageAssets()
       .catch((err) => {
-        console.log('Tools-Overview-Bilder konnten nicht vorgeladen werden:', err);
+        logger.debug('Tools-Overview-Bilder konnten nicht vorgeladen werden:', err);
       })
       .finally(() => {
         if (mountedRef.current) {
@@ -106,7 +107,7 @@ export default function ToolsScreen() {
 
     const preloadTask = InteractionManager.runAfterInteractions(() => {
       preloadToolPageBackgroundAssets().catch((err) => {
-        console.log('Tool-Seiten-Hintergründe konnten nicht vorgeladen werden:', err);
+        logger.debug('Tool-Seiten-Hintergründe konnten nicht vorgeladen werden:', err);
       });
     });
 
@@ -164,7 +165,7 @@ export default function ToolsScreen() {
     const { error } = await supabase.auth.signOut();
 
     if (error) {
-      console.log('[ToolsOverview] Logout failed:', error);
+      logger.debug('[ToolsOverview] Logout failed:', error);
       navigationLockedRef.current = false;
       return;
     }
