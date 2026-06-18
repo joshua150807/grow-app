@@ -19,7 +19,6 @@ import FeedItem from "./FeedItem";
 import { getSavedVideoIds, toggleVideoBookmark } from "../services/videos";
 
 const { height } = Dimensions.get("window");
-const FLICK_THRESHOLD = 28;
 const VIDEO_READY_TIMEOUT_MS = 6500;
 
 export default function VideoFeed({
@@ -47,7 +46,6 @@ export default function VideoFeed({
   const flatListRef = useRef(null);
   const currentIndexRef = useRef(initialIndex);
   const isFeedScrollEnabledRef = useRef(true);
-  const dragStartOffsetY = useRef(0);
   const isFirstFocus = useRef(true);
   const videoReadyFallbackTimerRef = useRef(null);
   const scrollFrameRef = useRef(null);
@@ -345,78 +343,21 @@ export default function VideoFeed({
     [feedData, removeUnsavedVideos, scrollToIndex],
   );
 
-  const handleScroll = useCallback(
-    (event) => {
-      const offsetY = event.nativeEvent.contentOffset.y;
-      const nextIndex = Math.round(offsetY / height);
-
-      if (
-        nextIndex !== currentIndexRef.current &&
-        nextIndex >= 0 &&
-        nextIndex < feedData.length
-      ) {
-        currentIndexRef.current = nextIndex;
-        setActiveVideoId(feedData[nextIndex].id);
-      }
-    },
-    [feedData, scrollToIndex],
-  );
-
-  const handleScrollBeginDrag = useCallback((event) => {
-    if (!isFeedScrollEnabledRef.current) {
-      return;
-    }
-
-    dragStartOffsetY.current = event.nativeEvent.contentOffset.y;
-  }, []);
-
-  const handleScrollEndDrag = useCallback(
-    (event) => {
-      if (!isFeedScrollEnabledRef.current) {
-        scrollToIndex(currentIndexRef.current, true);
-        return;
-      }
-
-      const endOffsetY = event.nativeEvent.contentOffset.y;
-      const dragDelta = endOffsetY - dragStartOffsetY.current;
-      const velocityY = event.nativeEvent.velocity?.y ?? 0;
-
-      const isFastFlickDown = velocityY > 0.35;
-      const isFastFlickUp = velocityY < -0.35;
-
-      const currentIndex = Math.round(dragStartOffsetY.current / height);
-      let targetIndex = currentIndex;
-
-      if (dragDelta > FLICK_THRESHOLD || isFastFlickDown) {
-        targetIndex = currentIndex + 1;
-      } else if (dragDelta < -FLICK_THRESHOLD || isFastFlickUp) {
-        targetIndex = currentIndex - 1;
-      } else {
-        targetIndex = Math.round(endOffsetY / height);
-      }
-
-      targetIndex = Math.max(0, Math.min(targetIndex, feedData.length - 1));
-
-      scrollToIndex(targetIndex, true);
-
-      currentIndexRef.current = targetIndex;
-
-      if (feedData[targetIndex]) {
-        setActiveVideoId(feedData[targetIndex].id);
-      }
-    },
-    [feedData, scrollToIndex],
-  );
-
   const handleMomentumScrollEnd = useCallback(
     (event) => {
       const offsetY = event.nativeEvent.contentOffset.y;
-      const settledIndex = Math.round(offsetY / height);
+      const settledIndex = Math.max(
+        0,
+        Math.min(Math.round(offsetY / height), feedData.length - 1),
+      );
+      const settledVideo = feedData[settledIndex];
 
-      if (feedData[settledIndex]) {
-        currentIndexRef.current = settledIndex;
-        setActiveVideoId(feedData[settledIndex].id);
+      if (!settledVideo || settledIndex === currentIndexRef.current) {
+        return;
       }
+
+      currentIndexRef.current = settledIndex;
+      setActiveVideoId(settledVideo.id);
     },
     [feedData],
   );
@@ -496,18 +437,19 @@ export default function VideoFeed({
           renderItem={renderItem}
           extraData={feedData}
           scrollEnabled={!isDisabled && isFeedScrollEnabled}
+          pagingEnabled
+          snapToInterval={height}
+          snapToAlignment="start"
+          disableIntervalMomentum
           decelerationRate="fast"
           bounces={false}
           overScrollMode="never"
           showsVerticalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={16}
-          onScrollBeginDrag={handleScrollBeginDrag}
-          onScrollEndDrag={handleScrollEndDrag}
           onMomentumScrollEnd={handleMomentumScrollEnd}
-          windowSize={5}
-          initialNumToRender={3}
-          maxToRenderPerBatch={3}
+          windowSize={3}
+          initialNumToRender={2}
+          maxToRenderPerBatch={2}
+          updateCellsBatchingPeriod={40}
           removeClippedSubviews={false}
           getItemLayout={(_, index) => ({
             length: height,
