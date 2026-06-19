@@ -1,5 +1,4 @@
-import { logger } from '../../../lib/logger';
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AppState,
   Dimensions,
@@ -18,7 +17,8 @@ import { COLORS } from "../../../constants/colors";
 import { s, sv, sf } from "../../../constants/layout";
 import FeedItem from "./FeedItem";
 import { getSavedVideoIds, toggleVideoBookmark } from "../services/videos";
-import { supabase } from "../../../services/supabaseClient";
+import { getCurrentUserId } from "../../../services/authUser";
+import { logger } from "../../../lib/logger";
 
 const { height } = Dimensions.get("window");
 const VIDEO_READY_TIMEOUT_MS = 6500;
@@ -48,7 +48,6 @@ export default function VideoFeed({
   const isFocused = useIsFocused();
   const flatListRef = useRef(null);
   const currentIndexRef = useRef(initialIndex);
-  const activeVideoIdRef = useRef(null);
   const isFeedScrollEnabledRef = useRef(true);
   const isFirstFocus = useRef(true);
   const videoReadyFallbackTimerRef = useRef(null);
@@ -56,6 +55,10 @@ export default function VideoFeed({
   const isMountedRef = useRef(true);
   const loadRequestIdRef = useRef(0);
   const bookmarkRequestRef = useRef(new Set());
+  const viewabilityConfigRef = useRef({
+    itemVisiblePercentThreshold: 55,
+    minimumViewTime: 60,
+  });
   const [isAppActive, setIsAppActive] = useState(true);
 
   const clearVideoReadyFallbackTimer = useCallback(() => {
@@ -138,17 +141,15 @@ export default function VideoFeed({
   useEffect(() => {
     let cancelled = false;
 
-    async function loadFeedUser() {
+    async function loadFeedUserId() {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const nextUserId = await getCurrentUserId();
 
         if (!cancelled && isMountedRef.current) {
-          setUserId(user?.id ?? null);
+          setUserId(nextUserId);
         }
       } catch (error) {
-        logger.debug("Fehler beim Laden des Feed-Users:", error);
+        logger.warn("Fehler beim Laden des Feed-Users:", error);
 
         if (!cancelled && isMountedRef.current) {
           setUserId(null);
@@ -156,7 +157,7 @@ export default function VideoFeed({
       }
     }
 
-    loadFeedUser();
+    loadFeedUserId();
 
     return () => {
       cancelled = true;
@@ -190,7 +191,6 @@ export default function VideoFeed({
 
       if (validVideos.length === 0) {
         setFeedData([]);
-        activeVideoIdRef.current = null;
         setActiveVideoId(null);
         setHasNoVideos(true);
         setIsInitialLoading(false);
@@ -202,11 +202,8 @@ export default function VideoFeed({
         Math.min(initialIndex, validVideos.length - 1),
       );
 
-      const initialVideoId = validVideos[safeInitialIndex].id;
-
       setFeedData(validVideos);
-      activeVideoIdRef.current = initialVideoId;
-      setActiveVideoId(initialVideoId);
+      setActiveVideoId(validVideos[safeInitialIndex].id);
       currentIndexRef.current = safeInitialIndex;
 
       startVideoReadyFallbackTimer();
@@ -217,10 +214,9 @@ export default function VideoFeed({
         return;
       }
 
-      logger.debug("Fehler beim Laden des Feeds:", error);
+      logger.error("Fehler beim Laden des Feeds:", error);
       clearVideoReadyFallbackTimer();
       setFeedData([]);
-      activeVideoIdRef.current = null;
       setActiveVideoId(null);
       setFeedError(errorMessage);
       setIsInitialLoading(false);
@@ -279,7 +275,7 @@ export default function VideoFeed({
             })),
           );
         } catch (error) {
-          logger.debug("Fehler beim Sync der Bookmarks:", error);
+          logger.warn("Fehler beim Sync der Bookmarks:", error);
         }
       }
 
@@ -338,7 +334,6 @@ export default function VideoFeed({
 
             if (nextData.length === 0) {
               setHasNoVideos(true);
-              activeVideoIdRef.current = null;
               setActiveVideoId(null);
               return [];
             }
@@ -348,11 +343,8 @@ export default function VideoFeed({
               nextData.length - 1,
             );
 
-            const nextVideoId = nextData[nextIndex].id;
-
             currentIndexRef.current = nextIndex;
-            activeVideoIdRef.current = nextVideoId;
-            setActiveVideoId(nextVideoId);
+            setActiveVideoId(nextData[nextIndex].id);
 
             scrollToIndex(nextIndex, true);
 
@@ -368,7 +360,7 @@ export default function VideoFeed({
           ),
         );
       } catch (error) {
-        logger.debug("Fehler beim Speichern des Videos:", error);
+        logger.error("Fehler beim Speichern des Videos:", error);
 
         if (isMountedRef.current) {
           setFeedData((prevData) =>
@@ -384,68 +376,43 @@ export default function VideoFeed({
     [feedData, removeUnsavedVideos, scrollToIndex],
   );
 
-  const activateVideoFromScrollOffset = useCallback(
-    (offsetY) => {
-      if (feedData.length === 0) {
-        if (activeVideoIdRef.current !== null) {
-          activeVideoIdRef.current = null;
-          setActiveVideoId(null);
-        }
+  const handleViewableItemsChanged = useRef(({ viewableItems }) => {
+    if (!isMountedRef.current || !Array.isArray(viewableItems)) {
+      return;
+    }
 
-        return;
-      }
+    const nextViewableItem = viewableItems.find(
+      (viewableItem) =>
+        viewableItem?.isViewable &&
+        viewableItem?.item?.id &&
+        Number.isInteger(viewableItem.index),
+    );
 
-      const nextIndex = Math.max(
-        0,
-        Math.min(Math.round(offsetY / height), feedData.length - 1),
-      );
-      const nextVideo = feedData[nextIndex];
+    if (!nextViewableItem || nextViewableItem.index === currentIndexRef.current) {
+      return;
+    }
 
-      if (!nextVideo) {
-        if (activeVideoIdRef.current !== null) {
-          activeVideoIdRef.current = null;
-          setActiveVideoId(null);
-        }
-
-        return;
-      }
-
-      currentIndexRef.current = nextIndex;
-
-      if (activeVideoIdRef.current !== nextVideo.id) {
-        activeVideoIdRef.current = nextVideo.id;
-        setActiveVideoId(nextVideo.id);
-      }
-    },
-    [feedData],
-  );
-
-  const handleScroll = useCallback(
-    (event) => {
-      // Beim Swipen früh auf das sichtbarste Video wechseln. Dadurch stoppt der
-      // alte Sound schnell, aber das neue Video startet nicht erst am Scroll-Ende.
-      activateVideoFromScrollOffset(event.nativeEvent.contentOffset.y);
-    },
-    [activateVideoFromScrollOffset],
-  );
-
-  const handleScrollEndDrag = useCallback(
-    (event) => {
-      const velocityY = Math.abs(event.nativeEvent.velocity?.y ?? 0);
-
-      // Wenn kein echtes Momentum mehr folgt, direkt das sichtbare Video aktivieren.
-      if (velocityY < 0.05) {
-        activateVideoFromScrollOffset(event.nativeEvent.contentOffset.y);
-      }
-    },
-    [activateVideoFromScrollOffset],
-  );
+    currentIndexRef.current = nextViewableItem.index;
+    setActiveVideoId(nextViewableItem.item.id);
+  }).current;
 
   const handleMomentumScrollEnd = useCallback(
     (event) => {
-      activateVideoFromScrollOffset(event.nativeEvent.contentOffset.y);
+      const offsetY = event.nativeEvent.contentOffset.y;
+      const settledIndex = Math.max(
+        0,
+        Math.min(Math.round(offsetY / height), feedData.length - 1),
+      );
+      const settledVideo = feedData[settledIndex];
+
+      if (!settledVideo || settledIndex === currentIndexRef.current) {
+        return;
+      }
+
+      currentIndexRef.current = settledIndex;
+      setActiveVideoId(settledVideo.id);
     },
-    [activateVideoFromScrollOffset],
+    [feedData],
   );
 
   const renderItem = useCallback(
@@ -478,6 +445,27 @@ export default function VideoFeed({
       handleToggleSaved,
       isAppActive,
       isDisabled,
+      isFocused,
+      isMuted,
+      userId,
+    ],
+  );
+
+  const feedExtraData = useMemo(
+    () => ({
+      activeVideoId,
+      isAppActive,
+      isDisabled,
+      isFeedScrollEnabled,
+      isFocused,
+      isMuted,
+      userId,
+    }),
+    [
+      activeVideoId,
+      isAppActive,
+      isDisabled,
+      isFeedScrollEnabled,
       isFocused,
       isMuted,
       userId,
@@ -523,7 +511,7 @@ export default function VideoFeed({
           data={feedData}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          extraData={feedData}
+          extraData={feedExtraData}
           scrollEnabled={!isDisabled && isFeedScrollEnabled}
           pagingEnabled
           snapToInterval={height}
@@ -533,10 +521,10 @@ export default function VideoFeed({
           bounces={false}
           overScrollMode="never"
           showsVerticalScrollIndicator={false}
-          onScroll={handleScroll}
-          scrollEventThrottle={80}
-          onScrollEndDrag={handleScrollEndDrag}
+          onViewableItemsChanged={handleViewableItemsChanged}
+          viewabilityConfig={viewabilityConfigRef.current}
           onMomentumScrollEnd={handleMomentumScrollEnd}
+          scrollEventThrottle={16}
           windowSize={3}
           initialNumToRender={2}
           maxToRenderPerBatch={2}

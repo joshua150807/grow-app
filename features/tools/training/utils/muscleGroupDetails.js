@@ -44,11 +44,14 @@ export const MUSCLE_GROUP_DETAILS = {
   legs: {
     descriptionTitle: 'Beine verstehen',
     description:
-      'Die Beine liefern Kraft, Stabilität und Athletik. Ein vollständiges Beintraining deckt Quadrizeps, hintere Oberschenkel, Gesäß und Waden ab. Für Optik und Leistung sind Kniebeuge-/Beinpresse-Varianten, Hip-Hinge-Übungen und einseitige Bewegungen sinnvoll.',
+      'Die Beine bestehen aus mehreren großen Muskelgruppen. Dazu gehören der Quadrizeps auf der Vorderseite des Oberschenkels, die Beinbeuger auf der Rückseite, die Gesäßmuskulatur, die Adduktoren an der Innenseite der Beine sowie die Waden. Für einen ausgewogenen Aufbau sollten alle Bereiche regelmäßig trainiert werden.',
     focusPoints: [
-      'Knie-dominante Übungen wie Kniebeugen und Beinpresse treffen stark den Quadrizeps.',
-      'Hüft-dominante Übungen wie RDLs belasten hintere Oberschenkel und Gesäß.',
-      'Waden brauchen regelmäßige, kontrollierte Wiederholungen über eine volle Bewegungsamplitude.',
+      'Der Quadrizeps arbeitet besonders stark bei Kniebeugen, Beinpresse und Beinstrecker.',
+      'Die Beinbeuger werden vor allem bei Rumänischem Kreuzheben und Beinbeuger-Varianten belastet.',
+      'Das Gesäß wird besonders bei Hip Thrusts, Ausfallschritten und tiefen Kniebeugen aktiviert.',
+      'Die Adduktoren stabilisieren die Beine und arbeiten bei vielen Beinübungen automatisch mit.',
+      'Nutze bei den meisten Übungen einen möglichst großen Bewegungsradius und kontrolliere jede Wiederholung.',
+      'Achte darauf, dass Knie und Füße während der Bewegung in dieselbe Richtung zeigen.',
     ],
     anatomyTitle: 'Aufbau der Beinmuskulatur',
     anatomyDescription:
@@ -123,11 +126,14 @@ export const MUSCLE_GROUP_DETAILS = {
   forearms: {
     descriptionTitle: 'Unterarme verstehen',
     description:
-      'Die Unterarme steuern Handgelenk, Finger und Griffkraft. Sie arbeiten bei nahezu allen Zugübungen mit und können zusätzlich gezielt über Beuge-, Streck- und Haltebewegungen trainiert werden.',
+      'Die Unterarmmuskulatur besteht aus vielen kleinen Muskeln, die für die Bewegung von Fingern, Handgelenk und die Griffkraft verantwortlich sind. Starke Unterarme helfen bei nahezu allen Zugübungen und verbessern die Kontrolle über schwere Gewichte.',
     focusPoints: [
-      'Handgelenkcurls trainieren vor allem die Beuger auf der Unterarminnenseite.',
-      'Zugübungen und schwere Haltearbeit verbessern die Griffkraft.',
-      'Kontrollierte Wiederholungen sind wichtiger als sehr hohe Gewichte.',
+      'Die Unterarme werden bei fast allen Zugübungen automatisch mittrainiert.',
+      'Wrist Curls trainieren hauptsächlich die Unterarmbeuger.',
+      'Reverse Curls und Hammercurls beanspruchen zusätzlich den Brachioradialis auf der Außenseite des Unterarms.',
+      'Nutze den vollen Bewegungsradius im Handgelenk.',
+      'Bewege möglichst nur das Handgelenk und nicht den gesamten Arm.',
+      'Arbeite kontrolliert und vermeide Schwung.',
     ],
     anatomyTitle: 'Aufbau der Unterarme',
     anatomyDescription:
@@ -139,13 +145,16 @@ export const MUSCLE_GROUP_DETAILS = {
     ],
   },
   core: {
-    descriptionTitle: 'Bauch und Core verstehen',
+    descriptionTitle: 'Bauch verstehen',
     description:
-      'Der Core stabilisiert den Körper bei fast allen Übungen und überträgt Kraft zwischen Ober- und Unterkörper. Gutes Core-Training besteht nicht nur aus Crunches, sondern auch aus Anti-Rotation, Körperspannung und kontrollierter Rumpfbewegung.',
+      'Die Bauchmuskulatur besteht aus dem geraden Bauchmuskel, den seitlichen Bauchmuskeln und tieferliegenden stabilisierenden Muskeln. Sie sorgt für Stabilität, Kraftübertragung und eine aufrechte Körperhaltung und arbeitet bei nahezu allen Übungen mit.',
     focusPoints: [
-      'Gerader Bauchmuskel ist stark bei Crunch- und Beinhebevarianten aktiv.',
-      'Seitliche Bauchmuskeln helfen bei Rotation und Anti-Rotation.',
-      'Tiefe Core-Muskeln stabilisieren Wirbelsäule, Becken und Atmung unter Belastung.',
+      'Der gerade Bauchmuskel wird besonders bei Crunches und Cable Crunches trainiert.',
+      'Die seitlichen Bauchmuskeln arbeiten verstärkt bei Rotationsbewegungen wie Russian Twists.',
+      'Planks und Ab Wheel trainieren die gesamte Körpermitte und verbessern die Stabilität.',
+      'Konzentriere dich darauf, den Bauch aktiv anzuspannen, statt nur die Bewegung auszuführen.',
+      'Arbeite kontrolliert und vermeide Schwung.',
+      'Halte den unteren Rücken während der Übungen möglichst stabil.',
     ],
     anatomyTitle: 'Aufbau der Core-Muskulatur',
     anatomyDescription:

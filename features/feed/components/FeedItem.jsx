@@ -140,6 +140,7 @@ export default function FeedItem({
     setProgress,
   ]);
 
+
   const { showPointReward } = useWatchReward({
     isActive,
     progress,
