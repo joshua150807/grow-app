@@ -3,7 +3,7 @@
     "scheme": "growapp",
     "name": "Grow",
     "slug": "Grow",
-    "version": "1.0.7",
+    "version": "1.0.8",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,

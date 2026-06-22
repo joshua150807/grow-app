@@ -79,6 +79,7 @@ export const tools = [
     type: 'Feather',
     name: 'tool',
     color: COLORS.textSecondary,
+    image: TOOL_IMAGES.inProgress,
     disabled: true,
   },
 ];

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { router, useFocusEffect } from 'expo-router';
 
 import { tools } from '../../../../data/tools';
+import { TOOL_IMAGES } from '../../../../constants/toolAssets';
 import { lockToolNavigation, unlockToolNavigation } from '../services/toolNavigationGuard';
 
 import {
@@ -22,6 +23,7 @@ function buildPlaceholderSlots(count) {
     id: `placeholder-${index}`,
     placeholder: true,
     title: 'In Bearbeitung',
+    image: TOOL_IMAGES.inProgress,
   }));
 }
 

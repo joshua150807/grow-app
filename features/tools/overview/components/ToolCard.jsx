@@ -33,7 +33,8 @@ export default function ToolCard({
         style={[
           styles.card,
           isSmall && styles.smallCard,
-          styles.placeholderCard,
+          image && styles.imageCard,
+          !image && styles.placeholderCard,
           cardStyle,
         ]}
         onPress={onPress}
@@ -42,17 +43,37 @@ export default function ToolCard({
         delayLongPress={350}
         haptic="light"
       >
-        <View style={[styles.iconWrapper, isSmall && styles.smallIconWrapper]}>
-          <Ionicons
-            name="construct-outline"
-            size={isSmall ? s(17) : s(21)}
-            color="rgba(255,241,210,0.42)"
-          />
-        </View>
+        {image ? (
+          <ImageBackground
+            source={image}
+            style={styles.imageBackground}
+            imageStyle={styles.imageStyle}
+            resizeMode="cover"
+          >
+            <View style={[styles.imageTextBox, isSmall && styles.smallImageTextBox]}>
+              <Text
+                style={[styles.imageTitle, isSmall && styles.smallImageTitle]}
+                numberOfLines={1}
+              >
+                In Bearbeitung
+              </Text>
+            </View>
+          </ImageBackground>
+        ) : (
+          <>
+            <View style={[styles.iconWrapper, isSmall && styles.smallIconWrapper]}>
+              <Ionicons
+                name="construct-outline"
+                size={isSmall ? s(17) : s(21)}
+                color="rgba(255,241,210,0.42)"
+              />
+            </View>
 
-        <Text style={[styles.title, isSmall && styles.smallTitle]} numberOfLines={1}>
-          In Bearbeitung
-        </Text>
+            <Text style={[styles.title, isSmall && styles.smallTitle]} numberOfLines={1}>
+              In Bearbeitung
+            </Text>
+          </>
+        )}
       </PressableScale>
     );
   }

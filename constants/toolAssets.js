@@ -10,7 +10,8 @@ export const TOOL_IMAGES = {
   affirmations: require('../assets/tool-icons/affirmationIcon.webp'),
   notes: require('../assets/tool-icons/notesIcon.webp'),
   journal: require('../assets/tool-icons/journalIcon.webp'),
-  recommendations: require('../assets/tool-icons/recommendationIcon.webp')
+  recommendations: require('../assets/tool-icons/recommendationIcon.webp'),
+  inProgress: require('../assets/tool-icons/in-progress-icon.webp')
 };
 
 export const MENTOR_BG = require('../assets/tool-icons/mentor-bg.webp');

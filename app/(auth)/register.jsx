@@ -49,6 +49,25 @@ export default function RegisterScreen() {
     }
   }
 
+  function getRegistrationErrorMessage(status, fallback = 'Registrierung fehlgeschlagen.') {
+    switch (status) {
+      case 'USERNAME_TAKEN':
+        return 'Username ist bereits vergeben.';
+      case 'EMAIL_TAKEN':
+        return 'Diese Recovery-Mail ist bereits für einen Account vergeben.';
+      case 'CODE_INVALID':
+        return 'Ungültiger oder bereits genutzter Beta-Code.';
+      case 'INVALID_INPUT':
+        return 'Bitte prüfe deine Eingaben.';
+      case 'DUPLICATE_DATA':
+        return 'Username, Recovery-Mail oder Beta-Code ist bereits vergeben.';
+      case 'NOT_ALLOWED':
+        return 'Registrierung konnte nicht bestätigt werden. Bitte versuche es erneut.';
+      default:
+        return fallback;
+    }
+  }
+
   async function handleRegister() {
     if (isSubmittingRef.current) return;
 
@@ -83,21 +102,23 @@ export default function RegisterScreen() {
       isSubmittingRef.current = true;
       setLoading(true);
 
-      const { data: usernameAvailable, error: usernameError } = await supabase.rpc(
-        'is_username_available',
+      const { data: validationStatus, error: validationError } = await supabase.rpc(
+        'validate_beta_registration',
         {
+          input_code: cleanCode,
           input_username: cleanUsername,
+          input_recovery_email: cleanRecoveryEmail,
         }
       );
 
-      if (usernameError) {
-        logger.debug('USERNAME CHECK ERROR:', usernameError);
-        showError('Username konnte nicht geprüft werden.');
+      if (validationError) {
+        logger.debug('REGISTRATION VALIDATION ERROR:', validationError);
+        showError('Registrierung konnte nicht geprüft werden.');
         return;
       }
 
-      if (!usernameAvailable) {
-        showError('Username ist bereits vergeben.');
+      if (validationStatus !== 'OK') {
+        showError(getRegistrationErrorMessage(validationStatus));
         return;
       }
 
@@ -127,33 +148,24 @@ export default function RegisterScreen() {
         return;
       }
 
-      const { error: profileError } = await supabase.from('profiles').insert({
-        id: data.user.id,
-        username: cleanUsername,
-        recovery_email: cleanRecoveryEmail,
-        grow_points: 0,
-      });
-
-      if (profileError) {
-        logger.debug('PROFILE ERROR:', profileError);
-
-        if (profileError.code === '23505') {
-          showError('Username oder Recovery-Mail ist bereits vergeben.');
-        } else {
-          showError(profileError.message);
+      const { data: completionStatus, error: completionError } = await supabase.rpc(
+        'complete_beta_registration',
+        {
+          input_code: cleanCode,
+          input_user_id: data.user.id,
+          input_username: cleanUsername,
+          input_recovery_email: cleanRecoveryEmail,
         }
+      );
 
+      if (completionError) {
+        logger.debug('REGISTRATION COMPLETION ERROR:', completionError);
+        showError('Registrierung konnte nicht abgeschlossen werden.');
         return;
       }
 
-      const { data: claimed, error: claimError } = await supabase.rpc('claim_beta_code', {
-        input_code: cleanCode,
-        input_user_id: data.user.id,
-      });
-
-      if (claimError || !claimed) {
-        logger.debug('BETA CLAIM ERROR:', claimError);
-        showError('Ungültiger oder bereits genutzter Beta-Code.');
+      if (completionStatus !== 'OK') {
+        showError(getRegistrationErrorMessage(completionStatus));
         return;
       }
 
