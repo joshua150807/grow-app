@@ -3,18 +3,12 @@ import {
   View,
   Text,
   ScrollView,
-  Pressable,
-  TextInput,
-  ActivityIndicator,
   ImageBackground,
-  Modal,
   Alert,
   Animated,
   Easing,
   Platform,
-  Dimensions,
 } from 'react-native';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,12 +19,8 @@ import { s } from '../../../../constants/layout';
 
 import { useJournalEntries } from '../hooks/useJournalEntries';
 import {
-  JOURNAL_QUESTIONS,
   JOURNAL_STARTER_PAGES,
   addDaysToIsoDate,
-  formatJournalDate,
-  formatShortJournalDate,
-  getRelativeDayLabel,
   isFutureJournalDate,
   isJournalEntryValid,
   parseLocalDate,
@@ -39,10 +29,14 @@ import {
 import { styles } from '../styles/journalStyles';
 import PressableScale from '../../../../components/ui/PressableScale';
 import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
+import JournalCalendarModal from '../components/JournalCalendarModal';
+import JournalDayPage from '../components/JournalDayPage';
+import JournalPageNavigation from '../components/JournalPageNavigation';
+import JournalStarterPage from '../components/JournalStarterPage';
+import JournalTableOfContentsModal from '../components/JournalTableOfContentsModal';
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
 const SWIPE_BACK_EDGE_WIDTH = s(30);
-const SWIPE_TRIGGER_DISTANCE = s(40);
+const SWIPE_TRIGGER_DISTANCE = s(96);
 const SWIPE_TRIGGER_VELOCITY = 0.85;
 const SWIPE_ACTIVE_DISTANCE = s(42);
 const SWIPE_DIRECTION_LOCK_RATIO = 2.25;
@@ -178,6 +172,13 @@ export default function JournalScreen() {
     ],
   };
 
+
+  const updateSwipePreview = useCallback((translationX) => {
+    const dragDistance = s(180);
+    const progress = Math.max(-0.72, Math.min(0.72, translationX / dragDistance));
+    pageTurn.setValue(progress);
+  }, [pageTurn]);
+
   useEffect(() => {
     if (!starterPage) return;
     setStarterAnswer(starterEntriesByKey[starterPage.key]?.answer || '');
@@ -304,8 +305,9 @@ export default function JournalScreen() {
     if (absDx > SWIPE_ACTIVE_DISTANCE && absDx > absDy * SWIPE_DIRECTION_LOCK_RATIO && absDy < SWIPE_MAX_VERTICAL_DRIFT) {
       touchState.moved = true;
       setScrollEnabled(false);
+      updateSwipePreview(dx);
     }
-  }, []);
+  }, [updateSwipePreview]);
 
   const handleTextInputTouchEnd = useCallback((event, showAlertOnTap = false) => {
     const touchState = inputTouchRef.current;
@@ -335,12 +337,17 @@ export default function JournalScreen() {
         }
         return;
       }
+
+      if (touchState.moved) {
+        snapPageBack();
+        return;
+      }
     }
 
     if (showAlertOnTap && !touchState.moved) {
       showFutureAlert();
     }
-  }, [handleNextPage, handlePreviousPage, showFutureAlert]);
+  }, [handleNextPage, handlePreviousPage, showFutureAlert, snapPageBack]);
 
   const inputGestureProps = useMemo(() => ({
     onTouchStart: handleTextInputTouchStart,
@@ -369,14 +376,12 @@ export default function JournalScreen() {
 
         if (absDx < SWIPE_ACTIVE_DISTANCE || absDx <= absDy * SWIPE_DIRECTION_LOCK_RATIO || absDy > SWIPE_MAX_VERTICAL_DRIFT) return;
 
-        // Wichtig: Beim Swipe selbst wird die Seite NICHT live transformiert.
-        // Genau dieses pageTurn.setValue(...) hat den dunklen Overlay-/Flacker-Bug
-        // über der Datumsnavigation ausgelöst. Die vorhandene Animation startet erst
-        // nach dem Loslassen, genau wie beim Pfeil-Klick.
         if (!swipeActiveRef.current) {
           swipeActiveRef.current = true;
           setScrollEnabled(false);
         }
+
+        updateSwipePreview(event.translationX);
       })
       .onEnd((event) => {
         setScrollEnabled(true);
@@ -391,7 +396,10 @@ export default function JournalScreen() {
         const hasEnoughDistance = absDx >= SWIPE_TRIGGER_DISTANCE;
         const hasEnoughVelocity = Math.abs(event.velocityX) >= SWIPE_TRIGGER_VELOCITY && absDx >= s(70);
 
-        if (!isClearHorizontalSwipe || (!hasEnoughDistance && !hasEnoughVelocity)) return;
+        if (!isClearHorizontalSwipe || (!hasEnoughDistance && !hasEnoughVelocity)) {
+          snapPageBack();
+          return;
+        }
 
         const shouldGoNext = event.translationX < 0;
         const shouldGoPrevious = event.translationX > 0;
@@ -413,7 +421,7 @@ export default function JournalScreen() {
     // Wichtig: Dadurch kann die vertikale ScrollView weiter funktionieren,
     // während klare horizontale Swipes trotzdem erkannt werden.
     return Gesture.Simultaneous(panGesture, Gesture.Native());
-  }, [handleNextPage, handlePreviousPage]);
+  }, [handleNextPage, handlePreviousPage, snapPageBack, updateSwipePreview]);
 
   const handleOpenCalendar = useCallback(() => {
     if (isStarterPage) return;
@@ -542,286 +550,91 @@ export default function JournalScreen() {
                 directionalLockEnabled
                 keyboardShouldPersistTaps="handled"
               >
-            <View style={styles.header}>
-              <Text style={styles.title}>JOURNAL</Text>
-              <Text style={styles.subtitle}>Dein persönliches Buch. Jeden Tag eine Seite.</Text>
-            </View>
+                <View style={styles.header}>
+                  <Text style={styles.title}>JOURNAL</Text>
+                  <Text style={styles.subtitle}>Dein persönliches Buch. Jeden Tag eine Seite.</Text>
+                </View>
 
-            {loadError && (
-              <View style={styles.errorCard}>
-                <Text style={styles.errorText}>{loadError}</Text>
-                <PressableScale onPress={loadEntries} style={styles.retryBtn}>
-                  <Text style={styles.retryText}>Erneut versuchen</Text>
-                </PressableScale>
-              </View>
-            )}
+                {loadError && (
+                  <View style={styles.errorCard}>
+                    <Text style={styles.errorText}>{loadError}</Text>
+                    <PressableScale onPress={loadEntries} style={styles.retryBtn}>
+                      <Text style={styles.retryText}>Erneut versuchen</Text>
+                    </PressableScale>
+                  </View>
+                )}
 
-            {actionError && (
-              <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle-outline" size={s(16)} color={COLORS.errorLight} />
-                <Text style={styles.errorText}>{actionError}</Text>
-                <PressableScale onPress={() => setActionError(null)} hitSlop={s(8)} activeScale={0.94}>
-                  <Ionicons name="close" size={s(16)} color={COLORS.textDim} />
-                </PressableScale>
-              </View>
-            )}
+                {actionError && (
+                  <View style={styles.errorBanner}>
+                    <Ionicons name="alert-circle-outline" size={s(16)} color={COLORS.errorLight} />
+                    <Text style={styles.errorText}>{actionError}</Text>
+                    <PressableScale onPress={() => setActionError(null)} hitSlop={s(8)} activeScale={0.94}>
+                      <Ionicons name="close" size={s(16)} color={COLORS.textDim} />
+                    </PressableScale>
+                  </View>
+                )}
 
-            <View style={styles.pageNavCard}>
-              <PressableScale onPress={handlePreviousPage} style={styles.pageArrowButton} activeScale={0.94}>
-                <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
-              </PressableScale>
+                <JournalPageNavigation
+                  isStarterPage={isStarterPage}
+                  starterPage={starterPage}
+                  selectedDate={selectedDate}
+                  onPreviousPage={handlePreviousPage}
+                  onNextPage={handleNextPage}
+                  onOpenCalendar={handleOpenCalendar}
+                />
 
-              <PressableScale
-                onPress={handleOpenCalendar}
-                style={styles.pageNavCenter}
-                activeScale={isStarterPage ? 1 : 0.96}
-                disabled={isStarterPage}
-              >
-                <Text style={styles.pageNavKicker}>{isStarterPage ? starterPage?.eyebrow : getRelativeDayLabel(selectedDate)}</Text>
-                <View style={styles.pageNavTitleRow}>
-                  <Text style={styles.pageNavTitle} numberOfLines={1}>
-                    {isStarterPage ? starterPage?.title : formatShortJournalDate(selectedDate)}
-                  </Text>
-                  {!isStarterPage && (
-                    <Ionicons name="calendar-outline" size={s(15)} color={COLORS.textDim} />
+                <Animated.View style={[styles.pageTurnWrap, pageAnimatedStyle]}>
+                  <Animated.View pointerEvents="none" style={[styles.pageTurnShadow, pageShadowStyle]} />
+                  <Animated.View pointerEvents="none" style={[styles.pageTurnFold, pageFoldStyle]} />
+                  {isStarterPage ? (
+                    <JournalStarterPage
+                      starterPage={starterPage}
+                      starterAnswer={starterAnswer}
+                      onChangeStarterAnswer={setStarterAnswer}
+                      inputGestureProps={inputGestureProps}
+                      onTextInputTouchEnd={handleTextInputTouchEnd}
+                      formError={formError}
+                      canSaveStarter={canSaveStarter}
+                      starterSaving={starterSaving}
+                      onSaveStarterPage={handleSaveStarterPage}
+                    />
+                  ) : (
+                    <JournalDayPage
+                      selectedDate={selectedDate}
+                      isFutureDay={isFutureDay}
+                      currentDayEntry={currentDayEntry}
+                      showLoading={showLoading}
+                      form={form}
+                      onUpdateForm={updateForm}
+                      onToggleHabits={handleToggleHabits}
+                      inputGestureProps={inputGestureProps}
+                      onTextInputTouchEnd={handleTextInputTouchEnd}
+                      formError={formError}
+                      canSave={canSave}
+                      saving={saving}
+                      onSave={handleSave}
+                    />
                   )}
-                </View>
-              </PressableScale>
-
-              <PressableScale onPress={handleNextPage} style={styles.pageArrowButton} activeScale={0.94}>
-                <Ionicons name="chevron-forward" size={s(24)} color={COLORS.softGold} />
-              </PressableScale>
-            </View>
-
-                <Animated.View
-                  style={[styles.pageTurnWrap, pageAnimatedStyle]}
-                >
-              <Animated.View pointerEvents="none" style={[styles.pageTurnShadow, pageShadowStyle]} />
-              <Animated.View pointerEvents="none" style={[styles.pageTurnFold, pageFoldStyle]} />
-              {isStarterPage ? (
-                <View style={styles.bookPageCard}>
-                  <View style={styles.pageHeaderRow}>
-                    <View style={styles.pageBadge}>
-                      <Ionicons name="sparkles-outline" size={s(16)} color={COLORS.gold} />
-                      <Text style={styles.pageBadgeText}>{starterPage?.eyebrow}</Text>
-                    </View>
-                  </View>
-
-                  <Text style={styles.bookPageTitle}>{starterPage?.title}</Text>
-                  <Text style={styles.bookPageDescription}>{starterPage?.description}</Text>
-
-                  <TextInput
-                    value={starterAnswer}
-                    onChangeText={setStarterAnswer}
-                    placeholder={starterPage?.placeholder}
-                    placeholderTextColor={COLORS.textFaint}
-                    multiline
-                    scrollEnabled={false}
-                    {...inputGestureProps}
-                    onTouchEnd={(event) => handleTextInputTouchEnd(event, false)}
-                    style={[styles.input, styles.starterInput]}
-                  />
-
-                  {formError && <Text style={styles.errorText}>{formError}</Text>}
-
-                  <PressableScale
-                    style={[styles.saveButton, !canSaveStarter && styles.saveButtonDisabled]}
-                    onPress={handleSaveStarterPage}
-                    disabled={!canSaveStarter}
-                  >
-                    {starterSaving ? (
-                      <ActivityIndicator color={COLORS.gold} />
-                    ) : (
-                      <Text style={styles.saveText}>Startseite speichern</Text>
-                    )}
-                  </PressableScale>
-                </View>
-              ) : (
-                <View style={styles.bookPageCard}>
-                  <View style={styles.pageHeaderRow}>
-                    <View style={styles.pageBadge}>
-                      <Ionicons name="calendar-outline" size={s(16)} color={COLORS.gold} />
-                      <Text style={styles.pageBadgeText}>{getRelativeDayLabel(selectedDate)}</Text>
-                    </View>
-                    {showLoading ? (
-                      <ActivityIndicator color={COLORS.gold} size="small" />
-                    ) : currentDayEntry ? (
-                      <Text style={styles.pageEntryCount}>gespeichert</Text>
-                    ) : null}
-                  </View>
-
-                  <Text style={styles.bookPageTitle}>{formatJournalDate(selectedDate)}</Text>
-                  <Text style={styles.bookPageDescription}>
-                    {isFutureDay
-                      ? 'Diese Seite liegt in der Zukunft. Du kannst sie ansehen, aber noch nicht beschreiben.'
-                      : 'Reflektiere diesen Tag ehrlich. Genau hier entsteht dein Verlauf.'}
-                  </Text>
-
-                  <View style={styles.questionBlock}>
-                    <Text style={styles.questionText}>{JOURNAL_QUESTIONS.gratitude}</Text>
-                    <TextInput
-                      value={form.gratitude}
-                      onChangeText={(text) => updateForm('gratitude', text)}
-                      editable={!isFutureDay}
-                      {...inputGestureProps}
-                      onTouchEnd={(event) => handleTextInputTouchEnd(event, isFutureDay)}
-                      placeholder="z. B. Gesundheit, Training, Familie, Fortschritt ..."
-                      placeholderTextColor={COLORS.textFaint}
-                      multiline
-                      scrollEnabled={false}
-                      style={styles.input}
-                    />
-                  </View>
-
-                  <View style={styles.questionBlock}>
-                    <Text style={styles.questionText}>{JOURNAL_QUESTIONS.didWell}</Text>
-                    <TextInput
-                      value={form.didWell}
-                      onChangeText={(text) => updateForm('didWell', text)}
-                      editable={!isFutureDay}
-                      {...inputGestureProps}
-                      onTouchEnd={(event) => handleTextInputTouchEnd(event, isFutureDay)}
-                      placeholder="z. B. konzentriert gearbeitet, Sport gemacht ..."
-                      placeholderTextColor={COLORS.textFaint}
-                      multiline
-                      scrollEnabled={false}
-                      style={styles.input}
-                    />
-                  </View>
-
-                  <View style={styles.questionBlock}>
-                    <Text style={styles.questionText}>{JOURNAL_QUESTIONS.improveTomorrow}</Text>
-                    <TextInput
-                      value={form.improveTomorrow}
-                      onChangeText={(text) => updateForm('improveTomorrow', text)}
-                      editable={!isFutureDay}
-                      {...inputGestureProps}
-                      onTouchEnd={(event) => handleTextInputTouchEnd(event, isFutureDay)}
-                      placeholder="z. B. früher starten, weniger Handy, härter fokussieren ..."
-                      placeholderTextColor={COLORS.textFaint}
-                      multiline
-                      scrollEnabled={false}
-                      style={styles.input}
-                    />
-                  </View>
-
-                  <Pressable style={styles.checkboxRow} onPress={handleToggleHabits}>
-                    <View style={[styles.checkbox, form.habitsCompleted && styles.checkboxActive]}>
-                      {form.habitsCompleted && (
-                        <Ionicons name="checkmark" size={s(17)} color={COLORS.gold} />
-                      )}
-                    </View>
-                    <Text style={styles.checkboxText}>Ich habe heute alle Gewohnheiten erfüllt</Text>
-                  </Pressable>
-
-                  {!form.habitsCompleted && (
-                    <View style={styles.questionBlock}>
-                      <Text style={styles.questionText}>Welche Gewohnheiten haben nicht geklappt?</Text>
-                      <TextInput
-                        value={form.missedHabits}
-                        onChangeText={(text) => updateForm('missedHabits', text)}
-                        editable={!isFutureDay}
-                        {...inputGestureProps}
-                        onTouchEnd={(event) => handleTextInputTouchEnd(event, isFutureDay)}
-                        placeholder="z. B. Lesen, Dehnen, frühes Schlafen ..."
-                        placeholderTextColor={COLORS.textFaint}
-                        multiline
-                        scrollEnabled={false}
-                        style={styles.input}
-                      />
-                    </View>
-                  )}
-
-                  {formError && <Text style={styles.errorText}>{formError}</Text>}
-
-                  <PressableScale
-                    style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
-                    onPress={handleSave}
-                    disabled={!canSave}
-                  >
-                    {saving ? (
-                      <ActivityIndicator color={COLORS.gold} />
-                    ) : (
-                      <Text style={styles.saveText}>{currentDayEntry ? 'Änderungen speichern' : 'Journal speichern'}</Text>
-                    )}
-                  </PressableScale>
-                </View>
-              )}
-            </Animated.View>
+                </Animated.View>
               </ScrollView>
             </View>
           </GestureDetector>
         </View>
       </ImageBackground>
 
-      <Modal visible={tocVisible} transparent animationType="fade" onRequestClose={() => setTocVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.tocModal}>
-            <View style={styles.tocHeaderRow}>
-              <View>
-                <Text style={styles.tocTitle}>Inhaltsverzeichnis</Text>
-                <Text style={styles.tocSubtitle}>Springe direkt zu einer Startfrage.</Text>
-              </View>
-              <PressableScale onPress={() => setTocVisible(false)} hitSlop={s(8)} activeScale={0.94}>
-                <Ionicons name="close" size={s(24)} color={COLORS.textDim} />
-              </PressableScale>
-            </View>
+      <JournalTableOfContentsModal
+        visible={tocVisible}
+        onClose={() => setTocVisible(false)}
+        starterEntriesByKey={starterEntriesByKey}
+        openPage={openPage}
+      />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.tocContent}>
-              <Text style={styles.tocSectionLabel}>STARTFRAGEN</Text>
-              {JOURNAL_STARTER_PAGES.map((page, index) => {
-                const hasAnswer = Boolean(starterEntriesByKey[page.key]?.answer);
-                return (
-                  <PressableScale
-                    key={page.key}
-                    style={styles.tocItem}
-                    onPress={() => openPage({ type: 'starter', key: page.key }, index === 0 ? 'prev' : 'next')}
-                    activeScale={0.98}
-                  >
-                    <View style={styles.tocItemIcon}>
-                      <Text style={styles.tocItemNumber}>{String(index + 1).padStart(2, '0')}</Text>
-                    </View>
-                    <View style={styles.tocItemTextWrap}>
-                      <Text style={styles.tocItemTitle}>{page.title}</Text>
-                      <Text style={styles.tocItemSubtitle}>{hasAnswer ? 'ausgefüllt' : 'noch leer'}</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={s(18)} color={COLORS.textDim} />
-                  </PressableScale>
-                );
-              })}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal visible={calendarVisible} transparent animationType="fade" onRequestClose={() => setCalendarVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.calendarModal}>
-            <View style={styles.tocHeaderRow}>
-              <View>
-                <Text style={styles.tocTitle}>Kalender</Text>
-                <Text style={styles.tocSubtitle}>Wähle einen Tag aus.</Text>
-              </View>
-              <PressableScale onPress={() => setCalendarVisible(false)} hitSlop={s(8)} activeScale={0.94}>
-                <Ionicons name="close" size={s(24)} color={COLORS.textDim} />
-              </PressableScale>
-            </View>
-
-            <DateTimePicker
-              value={selectedDateObject}
-              mode="date"
-              display={Platform.OS === 'ios' ? 'inline' : 'calendar'}
-              onChange={handleCalendarChange}
-              themeVariant="dark"
-              accentColor={COLORS.gold}
-              textColor={COLORS.softGold}
-              positiveButton={{ label: 'Auswählen', textColor: COLORS.gold }}
-              negativeButton={{ label: 'Abbrechen', textColor: COLORS.softGold }}
-              style={styles.datePicker}
-            />
-          </View>
-        </View>
-      </Modal>
+      <JournalCalendarModal
+        visible={calendarVisible}
+        onClose={() => setCalendarVisible(false)}
+        selectedDateObject={selectedDateObject}
+        onCalendarChange={handleCalendarChange}
+      />
     </View>
   );
 }
