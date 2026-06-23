@@ -54,6 +54,9 @@ export const styles = StyleSheet.create({
     fontSize: sf(12),
     fontWeight: '900',
   },
+  gestureArea: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: s(20),
     paddingBottom: sv(36),
@@ -87,6 +90,9 @@ export const styles = StyleSheet.create({
     textAlign: 'center',
   },
   pageNavCard: {
+    position: 'relative',
+    zIndex: 20,
+    elevation: 20,
     minHeight: sv(76),
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
@@ -135,23 +141,27 @@ export const styles = StyleSheet.create({
   pageTurnWrap: {
     width: '100%',
     position: 'relative',
+    zIndex: 1,
+    elevation: 1,
+    overflow: 'hidden',
+    borderRadius: s(28),
     backfaceVisibility: 'hidden',
   },
   pageTurnShadow: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: s(28),
-    backgroundColor: 'rgba(0, 0, 0, 0.52)',
-    zIndex: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.42)',
+    zIndex: 2,
   },
   pageTurnFold: {
     position: 'absolute',
     top: sv(8),
     bottom: sv(8),
-    width: s(30),
+    width: s(24),
     right: s(16),
     borderRadius: s(999),
-    backgroundColor: 'rgba(255, 236, 170, 0.18)',
-    zIndex: 5,
+    backgroundColor: 'rgba(255, 236, 170, 0.14)',
+    zIndex: 3,
   },
   bookPageCard: {
     borderWidth: 1,

@@ -11,11 +11,11 @@ import {
   Alert,
   Animated,
   Easing,
-  PanResponder,
   Platform,
   Dimensions,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -42,8 +42,11 @@ import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SWIPE_BACK_EDGE_WIDTH = s(30);
-const SWIPE_TRIGGER_DISTANCE = s(62);
-const SWIPE_TRIGGER_VELOCITY = 0.35;
+const SWIPE_TRIGGER_DISTANCE = s(40);
+const SWIPE_TRIGGER_VELOCITY = 0.85;
+const SWIPE_ACTIVE_DISTANCE = s(42);
+const SWIPE_DIRECTION_LOCK_RATIO = 2.25;
+const SWIPE_MAX_VERTICAL_DRIFT = s(52);
 
 const emptyForm = {
   gratitude: '',
@@ -81,8 +84,18 @@ export default function JournalScreen() {
   const [saving, setSaving] = useState(false);
   const [starterSaving, setStarterSaving] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
   const pageTurn = useRef(new Animated.Value(0)).current;
   const isTurningRef = useRef(false);
+  const gestureStartXRef = useRef(0);
+  const swipeActiveRef = useRef(false);
+  const inputTouchRef = useRef({
+    active: false,
+    moved: false,
+    startX: 0,
+    startY: 0,
+    fromProtectedEdge: false,
+  });
 
   const selectedDate = selectedPage.type === 'day' ? selectedPage.date : toLocalDateString();
   const isStarterPage = selectedPage.type === 'starter';
@@ -262,45 +275,145 @@ export default function JournalScreen() {
     openPage({ type: 'day', date: addDaysToIsoDate(selectedPage.date, 1) }, 'next');
   }, [openPage, selectedPage]);
 
-  const pagePanResponder = useMemo(() => PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gestureState) => {
-      if (isTurningRef.current) return false;
-      if (gestureState.x0 <= SWIPE_BACK_EDGE_WIDTH) return false;
+  const handleTextInputTouchStart = useCallback((event) => {
+    const nativeEvent = event?.nativeEvent ?? {};
+    const pageX = nativeEvent.pageX ?? nativeEvent.locationX ?? 0;
+    const pageY = nativeEvent.pageY ?? nativeEvent.locationY ?? 0;
 
-      const absDx = Math.abs(gestureState.dx);
-      const absDy = Math.abs(gestureState.dy);
-      return absDx > s(10) && absDx > absDy * 1.35;
-    },
-    onPanResponderGrant: () => {
-      pageTurn.stopAnimation();
-    },
-    onPanResponderMove: (_, gestureState) => {
-      if (isTurningRef.current) return;
+    inputTouchRef.current = {
+      active: true,
+      moved: false,
+      startX: pageX,
+      startY: pageY,
+      fromProtectedEdge: pageX <= SWIPE_BACK_EDGE_WIDTH,
+    };
+  }, []);
 
-      const rawProgress = gestureState.dx / (SCREEN_WIDTH * 0.66);
-      const clampedProgress = Math.max(-1, Math.min(1, rawProgress));
-      pageTurn.setValue(clampedProgress);
-    },
-    onPanResponderRelease: (_, gestureState) => {
-      if (isTurningRef.current) return;
+  const handleTextInputTouchMove = useCallback((event) => {
+    const touchState = inputTouchRef.current;
+    if (!touchState.active || touchState.fromProtectedEdge || isTurningRef.current) return;
 
-      const shouldGoNext = gestureState.dx < -SWIPE_TRIGGER_DISTANCE || gestureState.vx < -SWIPE_TRIGGER_VELOCITY;
-      const shouldGoPrevious = gestureState.dx > SWIPE_TRIGGER_DISTANCE || gestureState.vx > SWIPE_TRIGGER_VELOCITY;
+    const nativeEvent = event?.nativeEvent ?? {};
+    const pageX = nativeEvent.pageX ?? nativeEvent.locationX ?? touchState.startX;
+    const pageY = nativeEvent.pageY ?? nativeEvent.locationY ?? touchState.startY;
+    const dx = pageX - touchState.startX;
+    const dy = pageY - touchState.startY;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
 
-      if (shouldGoNext) {
-        handleNextPage();
+    if (absDx > SWIPE_ACTIVE_DISTANCE && absDx > absDy * SWIPE_DIRECTION_LOCK_RATIO && absDy < SWIPE_MAX_VERTICAL_DRIFT) {
+      touchState.moved = true;
+      setScrollEnabled(false);
+    }
+  }, []);
+
+  const handleTextInputTouchEnd = useCallback((event, showAlertOnTap = false) => {
+    const touchState = inputTouchRef.current;
+    const nativeEvent = event?.nativeEvent ?? {};
+    const pageX = nativeEvent.pageX ?? nativeEvent.locationX ?? touchState.startX;
+    const pageY = nativeEvent.pageY ?? nativeEvent.locationY ?? touchState.startY;
+    const dx = pageX - touchState.startX;
+    const dy = pageY - touchState.startY;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+
+    setScrollEnabled(true);
+    inputTouchRef.current = {
+      active: false,
+      moved: false,
+      startX: 0,
+      startY: 0,
+      fromProtectedEdge: false,
+    };
+
+    if (touchState.active && !touchState.fromProtectedEdge && !isTurningRef.current) {
+      if (absDx > SWIPE_TRIGGER_DISTANCE && absDx > absDy * SWIPE_DIRECTION_LOCK_RATIO && absDy < SWIPE_MAX_VERTICAL_DRIFT) {
+        if (dx < 0) {
+          handleNextPage();
+        } else {
+          handlePreviousPage();
+        }
         return;
       }
+    }
 
-      if (shouldGoPrevious) {
-        handlePreviousPage();
-        return;
-      }
+    if (showAlertOnTap && !touchState.moved) {
+      showFutureAlert();
+    }
+  }, [handleNextPage, handlePreviousPage, showFutureAlert]);
 
-      snapPageBack();
-    },
-    onPanResponderTerminate: snapPageBack,
-  }), [handleNextPage, handlePreviousPage, pageTurn, snapPageBack]);
+  const inputGestureProps = useMemo(() => ({
+    onTouchStart: handleTextInputTouchStart,
+    onTouchMove: handleTextInputTouchMove,
+  }), [handleTextInputTouchMove, handleTextInputTouchStart]);
+
+  const journalSwipeGesture = useMemo(() => {
+    const panGesture = Gesture.Pan()
+      .runOnJS(true)
+      .minDistance(s(24))
+      .activeOffsetX([-SWIPE_ACTIVE_DISTANCE, SWIPE_ACTIVE_DISTANCE])
+      .failOffsetY([-s(28), s(28)])
+      .hitSlop({ left: -SWIPE_BACK_EDGE_WIDTH })
+      .onBegin((event) => {
+        gestureStartXRef.current = event.absoluteX ?? event.x ?? 0;
+      })
+      .onStart(() => {
+        swipeActiveRef.current = false;
+      })
+      .onUpdate((event) => {
+        if (isTurningRef.current) return;
+        if (gestureStartXRef.current <= SWIPE_BACK_EDGE_WIDTH) return;
+
+        const absDx = Math.abs(event.translationX);
+        const absDy = Math.abs(event.translationY);
+
+        if (absDx < SWIPE_ACTIVE_DISTANCE || absDx <= absDy * SWIPE_DIRECTION_LOCK_RATIO || absDy > SWIPE_MAX_VERTICAL_DRIFT) return;
+
+        // Wichtig: Beim Swipe selbst wird die Seite NICHT live transformiert.
+        // Genau dieses pageTurn.setValue(...) hat den dunklen Overlay-/Flacker-Bug
+        // über der Datumsnavigation ausgelöst. Die vorhandene Animation startet erst
+        // nach dem Loslassen, genau wie beim Pfeil-Klick.
+        if (!swipeActiveRef.current) {
+          swipeActiveRef.current = true;
+          setScrollEnabled(false);
+        }
+      })
+      .onEnd((event) => {
+        setScrollEnabled(true);
+        swipeActiveRef.current = false;
+
+        if (isTurningRef.current) return;
+        if (gestureStartXRef.current <= SWIPE_BACK_EDGE_WIDTH) return;
+
+        const absDx = Math.abs(event.translationX);
+        const absDy = Math.abs(event.translationY);
+        const isClearHorizontalSwipe = absDx > absDy * SWIPE_DIRECTION_LOCK_RATIO && absDy < SWIPE_MAX_VERTICAL_DRIFT;
+        const hasEnoughDistance = absDx >= SWIPE_TRIGGER_DISTANCE;
+        const hasEnoughVelocity = Math.abs(event.velocityX) >= SWIPE_TRIGGER_VELOCITY && absDx >= s(70);
+
+        if (!isClearHorizontalSwipe || (!hasEnoughDistance && !hasEnoughVelocity)) return;
+
+        const shouldGoNext = event.translationX < 0;
+        const shouldGoPrevious = event.translationX > 0;
+
+        if (shouldGoNext) {
+          handleNextPage();
+          return;
+        }
+
+        if (shouldGoPrevious) {
+          handlePreviousPage();
+        }
+      })
+      .onFinalize(() => {
+        setScrollEnabled(true);
+        swipeActiveRef.current = false;
+      });
+
+    // Wichtig: Dadurch kann die vertikale ScrollView weiter funktionieren,
+    // während klare horizontale Swipes trotzdem erkannt werden.
+    return Gesture.Simultaneous(panGesture, Gesture.Native());
+  }, [handleNextPage, handlePreviousPage]);
 
   const handleOpenCalendar = useCallback(() => {
     if (isStarterPage) return;
@@ -420,7 +533,15 @@ export default function JournalScreen() {
             </PressableScale>
           </View>
 
-          <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <GestureDetector gesture={journalSwipeGesture}>
+            <View style={styles.gestureArea}>
+              <ScrollView
+                contentContainerStyle={styles.content}
+                showsVerticalScrollIndicator={false}
+                scrollEnabled={scrollEnabled}
+                directionalLockEnabled
+                keyboardShouldPersistTaps="handled"
+              >
             <View style={styles.header}>
               <Text style={styles.title}>JOURNAL</Text>
               <Text style={styles.subtitle}>Dein persönliches Buch. Jeden Tag eine Seite.</Text>
@@ -472,10 +593,9 @@ export default function JournalScreen() {
               </PressableScale>
             </View>
 
-            <Animated.View
-              style={[styles.pageTurnWrap, pageAnimatedStyle]}
-              {...pagePanResponder.panHandlers}
-            >
+                <Animated.View
+                  style={[styles.pageTurnWrap, pageAnimatedStyle]}
+                >
               <Animated.View pointerEvents="none" style={[styles.pageTurnShadow, pageShadowStyle]} />
               <Animated.View pointerEvents="none" style={[styles.pageTurnFold, pageFoldStyle]} />
               {isStarterPage ? (
@@ -496,6 +616,9 @@ export default function JournalScreen() {
                     placeholder={starterPage?.placeholder}
                     placeholderTextColor={COLORS.textFaint}
                     multiline
+                    scrollEnabled={false}
+                    {...inputGestureProps}
+                    onTouchEnd={(event) => handleTextInputTouchEnd(event, false)}
                     style={[styles.input, styles.starterInput]}
                   />
 
@@ -539,12 +662,13 @@ export default function JournalScreen() {
                     <TextInput
                       value={form.gratitude}
                       onChangeText={(text) => updateForm('gratitude', text)}
-                      onPressIn={isFutureDay ? showFutureAlert : undefined}
-                      onTouchStart={isFutureDay ? showFutureAlert : undefined}
                       editable={!isFutureDay}
+                      {...inputGestureProps}
+                      onTouchEnd={(event) => handleTextInputTouchEnd(event, isFutureDay)}
                       placeholder="z. B. Gesundheit, Training, Familie, Fortschritt ..."
                       placeholderTextColor={COLORS.textFaint}
                       multiline
+                      scrollEnabled={false}
                       style={styles.input}
                     />
                   </View>
@@ -554,12 +678,13 @@ export default function JournalScreen() {
                     <TextInput
                       value={form.didWell}
                       onChangeText={(text) => updateForm('didWell', text)}
-                      onPressIn={isFutureDay ? showFutureAlert : undefined}
-                      onTouchStart={isFutureDay ? showFutureAlert : undefined}
                       editable={!isFutureDay}
+                      {...inputGestureProps}
+                      onTouchEnd={(event) => handleTextInputTouchEnd(event, isFutureDay)}
                       placeholder="z. B. konzentriert gearbeitet, Sport gemacht ..."
                       placeholderTextColor={COLORS.textFaint}
                       multiline
+                      scrollEnabled={false}
                       style={styles.input}
                     />
                   </View>
@@ -569,12 +694,13 @@ export default function JournalScreen() {
                     <TextInput
                       value={form.improveTomorrow}
                       onChangeText={(text) => updateForm('improveTomorrow', text)}
-                      onPressIn={isFutureDay ? showFutureAlert : undefined}
-                      onTouchStart={isFutureDay ? showFutureAlert : undefined}
                       editable={!isFutureDay}
+                      {...inputGestureProps}
+                      onTouchEnd={(event) => handleTextInputTouchEnd(event, isFutureDay)}
                       placeholder="z. B. früher starten, weniger Handy, härter fokussieren ..."
                       placeholderTextColor={COLORS.textFaint}
                       multiline
+                      scrollEnabled={false}
                       style={styles.input}
                     />
                   </View>
@@ -594,12 +720,13 @@ export default function JournalScreen() {
                       <TextInput
                         value={form.missedHabits}
                         onChangeText={(text) => updateForm('missedHabits', text)}
-                        onPressIn={isFutureDay ? showFutureAlert : undefined}
-                        onTouchStart={isFutureDay ? showFutureAlert : undefined}
                         editable={!isFutureDay}
+                        {...inputGestureProps}
+                        onTouchEnd={(event) => handleTextInputTouchEnd(event, isFutureDay)}
                         placeholder="z. B. Lesen, Dehnen, frühes Schlafen ..."
                         placeholderTextColor={COLORS.textFaint}
                         multiline
+                        scrollEnabled={false}
                         style={styles.input}
                       />
                     </View>
@@ -621,7 +748,9 @@ export default function JournalScreen() {
                 </View>
               )}
             </Animated.View>
-          </ScrollView>
+              </ScrollView>
+            </View>
+          </GestureDetector>
         </View>
       </ImageBackground>
 
