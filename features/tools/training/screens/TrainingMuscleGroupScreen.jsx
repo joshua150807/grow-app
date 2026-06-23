@@ -109,7 +109,7 @@ export default function TrainingMuscleGroupScreen() {
               <Ionicons
                 name="document-text-outline"
                 size={s(24)}
-                color={COLORS.gold}
+                color={COLORS.softGold}
               />
             </View>
 
@@ -140,7 +140,7 @@ export default function TrainingMuscleGroupScreen() {
               <Ionicons
                 name="body-outline"
                 size={s(24)}
-                color={COLORS.gold}
+                color={COLORS.softGold}
               />
             </View>
 
@@ -179,7 +179,7 @@ export default function TrainingMuscleGroupScreen() {
                 <Ionicons
                   name="fitness-outline"
                   size={s(24)}
-                  color={COLORS.gold}
+                  color={COLORS.softGold}
                 />
               </View>
 

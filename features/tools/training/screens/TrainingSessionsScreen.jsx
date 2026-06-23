@@ -5,6 +5,7 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,6 +23,7 @@ export default function TrainingSessionsScreen() {
     loadingSessions,
     sessionsError,
     loadSessions,
+    removeSession,
   } = useLatestTrainingSessions();
   const showLoading = useDelayedLoading(loadingSessions);
 
@@ -30,6 +32,34 @@ export default function TrainingSessionsScreen() {
       loadSessions();
     }, [loadSessions])
   );
+
+  const handleDeleteSession = useCallback((session) => {
+    Alert.alert(
+      'Training löschen',
+      `Möchtest du „${session.dayName}" wirklich aus deinen gespeicherten Trainings löschen?`,
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Löschen',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeSession(session.id);
+            } catch {
+              Alert.alert('Fehler', 'Training konnte nicht gelöscht werden.');
+            }
+          },
+        },
+      ]
+    );
+  }, [removeSession]);
+
+  const handleOpenSession = useCallback((sessionId) => {
+    router.push({
+      pathname: '/tools/training-session-detail',
+      params: { sessionId },
+    });
+  }, []);
 
   return (
     <View style={styles.screen}>
@@ -42,16 +72,13 @@ export default function TrainingSessionsScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="time-outline" size={s(36)} color={COLORS.gold} />
-          </View>
-          <Text style={styles.title}>LETZTE TRAININGS</Text>
+          <Text style={styles.title}>Letzte Trainings</Text>
           <Text style={styles.subtitle}>Deine gespeicherten Einheiten</Text>
         </View>
 
         {showLoading ? (
           <View style={styles.centered}>
-            <ActivityIndicator color={COLORS.gold} size="large" />
+            <ActivityIndicator color={COLORS.softGold} size="large" />
             <Text style={styles.loadingText}>Trainings werden geladen...</Text>
           </View>
         ) : null}
@@ -69,36 +96,41 @@ export default function TrainingSessionsScreen() {
         {!loadingSessions && !sessionsError && sessions.length > 0 ? (
           <View>
             {sessions.map(session => (
-              <Pressable
-                key={session.id}
-                style={styles.trainingSessionCard}
-                onPress={() =>
-                  router.push({
-                    pathname: '/tools/training-session-detail',
-                    params: { sessionId: session.id },
-                  })
-                }
-              >
-                <View style={styles.trainingSessionCardIcon}>
-                  <Ionicons name={session.sessionType === 'run' ? 'walk-outline' : 'barbell-outline'} size={s(22)} color={COLORS.gold} />
-                </View>
+              <View key={session.id} style={styles.trainingSessionCard}>
+                <Pressable
+                  style={styles.trainingSessionCardOpenArea}
+                  onPress={() => handleOpenSession(session.id)}
+                  hitSlop={8}
+                >
+                  <View style={styles.trainingSessionCardIcon}>
+                    <Ionicons name={session.sessionType === 'run' ? 'walk-outline' : 'barbell-outline'} size={s(22)} color={COLORS.softGold} />
+                  </View>
 
-                <View style={styles.trainingSessionCardContent}>
-                  <Text style={styles.trainingSessionCardTitle}>
-                    {session.dayName}
-                  </Text>
-
-                  <Text style={styles.trainingSessionCardMeta}>
-                    {formatTrainingSessionDate(session.performedAt)} · {session.metaText}
-                  </Text>
-
-                  {session.note ? (
-                    <Text style={styles.trainingSessionCardNote}>
-                      {session.note}
+                  <View style={styles.trainingSessionCardContent}>
+                    <Text style={styles.trainingSessionCardTitle}>
+                      {session.dayName}
                     </Text>
-                  ) : null}
-                </View>
-              </Pressable>
+
+                    <Text style={styles.trainingSessionCardMeta}>
+                      {formatTrainingSessionDate(session.performedAt)} · {session.metaText}
+                    </Text>
+
+                    {session.note ? (
+                      <Text style={styles.trainingSessionCardNote}>
+                        {session.note}
+                      </Text>
+                    ) : null}
+                  </View>
+                </Pressable>
+
+                <Pressable
+                  style={styles.trainingSessionDeleteButton}
+                  onPress={() => handleDeleteSession(session)}
+                  hitSlop={8}
+                >
+                  <Ionicons name="trash-outline" size={s(18)} color={COLORS.error} />
+                </Pressable>
+              </View>
             ))}
           </View>
         ) : null}

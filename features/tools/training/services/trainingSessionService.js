@@ -1,5 +1,6 @@
 import { logger } from '../../../../lib/logger';
 import { supabase } from "../../../../services/supabaseClient";
+import { getCurrentUserId } from '../../../../services/authUser';
 
 function normalizeSessionType(value) {
   return value === 'run' ? 'run' : 'gym';
@@ -340,3 +341,34 @@ export async function fetchTrainingSessionDetail(sessionId) {
 
   return mapSessionDetail(data);
 }
+
+export async function deleteTrainingSession(sessionId) {
+  const userId = await getCurrentUserId();
+  if (!userId) throw new Error('Nicht eingeloggt');
+  if (!sessionId) throw new Error('Keine Trainingseinheit ausgewählt');
+
+  const { error: ownershipError } = await supabase
+    .from('training_sessions')
+    .select('id')
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+    .single();
+
+  if (ownershipError) throw ownershipError;
+
+  const { error: exercisesError } = await supabase
+    .from('training_session_exercises')
+    .delete()
+    .eq('session_id', sessionId);
+
+  if (exercisesError) throw exercisesError;
+
+  const { error: sessionError } = await supabase
+    .from('training_sessions')
+    .delete()
+    .eq('id', sessionId)
+    .eq('user_id', userId);
+
+  if (sessionError) throw sessionError;
+}
+

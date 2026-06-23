@@ -35,7 +35,7 @@ export default function TrainingSessionSelectScreen() {
   if (showLoading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color={COLORS.gold} size="large" />
+        <ActivityIndicator color={COLORS.softGold} size="large" />
         <Text style={styles.loadingText}>Trainingsplan wird geladen...</Text>
       </View>
     );
@@ -84,10 +84,7 @@ export default function TrainingSessionSelectScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="play-outline" size={s(36)} color={COLORS.gold} />
-          </View>
-          <Text style={styles.title}>TRAINING STARTEN</Text>
+          <Text style={styles.title}>Training starten</Text>
           <Text style={styles.subtitle}>Wähle deinen heutigen Trainingstag</Text>
         </View>
 
@@ -110,7 +107,7 @@ export default function TrainingSessionSelectScreen() {
                 <Ionicons
                   name={isRunDay ? 'walk-outline' : isRestDay ? 'moon-outline' : 'barbell-outline'}
                   size={s(22)}
-                  color={COLORS.gold}
+                  color={COLORS.softGold}
                 />
               </View>
 

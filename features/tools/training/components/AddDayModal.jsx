@@ -98,7 +98,7 @@ export function AddDayModal({ visible, onClose, onSave }) {
                       <Ionicons
                         name={typeOption.icon}
                         size={s(15)}
-                        color={active ? COLORS.black : COLORS.softGold}
+                        color={active ? COLORS.textPrimary : COLORS.softGold}
                       />
                       <Text style={[localStyles.typeText, active && localStyles.typeTextActive]}>
                         {typeOption.label}
@@ -129,7 +129,7 @@ export function AddDayModal({ visible, onClose, onSave }) {
                 disabled={!name.trim() || saving}
               >
                 {saving ? (
-                  <ActivityIndicator color={COLORS.black} />
+                  <ActivityIndicator color={COLORS.softGold} />
                 ) : (
                   <Text style={styles.modalSaveBtnText}>Hinzufügen</Text>
                 )}
@@ -155,16 +155,16 @@ const localStyles = {
     minHeight: sv(36),
     borderRadius: s(12),
     borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    backgroundColor: COLORS.darkCard,
+    borderColor: COLORS.borderSubtle,
+    backgroundColor: 'rgba(8, 7, 14, 0.66)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: s(5),
   },
   typePillActive: {
-    backgroundColor: COLORS.gold,
-    borderColor: COLORS.gold,
+    backgroundColor: 'rgba(231,201,138,0.14)',
+    borderColor: COLORS.goldBorderLight,
   },
   typeText: {
     color: COLORS.softGold,
@@ -172,6 +172,6 @@ const localStyles = {
     fontWeight: '800',
   },
   typeTextActive: {
-    color: COLORS.black,
+    color: COLORS.textPrimary,
   },
 };

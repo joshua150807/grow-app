@@ -60,7 +60,7 @@ export default function TrainingMuscleGroupDescriptionScreen() {
 
           {details.focusPoints.map((point, index) => (
             <View key={`${point}-${index}`} style={styles.exerciseDetailTipRow}>
-              <Ionicons name="checkmark-circle-outline" size={s(18)} color={COLORS.gold} />
+              <Ionicons name="checkmark-circle-outline" size={s(18)} color={COLORS.softGold} />
               <Text style={styles.exerciseDetailTipText}>{point}</Text>
             </View>
           ))}

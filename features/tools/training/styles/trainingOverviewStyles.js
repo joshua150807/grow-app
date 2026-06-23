@@ -9,10 +9,10 @@ export const trainingOverviewStyles = {
 
   // ── Overview: Day Card ────────────────────────────────────────────────────
   dayCard: {
-    backgroundColor: COLORS.darkCard2,
+    backgroundColor: 'rgba(18, 13, 25, 0.72)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
-    borderRadius: s(16),
+    borderRadius: s(20),
     padding: s(16),
   },
   dayCardHeader: {
@@ -22,7 +22,7 @@ export const trainingOverviewStyles = {
     marginBottom: sv(12),
   },
   dayCardTitle: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(15),
     fontWeight: '700',
     letterSpacing: 0.5,
@@ -46,12 +46,12 @@ export const trainingOverviewStyles = {
   exerciseItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.darkCard,
-    borderRadius: s(12),
+    backgroundColor: 'rgba(13, 9, 19, 0.74)',
+    borderRadius: s(14),
     paddingHorizontal: s(14),
     paddingVertical: sv(10),
     borderWidth: 1,
-    borderColor: COLORS.borderDeep,
+    borderColor: COLORS.borderSubtle,
     gap: s(8),
   },
   exerciseItemMain: {
@@ -69,7 +69,7 @@ export const trainingOverviewStyles = {
     alignItems: 'center',
   },
   exerciseItemWeight: {
-    color: COLORS.gold,
+    color: COLORS.softGold,
     fontSize: sf(12),
     fontWeight: '600',
   },
@@ -108,8 +108,9 @@ export const trainingOverviewStyles = {
 
   muscleExerciseHeaderCompact: {
     alignItems: 'center',
-    marginTop: sv(-10),
-    marginBottom: sv(20),
+    marginTop: sv(-2),
+    marginBottom: sv(22),
+    paddingHorizontal: s(8),
   },
 
   muscleExerciseSubtitle: {
@@ -124,7 +125,7 @@ export const trainingOverviewStyles = {
   muscleGroupInfoCardList: {
     gap: sv(0),
     borderTopWidth: 1,
-    borderTopColor: COLORS.borderSubtle,
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
 
   exerciseSectionHeaderWrap: {
@@ -134,7 +135,7 @@ export const trainingOverviewStyles = {
   },
 
   exerciseSectionTitle: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(18),
     fontWeight: '900',
     letterSpacing: 2,
@@ -144,7 +145,7 @@ export const trainingOverviewStyles = {
   exerciseDirectoryList: {
     gap: sv(0),
     borderTopWidth: 1,
-    borderTopColor: COLORS.borderSubtle,
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
 
   exerciseDirectoryItem: {
@@ -153,7 +154,7 @@ export const trainingOverviewStyles = {
     alignItems: 'center',
     paddingVertical: sv(14),
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.borderSubtle,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
     gap: s(14),
   },
 
@@ -161,9 +162,9 @@ export const trainingOverviewStyles = {
     width: s(56),
     height: s(56),
     borderRadius: s(16),
-    backgroundColor: COLORS.darkCard2,
+    backgroundColor: 'rgba(18, 13, 25, 0.72)',
     borderWidth: 1,
-    borderColor: COLORS.borderDeep,
+    borderColor: COLORS.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -187,7 +188,8 @@ export const trainingOverviewStyles = {
     // ── Exercise Detail ───────────────────────────────────────────────────────
   exerciseDetailHeader: {
     alignItems: 'center',
-    marginBottom: sv(24),
+    marginBottom: sv(22),
+    paddingHorizontal: s(8),
   },
 
   exerciseDetailHeaderCompact: {
@@ -204,7 +206,7 @@ export const trainingOverviewStyles = {
   },
 
   exerciseDetailCard: {
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(13, 9, 19, 0.74)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     borderRadius: s(20),
@@ -213,7 +215,7 @@ export const trainingOverviewStyles = {
   },
 
   exerciseDetailSectionTitle: {
-    color: COLORS.gold,
+    color: COLORS.textMuted,
     fontSize: sf(15),
     fontWeight: '800',
     marginBottom: sv(10),
@@ -239,14 +241,14 @@ export const trainingOverviewStyles = {
     width: s(26),
     height: s(26),
     borderRadius: s(13),
-    backgroundColor: COLORS.gold,
+    backgroundColor: 'rgba(231,201,138,0.16)',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: sv(1),
   },
 
   exerciseDetailBulletNumber: {
-    color: COLORS.black,
+    color: COLORS.textPrimary,
     fontSize: sf(13),
     fontWeight: '900',
   },
@@ -279,7 +281,7 @@ export const trainingOverviewStyles = {
     borderRadius: s(22),
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
-    backgroundColor: 'rgba(212,175,55,0.065)',
+    backgroundColor: 'rgba(10, 9, 17, 0.68)',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: sv(14),

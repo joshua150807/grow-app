@@ -1,26 +1,35 @@
+import { useCallback } from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { router } from 'expo-router';
 
 import { COLORS } from '../../../../constants/colors';
-import { useTrainingPlan } from '../hooks/useTrainingPlan';
-import { TrainingPlanEditorView } from '../components/TrainingPlanEditorView';
-import { styles } from '../styles/trainingStyles';
 import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
+import { SetupView } from '../components/SetupView';
+import { useTrainingPlan } from '../hooks/useTrainingPlan';
+import { styles } from '../styles/trainingStyles';
 
-export default function TrainingPlanEditorScreen() {
+export default function TrainingPlanSetupScreen() {
   const {
     plan,
     loading,
     error,
     loadPlan,
-    addExercise,
-    updateExercise,
-    removeExercise,
-    removePlan,
-    renameDay,
-    addDay,
+    savePlan,
   } = useTrainingPlan();
 
   const showLoading = useDelayedLoading(loading);
+
+  const handleSavePlan = useCallback(
+    async (planName, daysData) => {
+      await savePlan(planName, daysData);
+      router.back();
+    },
+    [savePlan]
+  );
+
+  const handleCancel = useCallback(() => {
+    router.back();
+  }, []);
 
   if (showLoading) {
     return (
@@ -46,23 +55,11 @@ export default function TrainingPlanEditorScreen() {
     );
   }
 
-  if (!plan) {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.emptyText}>Noch kein Trainingsplan vorhanden.</Text>
-      </View>
-    );
-  }
-
   return (
-    <TrainingPlanEditorView
-      plan={plan}
-      onAddExercise={addExercise}
-      onUpdateExercise={updateExercise}
-      onDeleteExercise={removeExercise}
-      onDeletePlan={removePlan}
-      onRenameDay={renameDay}
-      onAddDay={addDay}
+    <SetupView
+      onSave={handleSavePlan}
+      existingPlan={plan}
+      onCancel={handleCancel}
     />
   );
 }

@@ -4,7 +4,7 @@ import { s, sv, sf } from '../../../../constants/layout';
 export const trainingModalStyles = {
   modalOverlay: {
     flex: 1,
-    backgroundColor: COLORS.black,
+    backgroundColor: 'rgba(0,0,0,0.72)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: s(20),
@@ -13,8 +13,8 @@ export const trainingModalStyles = {
   modalContainer: {
     width: '100%',
     maxHeight: '86%',
-    backgroundColor: COLORS.darkCard2,
-    borderRadius: s(18),
+    backgroundColor: 'rgba(14, 13, 22, 0.96)',
+    borderRadius: s(22),
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     padding: s(18),
@@ -25,7 +25,7 @@ export const trainingModalStyles = {
   },
 
   modalTitle: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(18),
     fontWeight: '800',
   },
@@ -40,7 +40,7 @@ export const trainingModalStyles = {
   },
 
   modalInput: {
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(8, 7, 14, 0.72)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     borderRadius: s(12),
@@ -71,7 +71,9 @@ export const trainingModalStyles = {
   },
 
   modalSaveBtn: {
-    backgroundColor: COLORS.gold,
+    borderWidth: 1,
+    borderColor: COLORS.goldBorderLight,
+    backgroundColor: 'rgba(10, 9, 17, 0.78)',
     borderRadius: s(12),
     paddingVertical: sv(13),
     alignItems: 'center',
@@ -80,7 +82,7 @@ export const trainingModalStyles = {
   },
 
   modalSaveBtnText: {
-    color: COLORS.background,
+    color: COLORS.softGold,
     fontSize: sf(14),
     fontWeight: '800',
   },

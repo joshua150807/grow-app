@@ -77,10 +77,6 @@ export default function TrainingExerciseDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.exerciseDetailHeader}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="fitness-outline" size={s(34)} color={COLORS.gold} />
-          </View>
-
           <Text style={styles.title}>{exercise.name}</Text>
 
           <Text style={styles.exerciseDetailCategory}>
@@ -125,7 +121,7 @@ export default function TrainingExerciseDetailScreen() {
 
           {(exercise.tips || []).map((tip, index) => (
             <View key={`${tip}-${index}`} style={styles.exerciseDetailTipRow}>
-              <Ionicons name="checkmark-circle-outline" size={s(18)} color={COLORS.gold} />
+              <Ionicons name="checkmark-circle-outline" size={s(18)} color={COLORS.softGold} />
 
               <Text style={styles.exerciseDetailTipText}>
                 {tip}

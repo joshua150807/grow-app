@@ -123,7 +123,7 @@ export default function TrainingMuscleGroupAnatomyScreen() {
         </View>
 
         <View style={styles.muscleAnatomyImagePlaceholder}>
-          <Ionicons name="body-outline" size={s(58)} color={COLORS.gold} />
+          <Ionicons name="body-outline" size={s(58)} color={COLORS.softGold} />
           <Text style={styles.muscleAnatomyImageText}>Anatomiebild noch nicht hinterlegt</Text>
         </View>
       </ScrollView>

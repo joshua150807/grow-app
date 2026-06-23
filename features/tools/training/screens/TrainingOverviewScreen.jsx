@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import { View, Text, Pressable, ActivityIndicator } from 'react-native';
 
 import { COLORS } from '../../../../constants/colors';
@@ -6,7 +6,7 @@ import { useTrainingPlan } from '../hooks/useTrainingPlan';
 import { SetupView } from '../components/SetupView';
 import { OverviewView } from '../components/OverviewView';
 import { styles } from '../styles/trainingStyles';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 
 export default function TrainingOverviewScreen() {
@@ -18,21 +18,19 @@ export default function TrainingOverviewScreen() {
     savePlan,
   } = useTrainingPlan();
 
-  const [showSetup, setShowSetup] = useState(false);
   const showLoading = useDelayedLoading(loading);
 
   useFocusEffect(
     useCallback(() => {
-      if (plan && !showSetup) {
+      if (plan) {
         loadPlan({ silent: true });
       }
-    }, [plan, showSetup, loadPlan])
+    }, [plan, loadPlan])
   );
 
   const handleSavePlan = useCallback(
     async (planName, daysData) => {
       await savePlan(planName, daysData);
-      setShowSetup(false);
       await loadPlan({ silent: true });
     },
     [savePlan, loadPlan]
@@ -41,7 +39,7 @@ export default function TrainingOverviewScreen() {
   if (showLoading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color={COLORS.gold} size="large" />
+        <ActivityIndicator color={COLORS.softGold} size="large" />
         <Text style={styles.loadingText}>Trainingsplan wird geladen...</Text>
       </View>
     );
@@ -62,12 +60,12 @@ export default function TrainingOverviewScreen() {
     );
   }
 
-  if (!plan || showSetup) {
+  if (!plan) {
     return (
       <SetupView
         onSave={handleSavePlan}
         existingPlan={plan}
-        onCancel={plan ? () => setShowSetup(false) : undefined}
+        onCancel={undefined}
       />
     );
   }
@@ -75,7 +73,7 @@ export default function TrainingOverviewScreen() {
   return (
     <OverviewView
       plan={plan}
-      onChangePlan={() => setShowSetup(true)}
+      onChangePlan={() => router.push('/tools/training-plan-setup')}
     />
   );
 }

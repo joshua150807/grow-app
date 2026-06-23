@@ -3,24 +3,24 @@ import { s, sv, sf } from '../../../../constants/layout';
 
 export const trainingMainStyles = {
   setupChoiceCard: {
-    backgroundColor: COLORS.darkCard2,
+    backgroundColor: 'rgba(10, 9, 17, 0.68)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
-    borderRadius: s(16),
-    padding: s(18),
-    marginBottom: sv(16),
+    borderRadius: s(20),
+    padding: s(16),
+    marginBottom: sv(12),
     flexDirection: 'row',
     alignItems: 'center',
-    gap: s(16),
+    gap: s(14),
   },
 
   setupChoiceCardIconWrap: {
-    width: s(52),
-    height: s(52),
-    borderRadius: s(26),
-    backgroundColor: 'rgba(212,175,55,0.08)',
+    width: s(48),
+    height: s(48),
+    borderRadius: s(24),
+    backgroundColor: 'rgba(255,255,255,0.035)',
     borderWidth: 1,
-    borderColor: COLORS.goldBorder,
+    borderColor: COLORS.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -30,36 +30,37 @@ export const trainingMainStyles = {
   },
 
   setupChoiceCardTitle: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(15),
-    fontWeight: '700',
-    marginBottom: sv(2),
+    fontWeight: '800',
+    marginBottom: sv(3),
   },
 
   setupChoiceCardDesc: {
     color: COLORS.textDim,
     fontSize: sf(12),
+    lineHeight: sf(17),
   },
 
   presetCard: {
-    backgroundColor: COLORS.darkCard2,
+    backgroundColor: 'rgba(10, 9, 17, 0.68)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
-    borderRadius: s(16),
-    padding: s(16),
-    marginBottom: sv(12),
+    borderRadius: s(18),
+    padding: s(15),
+    marginBottom: sv(11),
     flexDirection: 'row',
     alignItems: 'center',
-    gap: s(14),
+    gap: s(13),
   },
 
   presetCardIconWrap: {
-    width: s(48),
-    height: s(48),
-    borderRadius: s(24),
-    backgroundColor: 'rgba(212,175,55,0.08)',
+    width: s(46),
+    height: s(46),
+    borderRadius: s(23),
+    backgroundColor: 'rgba(255,255,255,0.035)',
     borderWidth: 1,
-    borderColor: COLORS.goldBorder,
+    borderColor: COLORS.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -69,22 +70,23 @@ export const trainingMainStyles = {
   },
 
   presetCardName: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(14),
-    fontWeight: '700',
-    marginBottom: sv(1),
+    fontWeight: '800',
+    marginBottom: sv(2),
   },
 
   presetCardDesc: {
     color: COLORS.textDim,
     fontSize: sf(11),
-    marginBottom: sv(3),
+    marginBottom: sv(4),
+    lineHeight: sf(16),
   },
 
   presetCardBadge: {
-    color: COLORS.softGold,
+    color: COLORS.textMuted,
     fontSize: sf(11),
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
   dayCardRenameRow: {
@@ -96,44 +98,48 @@ export const trainingMainStyles = {
 
   dayCardRenameInput: {
     flex: 1,
-    backgroundColor: COLORS.darkCard,
-    borderWidth: 1.5,
-    borderColor: COLORS.gold,
-    borderRadius: s(10),
+    backgroundColor: 'rgba(8, 7, 14, 0.72)',
+    borderWidth: 1,
+    borderColor: COLORS.goldBorderLight,
+    borderRadius: s(12),
     paddingHorizontal: s(12),
-    paddingVertical: sv(8),
+    paddingVertical: sv(9),
     color: COLORS.textPrimary,
     fontSize: sf(15),
     fontWeight: '700',
   },
 
   trainingMainBanner: {
-    minHeight: sv(112),
-    borderRadius: s(20),
-    backgroundColor: COLORS.darkCard2,
+    minHeight: sv(104),
+    borderRadius: s(22),
+    backgroundColor: 'rgba(10, 9, 17, 0.68)',
     borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    padding: s(18),
-    marginBottom: sv(22),
+    borderColor: COLORS.borderSubtle,
+    padding: s(17),
+    marginBottom: sv(14),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: s(14),
   },
 
   trainingMainBannerTitle: {
-    color: COLORS.paleGold,
-    fontSize: sf(22),
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    color: COLORS.textPrimary,
+    fontSize: sf(19),
+    fontWeight: '900',
+    letterSpacing: 0.2,
+    lineHeight: sf(24),
   },
 
   trainingMainBannerSubtitle: {
-    color: COLORS.textSecondary,
+    color: COLORS.textDim,
     fontSize: sf(13),
     marginTop: sv(6),
+    lineHeight: sf(18),
   },
 
   muscleGroupSection: {
+    marginTop: sv(4),
     marginBottom: sv(22),
   },
 
@@ -148,10 +154,10 @@ export const trainingMainStyles = {
   },
 
   muscleGroupImagePlaceholder: {
-    width: s(64),
-    height: s(64),
-    borderRadius: s(18),
-    backgroundColor: COLORS.darkCard2,
+    width: s(62),
+    height: s(62),
+    borderRadius: s(19),
+    backgroundColor: 'rgba(10, 9, 17, 0.68)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     alignItems: 'center',
@@ -162,26 +168,24 @@ export const trainingMainStyles = {
   muscleGroupLabel: {
     color: COLORS.textMuted,
     fontSize: sf(11),
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
   },
 
   lastSessionsBanner: {
     minHeight: sv(104),
-    borderRadius: s(18),
-    backgroundColor: COLORS.darkCard2,
+    borderRadius: s(22),
+    backgroundColor: 'rgba(10, 9, 17, 0.68)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
-    padding: s(18),
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    padding: s(17),
+    marginBottom: sv(16),
   },
 
   lastSessionsTitle: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(18),
-    fontWeight: '800',
+    fontWeight: '900',
   },
 
   lastSessionsSubtitle: {
@@ -189,5 +193,6 @@ export const trainingMainStyles = {
     fontSize: sf(13),
     marginTop: sv(6),
     maxWidth: s(240),
+    lineHeight: sf(18),
   },
 };

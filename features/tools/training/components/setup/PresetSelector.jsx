@@ -107,10 +107,7 @@ export function PresetSelector({ onSave, onBack, existingPlan = null }) {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="barbell-outline" size={s(36)} color={COLORS.gold} />
-          </View>
-          <Text style={styles.title}>PLÄNE</Text>
+          <Text style={styles.title}>Pläne</Text>
           <Text style={styles.subtitle}>Wähle einen fertigen Plan</Text>
         </View>
 
@@ -135,7 +132,7 @@ export function PresetSelector({ onSave, onBack, existingPlan = null }) {
                 disabled={saving}
               >
                 <View style={styles.presetCardIconWrap}>
-                  <Ionicons name={preset.icon} size={s(22)} color={COLORS.gold} />
+                  <Ionicons name={preset.icon} size={s(22)} color={COLORS.softGold} />
                 </View>
 
                 <View style={styles.presetCardContent}>
@@ -149,7 +146,7 @@ export function PresetSelector({ onSave, onBack, existingPlan = null }) {
                 <Ionicons
                   name={isSelected ? 'chevron-down' : 'chevron-forward'}
                   size={s(18)}
-                  color={isSelected ? COLORS.gold : COLORS.textDim}
+                  color={isSelected ? COLORS.softGold : COLORS.textDim}
                 />
               </Pressable>
 
@@ -163,7 +160,7 @@ export function PresetSelector({ onSave, onBack, existingPlan = null }) {
                     <Ionicons
                       name={isPreviewOpen ? 'eye-off-outline' : 'eye-outline'}
                       size={s(17)}
-                      color={COLORS.gold}
+                      color={COLORS.softGold}
                     />
                     <Text style={localStyles.secondaryActionText}>
                       {isPreviewOpen ? 'Ausblenden' : 'Anschauen'}
@@ -176,10 +173,10 @@ export function PresetSelector({ onSave, onBack, existingPlan = null }) {
                     disabled={saving}
                   >
                     {isSavingThisPreset ? (
-                      <ActivityIndicator color={COLORS.black} size="small" />
+                      <ActivityIndicator color={COLORS.softGold} size="small" />
                     ) : (
                       <>
-                        <Ionicons name="checkmark-outline" size={s(17)} color={COLORS.black} />
+                        <Ionicons name="checkmark-outline" size={s(17)} color={COLORS.softGold} />
                         <Text style={localStyles.primaryActionText}>Auswählen</Text>
                       </>
                     )}
@@ -223,8 +220,8 @@ export function PresetSelector({ onSave, onBack, existingPlan = null }) {
 
 const localStyles = {
   selectedPresetCard: {
-    borderColor: COLORS.gold,
-    backgroundColor: 'rgba(212,175,55,0.08)',
+    borderColor: COLORS.goldBorderLight,
+    backgroundColor: 'rgba(10, 9, 17, 0.68)',
   },
 
   disabledCard: {
@@ -244,8 +241,8 @@ const localStyles = {
     minHeight: sv(42),
     borderRadius: s(12),
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.32)',
-    backgroundColor: 'rgba(212,175,55,0.06)',
+    borderColor: COLORS.borderSubtle,
+    backgroundColor: 'rgba(10, 9, 17, 0.64)',
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -253,7 +250,7 @@ const localStyles = {
   },
 
   secondaryActionText: {
-    color: COLORS.gold,
+    color: COLORS.softGold,
     fontSize: sf(13),
     fontWeight: '800',
   },
@@ -262,7 +259,7 @@ const localStyles = {
     flex: 1,
     minHeight: sv(42),
     borderRadius: s(12),
-    backgroundColor: COLORS.gold,
+    backgroundColor: 'rgba(231,201,138,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
@@ -270,7 +267,7 @@ const localStyles = {
   },
 
   primaryActionText: {
-    color: COLORS.black,
+    color: COLORS.textPrimary,
     fontSize: sf(13),
     fontWeight: '900',
   },
@@ -280,7 +277,7 @@ const localStyles = {
     marginBottom: sv(14),
     borderRadius: s(14),
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.18)',
+    borderColor: COLORS.borderSubtle,
     backgroundColor: 'rgba(255,255,255,0.035)',
     paddingHorizontal: s(14),
     paddingVertical: sv(12),

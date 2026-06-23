@@ -60,7 +60,7 @@ export function TrainingDayCard({ day, onExercisePress, onAddExercise, onRenameD
             onSubmitEditing={handleConfirmRename}
           />
           <Pressable onPress={handleConfirmRename} style={iconPress} hitSlop={s(10)}>
-            <Ionicons name="checkmark-circle" size={s(22)} color={COLORS.gold} />
+            <Ionicons name="checkmark-circle" size={s(22)} color={COLORS.softGold} />
           </Pressable>
         </View>
       ) : (
@@ -83,7 +83,7 @@ export function TrainingDayCard({ day, onExercisePress, onAddExercise, onRenameD
                 {exercises.length} {exercises.length === 1 ? 'Übung' : 'Übungen'}
               </Text>
             ) : (
-              <Ionicons name={isRunDay ? 'walk-outline' : 'moon-outline'} size={s(17)} color={COLORS.gold} />
+              <Ionicons name={isRunDay ? 'walk-outline' : 'moon-outline'} size={s(17)} color={COLORS.softGold} />
             )}
           </View>
         </View>

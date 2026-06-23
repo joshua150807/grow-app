@@ -1,5 +1,5 @@
 import { logger } from '../../lib/logger';
-import { Tabs, router } from 'expo-router';
+import { Tabs, router, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, View } from 'react-native';
  
@@ -85,6 +85,8 @@ function CustomTabButton(props) {
 }
  
 export default function TabsLayout() {
+  const pathname = usePathname();
+
   return (
     <Tabs
       screenOptions={{
@@ -138,8 +140,12 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="tools"
         listeners={{
-          tabPress: () => {
-            router.navigate('/tools');
+          tabPress: (event) => {
+            event.preventDefault();
+
+            if (pathname !== '/tools') {
+              router.replace('/tools');
+            }
           },
         }}
         options={{

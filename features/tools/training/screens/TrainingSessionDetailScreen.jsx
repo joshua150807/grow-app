@@ -50,7 +50,7 @@ export default function TrainingSessionDetailScreen() {
   if (showLoading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator color={COLORS.gold} size="large" />
+        <ActivityIndicator color={COLORS.softGold} size="large" />
         <Text style={styles.loadingText}>Training wird geladen...</Text>
       </View>
     );
@@ -90,9 +90,6 @@ export default function TrainingSessionDetailScreen() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name={session.sessionType === 'run' ? 'walk-outline' : 'barbell-outline'} size={s(36)} color={COLORS.gold} />
-          </View>
           <Text style={styles.title}>{session.dayName}</Text>
           <Text style={styles.subtitle}>
             {formatTrainingSessionDate(session.performedAt)}

@@ -89,10 +89,7 @@ export function TrainingPlanEditorView({
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="barbell-outline" size={s(36)} color={COLORS.gold} />
-          </View>
-          <Text style={styles.title}>{plan.name.toUpperCase()}</Text>
+          <Text style={styles.title}>{plan.name}</Text>
           <Text style={styles.subtitle}>
             {plan.days.length} {plan.days.length === 1 ? 'Trainingstag' : 'Trainingstage'}
           </Text>
@@ -121,7 +118,7 @@ export function TrainingPlanEditorView({
           style={softPress(styles.addDayBtn)}
           onPress={() => setAddingDay(true)}
         >
-          <Ionicons name="add-circle-outline" size={s(20)} color={COLORS.gold} />
+          <Ionicons name="add-circle-outline" size={s(20)} color={COLORS.softGold} />
           <Text style={styles.addDayBtnText}>Tag hinzufügen</Text>
         </Pressable>
       </ScrollView>

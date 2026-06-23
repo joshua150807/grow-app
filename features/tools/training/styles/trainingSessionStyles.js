@@ -3,11 +3,11 @@ import { s, sv, sf } from '../../../../constants/layout';
 
 export const trainingSessionStyles = {
   startTrainingBanner: {
-    minHeight: sv(112),
-    borderRadius: s(20),
-    backgroundColor: COLORS.darkCard2,
+    minHeight: sv(108),
+    borderRadius: s(22),
+    backgroundColor: 'rgba(10, 9, 17, 0.72)',
     borderWidth: 1,
-    borderColor: COLORS.gold,
+    borderColor: COLORS.borderSubtle,
     padding: s(18),
     marginBottom: sv(14),
     flexDirection: 'row',
@@ -19,7 +19,9 @@ export const trainingSessionStyles = {
     width: s(48),
     height: s(48),
     borderRadius: s(24),
-    backgroundColor: COLORS.gold,
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: s(14),
@@ -30,7 +32,7 @@ export const trainingSessionStyles = {
   },
 
   startTrainingTitle: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(21),
     fontWeight: '900',
     letterSpacing: 0.4,
@@ -45,8 +47,8 @@ export const trainingSessionStyles = {
 
   trainingDaySelectCard: {
     minHeight: sv(82),
-    borderRadius: s(18),
-    backgroundColor: COLORS.darkCard2,
+    borderRadius: s(20),
+    backgroundColor: 'rgba(10, 9, 17, 0.68)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     padding: s(16),
@@ -59,9 +61,9 @@ export const trainingSessionStyles = {
     width: s(44),
     height: s(44),
     borderRadius: s(22),
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(13, 9, 19, 0.74)',
     borderWidth: 1,
-    borderColor: COLORS.goldBorder,
+    borderColor: COLORS.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: s(14),
@@ -72,7 +74,7 @@ export const trainingSessionStyles = {
   },
 
   trainingDaySelectTitle: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(17),
     fontWeight: '800',
   },
@@ -84,8 +86,8 @@ export const trainingSessionStyles = {
   },
 
   sessionExerciseCard: {
-    borderRadius: s(18),
-    backgroundColor: COLORS.darkCard2,
+    borderRadius: s(20),
+    backgroundColor: 'rgba(10, 9, 17, 0.68)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     padding: s(16),
@@ -102,10 +104,10 @@ export const trainingSessionStyles = {
     width: s(30),
     height: s(30),
     borderRadius: s(15),
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(13, 9, 19, 0.74)',
     borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    color: COLORS.gold,
+    borderColor: COLORS.borderSubtle,
+    color: COLORS.softGold,
     fontSize: sf(13),
     fontWeight: '900',
     textAlign: 'center',
@@ -118,7 +120,7 @@ export const trainingSessionStyles = {
   },
 
   sessionExerciseName: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(17),
     fontWeight: '800',
   },
@@ -150,7 +152,7 @@ export const trainingSessionStyles = {
   sessionSmallInput: {
     minHeight: sv(44),
     borderRadius: s(12),
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(13, 9, 19, 0.74)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     color: COLORS.textPrimary,
@@ -162,7 +164,7 @@ export const trainingSessionStyles = {
   sessionNoteInput: {
     minHeight: sv(54),
     borderRadius: s(12),
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(13, 9, 19, 0.74)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     color: COLORS.textPrimary,
@@ -175,7 +177,7 @@ export const trainingSessionStyles = {
   sessionOverallNoteInput: {
     minHeight: sv(84),
     borderRadius: s(14),
-    backgroundColor: COLORS.darkCard2,
+    backgroundColor: 'rgba(18, 13, 25, 0.72)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     color: COLORS.textPrimary,
@@ -210,7 +212,7 @@ export const trainingSessionStyles = {
     width: s(8),
     height: s(8),
     borderRadius: s(4),
-    backgroundColor: COLORS.gold,
+    backgroundColor: 'rgba(231,201,138,0.16)',
     marginRight: s(12),
   },
 
@@ -219,7 +221,7 @@ export const trainingSessionStyles = {
   },
 
   lastSessionTitle: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(15),
     fontWeight: '800',
   },
@@ -246,8 +248,8 @@ export const trainingSessionStyles = {
 
   trainingSessionCard: {
     minHeight: sv(78),
-    borderRadius: s(18),
-    backgroundColor: COLORS.darkCard2,
+    borderRadius: s(20),
+    backgroundColor: 'rgba(10, 9, 17, 0.68)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     padding: s(16),
@@ -256,13 +258,31 @@ export const trainingSessionStyles = {
     alignItems: 'center',
   },
 
+  trainingSessionCardOpenArea: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+
+  trainingSessionDeleteButton: {
+    width: s(34),
+    height: s(34),
+    borderRadius: s(17),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 48, 0.22)',
+    marginLeft: s(10),
+  },
+
   trainingSessionCardIcon: {
     width: s(44),
     height: s(44),
     borderRadius: s(22),
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(13, 9, 19, 0.74)',
     borderWidth: 1,
-    borderColor: COLORS.goldBorder,
+    borderColor: COLORS.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: s(14),
@@ -273,7 +293,7 @@ export const trainingSessionStyles = {
   },
 
   trainingSessionCardTitle: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(17),
     fontWeight: '800',
   },
@@ -293,7 +313,7 @@ export const trainingSessionStyles = {
 
   trainingSessionDetailNoteBox: {
     borderRadius: s(16),
-    backgroundColor: COLORS.darkCard2,
+    backgroundColor: 'rgba(18, 13, 25, 0.72)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     padding: s(16),
@@ -301,7 +321,7 @@ export const trainingSessionStyles = {
   },
 
   trainingSessionDetailNoteTitle: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(14),
     fontWeight: '800',
     marginBottom: sv(6),
@@ -314,8 +334,8 @@ export const trainingSessionStyles = {
   },
 
   trainingSessionExerciseCard: {
-    borderRadius: s(18),
-    backgroundColor: COLORS.darkCard2,
+    borderRadius: s(20),
+    backgroundColor: 'rgba(10, 9, 17, 0.68)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     padding: s(16),
@@ -337,13 +357,13 @@ export const trainingSessionStyles = {
     justifyContent: 'center',
   },
   pauseTitle: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(28),
     fontWeight: '900',
     marginBottom: sv(24),
   },
   pauseTimer: {
-    color: COLORS.gold,
+    color: COLORS.softGold,
     fontSize: sf(72),
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
@@ -352,7 +372,7 @@ export const trainingSessionStyles = {
     minHeight: sv(44),
     borderRadius: s(12),
     borderWidth: 1,
-    borderColor: COLORS.goldBorder,
+    borderColor: COLORS.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: sv(-4),
@@ -367,7 +387,7 @@ export const trainingSessionStyles = {
     minHeight: sv(48),
     borderRadius: s(14),
     borderWidth: 1,
-    borderColor: COLORS.goldBorder,
+    borderColor: COLORS.borderSubtle,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: sv(10),

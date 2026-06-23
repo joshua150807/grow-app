@@ -29,11 +29,12 @@ export const trainingBaseStyles = {
     fontWeight: '600',
   },
   retryBtn: {
-    paddingHorizontal: s(20),
+    paddingHorizontal: s(18),
     paddingVertical: sv(10),
-    borderRadius: s(10),
+    borderRadius: s(12),
     borderWidth: 1,
-    borderColor: 'rgba(220,50,50,0.5)',
+    borderColor: 'rgba(220,50,50,0.36)',
+    backgroundColor: 'rgba(180,30,30,0.10)',
   },
   retryText: {
     color: COLORS.error,
@@ -68,7 +69,7 @@ export const trainingBaseStyles = {
 
   // ── Content ───────────────────────────────────────────────────────────────
   content: {
-    paddingTop: sv(110),
+    paddingTop: sv(116),
     paddingHorizontal: s(20),
     paddingBottom: sv(120),
   },
@@ -76,39 +77,41 @@ export const trainingBaseStyles = {
   // ── Header ────────────────────────────────────────────────────────────────
   header: {
     alignItems: 'center',
-    marginBottom: sv(28),
+    marginBottom: sv(22),
   },
   title: {
-    color: COLORS.paleGold,
-    fontSize: sf(26),
-    fontWeight: '800',
-    letterSpacing: 3,
+    color: COLORS.textPrimary,
+    fontSize: sf(28),
+    fontWeight: '900',
+    letterSpacing: 2,
     textAlign: 'center',
   },
   subtitle: {
-    color: COLORS.textSecondary,
+    color: COLORS.textMuted,
     fontSize: sf(13),
     textAlign: 'center',
-    marginTop: sv(6),
+    marginTop: sv(7),
+    lineHeight: sf(18),
   },
 
   // ── Section Labels ────────────────────────────────────────────────────────
   sectionLabel: {
     color: COLORS.textDim,
     fontSize: sf(11),
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: 1.5,
-    marginBottom: sv(8),
+    marginBottom: sv(9),
+    textTransform: 'uppercase',
   },
 
   // ── Text Inputs ───────────────────────────────────────────────────────────
   input: {
-    backgroundColor: COLORS.darkCard,
+    backgroundColor: 'rgba(8, 7, 14, 0.66)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
-    borderRadius: s(12),
+    borderRadius: s(14),
     paddingHorizontal: s(16),
-    paddingVertical: sv(14),
+    paddingVertical: sv(13),
     color: COLORS.textPrimary,
     fontSize: sf(15),
   },
@@ -117,7 +120,9 @@ export const trainingBaseStyles = {
   saveBtn: {
     height: sv(52),
     borderRadius: s(14),
-    backgroundColor: COLORS.gold,
+    borderWidth: 1,
+    borderColor: COLORS.goldBorderLight,
+    backgroundColor: 'rgba(10, 9, 17, 0.74)',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: sv(8),
@@ -126,8 +131,8 @@ export const trainingBaseStyles = {
     opacity: 0.35,
   },
   saveBtnText: {
-    color: COLORS.black,
-    fontSize: sf(16),
+    color: COLORS.softGold,
+    fontSize: sf(15),
     fontWeight: '800',
   },
 
@@ -142,7 +147,7 @@ export const trainingBaseStyles = {
   // ── Empty State ───────────────────────────────────────────────────────────
   emptyState: {
     alignItems: 'center',
-    paddingVertical: sv(48),
+    paddingVertical: sv(44),
     gap: sv(8),
   },
   emptyText: {

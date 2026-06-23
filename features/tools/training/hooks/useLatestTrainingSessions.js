@@ -1,8 +1,8 @@
 import { logger } from '../../../../lib/logger';
 import { useCallback, useEffect, useState } from 'react';
 
-import { fetchLatestTrainingSessions } from '../services/trainingSessionService';
-import { getPreloadedToolData, setPreloadedToolData } from '../../../../lib/preloadedTools';
+import { deleteTrainingSession, fetchLatestTrainingSessions } from '../services/trainingSessionService';
+import { getPreloadedToolData, setPreloadedToolData, clearPreloadedToolData } from '../../../../lib/preloadedTools';
 
 export function useLatestTrainingSessions() {
   const preloadedSessions = getPreloadedToolData('trainingSessions');
@@ -35,10 +35,24 @@ export function useLatestTrainingSessions() {
     loadSessions({ silent: Boolean(preloadedSessions) });
   }, [loadSessions]);
 
+
+  const removeSession = useCallback(async (sessionId) => {
+    await deleteTrainingSession(sessionId);
+
+    setSessions((currentSessions) => {
+      const nextSessions = currentSessions.filter((session) => session.id !== sessionId);
+      setPreloadedToolData('trainingSessions', nextSessions);
+      return nextSessions;
+    });
+
+    clearPreloadedToolData('trainingSessionDetail');
+  }, []);
+
   return {
     sessions,
     loadingSessions,
     sessionsError,
     loadSessions,
+    removeSession,
   };
 }

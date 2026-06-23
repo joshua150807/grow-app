@@ -79,6 +79,8 @@ export default function ToolsLayout() {
         fullScreenGestureEnabled: false,
         gestureResponseDistance: SWIPE_BACK_GESTURE_DISTANCE,
       }}
-    />
+    >
+      <Stack.Screen name="index" options={{ animation: 'none' }} />
+    </Stack>
   );
 }

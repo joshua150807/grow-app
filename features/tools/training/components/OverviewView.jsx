@@ -98,7 +98,7 @@ export function OverviewView({ plan, onChangePlan }) {
           android_ripple={{ color: 'rgba(212,175,55,0.12)' }}
         >
           <View style={styles.startTrainingIconWrap}>
-            <Ionicons name="play-outline" size={s(26)} color={COLORS.black} />
+            <Ionicons name="play-outline" size={s(26)} color={COLORS.softGold} />
           </View>
 
           <View style={styles.startTrainingContent}>
@@ -108,7 +108,7 @@ export function OverviewView({ plan, onChangePlan }) {
             </Text>
           </View>
 
-          <Ionicons name="chevron-forward" size={s(24)} color={COLORS.gold} />
+          <Ionicons name="chevron-forward" size={s(24)} color={COLORS.softGold} />
         </Pressable>
 
         <Pressable
@@ -128,7 +128,12 @@ export function OverviewView({ plan, onChangePlan }) {
             </Text>
           </View>
 
-          <Ionicons name="chevron-forward" size={s(24)} color={COLORS.gold} />
+          <Ionicons
+            name="chevron-forward"
+            size={s(24)}
+            color={COLORS.softGold}
+            style={{ transform: [{ translateX: -40 }] }}
+          />
         </Pressable>
 
         <Pressable
@@ -138,7 +143,7 @@ export function OverviewView({ plan, onChangePlan }) {
           android_ripple={{ color: 'rgba(212,175,55,0.12)' }}
         >
           <View style={localStyles.changePlanIconWrap}>
-            <Ionicons name="swap-horizontal-outline" size={s(22)} color={COLORS.gold} />
+            <Ionicons name="swap-horizontal-outline" size={s(22)} color={COLORS.softGold} />
           </View>
 
           <View style={localStyles.changePlanContent}>
@@ -167,7 +172,7 @@ export function OverviewView({ plan, onChangePlan }) {
                 hitSlop={8}
               >
                 <View style={styles.muscleGroupImagePlaceholder}>
-                  <Ionicons name={group.icon} size={s(24)} color={COLORS.gold} />
+                  <Ionicons name={group.icon} size={s(24)} color={COLORS.softGold} />
                 </View>
 
                 <Text style={styles.muscleGroupLabel}>{group.label}</Text>
@@ -194,7 +199,7 @@ export function OverviewView({ plan, onChangePlan }) {
             </View>
 
             {showSessionsLoading ? (
-              <ActivityIndicator color={COLORS.gold} />
+              <ActivityIndicator color={COLORS.softGold} />
             ) : (
               <Ionicons name="time-outline" size={s(24)} color={COLORS.textDim} />
             )}
@@ -242,8 +247,8 @@ const localStyles = {
     marginTop: 12,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.22)',
-    backgroundColor: 'rgba(212,175,55,0.055)',
+    borderColor: COLORS.borderSubtle,
+    backgroundColor: 'rgba(10, 9, 17, 0.64)',
     paddingHorizontal: 16,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -257,9 +262,9 @@ const localStyles = {
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(212,175,55,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.035)',
     borderWidth: 1,
-    borderColor: 'rgba(212,175,55,0.20)',
+    borderColor: COLORS.borderSubtle,
   },
 
   changePlanContent: {
@@ -267,7 +272,7 @@ const localStyles = {
   },
 
   changePlanTitle: {
-    color: COLORS.white,
+    color: COLORS.textPrimary,
     fontSize: 15,
     fontWeight: '900',
   },

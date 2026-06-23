@@ -178,7 +178,7 @@ export function EditExerciseModal({ visible, exercise, onClose, onSave, onDelete
               disabled={!name.trim() || busy}
             >
               {saving ? (
-                <ActivityIndicator color={COLORS.black} />
+                <ActivityIndicator color={COLORS.softGold} />
               ) : (
                 <Text style={styles.modalSaveBtnText}>Speichern</Text>
               )}

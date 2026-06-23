@@ -1,11 +1,13 @@
 import { useState } from 'react';
+import { router } from 'expo-router';
 
 import { ChoiceView } from './setup/ChoiceView';
 import { PresetSelector } from './setup/PresetSelector';
 import { CustomPlanForm } from './setup/CustomPlanForm';
 
-export function SetupView({ onSave, existingPlan = null, onCancel }) {
+export function SetupView({ onSave, existingPlan = null, onCancel, backLabel }) {
   const [mode, setMode] = useState(null);
+  const resolvedBackLabel = backLabel || (existingPlan ? 'Trainingsplan' : 'Tools');
 
   const handleBack = () => {
     if (mode) {
@@ -15,7 +17,10 @@ export function SetupView({ onSave, existingPlan = null, onCancel }) {
 
     if (onCancel) {
       onCancel();
+      return;
     }
+
+    router.back();
   };
 
   if (mode === 'custom') {
@@ -41,6 +46,8 @@ export function SetupView({ onSave, existingPlan = null, onCancel }) {
     <ChoiceView
       onSelectPresets={() => setMode('presets')}
       onSelectCustom={() => setMode('custom')}
+      onBack={handleBack}
+      backLabel={resolvedBackLabel}
     />
   );
 }

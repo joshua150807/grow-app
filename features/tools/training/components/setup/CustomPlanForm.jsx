@@ -337,10 +337,7 @@ export function CustomPlanForm({ onSave, onBack }) {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <View style={styles.iconCircle}>
-            <Ionicons name="barbell-outline" size={s(36)} color={COLORS.gold} />
-          </View>
-          <Text style={styles.title}>TRAININGSPLAN</Text>
+          <Text style={styles.title}>Trainingsplan</Text>
           <Text style={styles.subtitle}>Erstelle deinen persönlichen Plan</Text>
         </View>
 
@@ -356,7 +353,7 @@ export function CustomPlanForm({ onSave, onBack }) {
 
         {draftRestored ? (
           <View style={localStyles.draftRestoredCard}>
-            <Ionicons name="cloud-done-outline" size={s(17)} color={COLORS.gold} />
+            <Ionicons name="cloud-done-outline" size={s(17)} color={COLORS.softGold} />
             <Text style={localStyles.draftRestoredText}>Dein angefangener Plan wurde wiederhergestellt.</Text>
           </View>
         ) : null}
@@ -403,7 +400,7 @@ export function CustomPlanForm({ onSave, onBack }) {
                       <Ionicons
                         name={typeOption.icon}
                         size={s(15)}
-                        color={active ? COLORS.black : COLORS.softGold}
+                        color={active ? COLORS.textPrimary : COLORS.softGold}
                       />
                       <Text style={[localStyles.dayTypeText, active && localStyles.dayTypeTextActive]}>
                         {typeOption.label}
@@ -415,7 +412,7 @@ export function CustomPlanForm({ onSave, onBack }) {
 
               {isRunDay || isRestDay ? (
                 <View style={localStyles.runHintCard}>
-                  <Ionicons name={isRunDay ? 'walk-outline' : 'moon-outline'} size={s(18)} color={COLORS.gold} />
+                  <Ionicons name={isRunDay ? 'walk-outline' : 'moon-outline'} size={s(18)} color={COLORS.softGold} />
                   <View style={{ flex: 1 }}>
                     <Text style={localStyles.runHintTitle}>{isRunDay ? 'Lauftag' : 'Rest Day'}</Text>
                     <Text style={localStyles.runHintText}>
@@ -516,7 +513,7 @@ export function CustomPlanForm({ onSave, onBack }) {
         })}
 
         <Pressable style={styles.addDayBtn} onPress={addDay} disabled={saving}>
-          <Ionicons name="add-circle-outline" size={s(20)} color={COLORS.gold} />
+          <Ionicons name="add-circle-outline" size={s(20)} color={COLORS.softGold} />
           <Text style={styles.addDayBtnText}>Tag hinzufügen</Text>
         </Pressable>
 
@@ -530,7 +527,7 @@ export function CustomPlanForm({ onSave, onBack }) {
           disabled={!canSave || saving}
         >
           {saving ? (
-            <ActivityIndicator color={COLORS.black} />
+            <ActivityIndicator color={COLORS.softGold} />
           ) : (
             <Text style={styles.saveBtnText}>Plan erstellen</Text>
           )}
@@ -551,16 +548,16 @@ const localStyles = {
     minHeight: sv(36),
     borderRadius: s(12),
     borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    backgroundColor: COLORS.darkCard,
+    borderColor: COLORS.borderSubtle,
+    backgroundColor: 'rgba(8, 7, 14, 0.66)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: s(6),
   },
   dayTypePillActive: {
-    backgroundColor: COLORS.gold,
-    borderColor: COLORS.gold,
+    backgroundColor: 'rgba(231,201,138,0.14)',
+    borderColor: COLORS.goldBorderLight,
   },
   dayTypeText: {
     color: COLORS.softGold,
@@ -568,13 +565,13 @@ const localStyles = {
     fontWeight: '800',
   },
   dayTypeTextActive: {
-    color: COLORS.black,
+    color: COLORS.textPrimary,
   },
   draftRestoredCard: {
     borderRadius: s(12),
     borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    backgroundColor: 'rgba(212,175,55,0.08)',
+    borderColor: COLORS.borderSubtle,
+    backgroundColor: 'rgba(10, 9, 17, 0.68)',
     paddingVertical: sv(10),
     paddingHorizontal: s(12),
     marginTop: sv(14),
@@ -583,7 +580,7 @@ const localStyles = {
     gap: s(8),
   },
   draftRestoredText: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(12),
     fontWeight: '700',
     flex: 1,
@@ -591,15 +588,15 @@ const localStyles = {
   runHintCard: {
     borderRadius: s(12),
     borderWidth: 1,
-    borderColor: COLORS.goldBorder,
-    backgroundColor: 'rgba(212,175,55,0.08)',
+    borderColor: COLORS.borderSubtle,
+    backgroundColor: 'rgba(10, 9, 17, 0.68)',
     padding: s(12),
     flexDirection: 'row',
     gap: s(10),
     alignItems: 'flex-start',
   },
   runHintTitle: {
-    color: COLORS.paleGold,
+    color: COLORS.textPrimary,
     fontSize: sf(13),
     fontWeight: '800',
     marginBottom: sv(4),

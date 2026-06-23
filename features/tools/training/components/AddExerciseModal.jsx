@@ -168,7 +168,7 @@ export function AddExerciseModal({ visible, onClose, onSave }) {
               disabled={!name.trim() || saving}
             >
               {saving ? (
-                <ActivityIndicator color={COLORS.black} />
+                <ActivityIndicator color={COLORS.softGold} />
               ) : (
                 <Text style={styles.modalSaveBtnText}>Hinzufügen</Text>
               )}

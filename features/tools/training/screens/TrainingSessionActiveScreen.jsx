@@ -218,11 +218,11 @@ export default function TrainingSessionActiveScreen() {
     ]);
   };
 
-  if (showLoading) return <View style={styles.centered}><ActivityIndicator color={COLORS.gold} size="large" /><Text style={styles.loadingText}>Training wird geladen...</Text></View>;
+  if (showLoading) return <View style={styles.centered}><ActivityIndicator color={COLORS.softGold} size="large" /><Text style={styles.loadingText}>Training wird geladen...</Text></View>;
   if (loading) return <View style={styles.screen} />;
   if (error) return <View style={styles.centered}><Text style={styles.errorText}>{error}</Text><Pressable onPress={loadPlan} style={softPress(styles.retryBtn)}><Text style={styles.retryText}>Erneut versuchen</Text></Pressable></View>;
   if (!plan || !selectedDay) return <View style={styles.centered}><Text style={styles.emptyText}>Trainingstag nicht gefunden.</Text></View>;
-  if (isRestDay) return <View style={styles.centered}><Ionicons name="moon-outline" size={s(42)} color={COLORS.gold} /><Text style={[styles.emptyText, { marginTop: sv(12) }]}>Das ist ein Rest Day.</Text></View>;
+  if (isRestDay) return <View style={styles.centered}><Ionicons name="moon-outline" size={s(42)} color={COLORS.softGold} /><Text style={[styles.emptyText, { marginTop: sv(12) }]}>Das ist ein Rest Day.</Text></View>;
 
   if (isPausing) {
     return (
@@ -243,7 +243,6 @@ export default function TrainingSessionActiveScreen() {
       </View>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <View style={styles.iconCircle}><Ionicons name={isRunDay ? 'walk-outline' : 'play-outline'} size={s(36)} color={COLORS.gold} /></View>
           <Text style={styles.title}>{selectedDay.name}</Text>
           <Text style={styles.subtitle}>{isRunDay ? 'Speichere deine Laufeinheit' : `${currentSection?.title || 'Training'} · Abschnitt ${sectionIndex + 1} von ${sections.length}`}</Text>
         </View>
@@ -280,10 +279,10 @@ export default function TrainingSessionActiveScreen() {
         {saveError ? <Text style={styles.saveErrorText}>{saveError}</Text> : null}
 
         {!isRunDay && sectionIndex > 0 ? <Pressable style={softPress(styles.sectionSecondaryButton)} onPress={() => setSectionIndex(value => value - 1)}><Text style={styles.sectionSecondaryButtonText}>Vorherige Muskelgruppe</Text></Pressable> : null}
-        {isRunDay ? <Pressable style={softPress(styles.saveBtn, saving)} onPress={saveSession} disabled={saving}>{saving ? <ActivityIndicator color={COLORS.black} /> : <Text style={styles.saveBtnText}>Lauf speichern</Text>}</Pressable>
+        {isRunDay ? <Pressable style={softPress(styles.saveBtn, saving)} onPress={saveSession} disabled={saving}>{saving ? <ActivityIndicator color={COLORS.softGold} /> : <Text style={styles.saveBtnText}>Lauf speichern</Text>}</Pressable>
           : sectionIndex < sections.length - 1
             ? <Pressable style={softPress(styles.saveBtn)} onPress={startSectionPause}><Text style={styles.saveBtnText}>Nächste Muskelgruppe</Text></Pressable>
-            : <Pressable style={softPress(styles.saveBtn, saving)} onPress={confirmFinish} disabled={saving}>{saving ? <ActivityIndicator color={COLORS.black} /> : <Text style={styles.saveBtnText}>Training beenden</Text>}</Pressable>}
+            : <Pressable style={softPress(styles.saveBtn, saving)} onPress={confirmFinish} disabled={saving}>{saving ? <ActivityIndicator color={COLORS.softGold} /> : <Text style={styles.saveBtnText}>Training beenden</Text>}</Pressable>}
       </ScrollView>
     </KeyboardAvoidingView>
   );

@@ -11,6 +11,7 @@ import {
   renameTrainingDay as renameTrainingDayService,
   addTrainingDay as addTrainingDayService,
 } from '../services/trainingService';
+import { getCachedTrainingPlan, saveCachedTrainingPlan, removeCachedTrainingPlan } from '../services/trainingPlanStorage';
 import { getPreloadedToolData, setPreloadedToolData, clearPreloadedToolData } from '../../../../lib/preloadedTools';
 
 export function useTrainingPlan() {
@@ -43,9 +44,19 @@ export function useTrainingPlan() {
 
       setPlan(data);
       setPreloadedToolData('trainingPlan', data);
+      await saveCachedTrainingPlan(data);
     } catch (e) {
       logger.error('[Training Hook] Load error:', e);
+
+      const cachedPlan = await getCachedTrainingPlan();
       if (!mountedRef.current) return;
+
+      if (cachedPlan) {
+        setPlan(cachedPlan);
+        setPreloadedToolData('trainingPlan', cachedPlan);
+        setError(null);
+        return;
+      }
 
       setError('Trainingsplan konnte nicht geladen werden. Deine vorhandenen lokalen Daten bleiben bis zum erneuten Versuch sichtbar.');
     } finally {
@@ -82,6 +93,7 @@ export function useTrainingPlan() {
       };
       setPlan(fallbackPlan);
       setPreloadedToolData('trainingPlan', fallbackPlan);
+      await saveCachedTrainingPlan(fallbackPlan);
     }
   }, [loadPlan]);
 
@@ -108,6 +120,7 @@ export function useTrainingPlan() {
     await deleteTrainingPlanService(currentPlan.id);
     setPlan(null);
     clearPreloadedToolData('trainingPlan');
+    await removeCachedTrainingPlan();
   }, []);
 
   const renameDay = useCallback(async (dayId, newName) => {
