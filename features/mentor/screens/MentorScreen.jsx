@@ -1,5 +1,6 @@
-import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Asset } from 'expo-asset';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -8,9 +9,31 @@ import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout';
 
 const MENTOR_PAGE_BG = require('../../../assets/tool-icons/backgrounds/mentor-page-bg.webp');
+const GROW_LOADING_LOGO = require('../../../assets/images/grow-loading.png');
 
 export default function KIMentorScreen() {
   const router = useRouter();
+  const [imageAssetReady, setImageAssetReady] = useState(false);
+  const [imageVisible, setImageVisible] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+
+    Asset.loadAsync([MENTOR_PAGE_BG])
+      .catch(() => {
+        // Local bundled assets normally load reliably. If preloading fails,
+        // still render the image so the screen does not get stuck loading.
+      })
+      .finally(() => {
+        if (mounted) {
+          setImageAssetReady(true);
+        }
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleBack = () => {
     if (router.canGoBack?.()) {
@@ -24,11 +47,26 @@ export default function KIMentorScreen() {
   return (
     <ScreenContainer style={styles.container}>
       <View style={styles.imageWrap}>
-        <Image
-          source={MENTOR_PAGE_BG}
-          style={styles.mentorImage}
-          resizeMode="contain"
-        />
+        {imageAssetReady && (
+          <Image
+            source={MENTOR_PAGE_BG}
+            style={[styles.mentorImage, !imageVisible && styles.hiddenImage]}
+            resizeMode="contain"
+            onLoadEnd={() => setImageVisible(true)}
+          />
+        )}
+
+        {!imageVisible && (
+          <View style={styles.loadingOverlay}>
+            <Image
+              source={GROW_LOADING_LOGO}
+              style={styles.loadingLogo}
+              resizeMode="contain"
+            />
+            <ActivityIndicator color={COLORS.softGold} size="small" />
+            <Text style={styles.loadingText}>KI Mentor wird geladen...</Text>
+          </View>
+        )}
 
         <Pressable onPress={handleBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={s(22)} color={COLORS.softGold} />
@@ -56,6 +94,33 @@ const styles = StyleSheet.create({
   mentorImage: {
     width: '110%',
     height: '110%',
+  },
+
+  hiddenImage: {
+    opacity: 0,
+  },
+
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000',
+    paddingBottom: sv(62),
+    zIndex: 5,
+  },
+
+  loadingLogo: {
+    width: s(120),
+    height: s(120),
+    marginBottom: sv(18),
+  },
+
+  loadingText: {
+    color: COLORS.textDim,
+    fontSize: sf(13),
+    fontWeight: '600',
+    marginTop: sv(10),
+    textAlign: 'center',
   },
 
   backButton: {
