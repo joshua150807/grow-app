@@ -6,6 +6,7 @@ import { COLORS } from '../../../constants/colors';
 import { s, sv, sf, SCREEN } from '../../../constants/layout';
 import TourTarget from '../../onboarding/components/TourTarget';
 import VideoRatingSlider from './VideoRatingSlider';
+import { GROW_POINTS_ICON } from '../../../constants/toolAssets';
 
 const GROW_LOGO_HEADER = require('../../../assets/images/grow_banner_lossless.webp');
 
@@ -127,6 +128,11 @@ export default function VideoOverlay({
               ]}
               pointerEvents="none"
             >
+              <Image
+                source={GROW_POINTS_ICON}
+                style={styles.pointBubbleImage}
+                resizeMode="contain"
+              />
               <Text style={styles.pointBubbleText}>+1</Text>
             </Animated.View>
           )}
@@ -190,7 +196,7 @@ const styles = StyleSheet.create({
     height: s(42),
     justifyContent: 'center',
     alignItems: 'center',
-    transform: [{ translateX: s(2,2) }]
+    transform: [{ translateX: s(2,2) }],
   },
 
   pauseOverlay: {
@@ -223,23 +229,31 @@ const styles = StyleSheet.create({
   },
 
   pointBubble: {
-    marginTop: sv(60),
-    width: s(30),
-    height: s(30),
-    borderRadius: s(15),
-    backgroundColor: COLORS.gold,
+    marginTop: sv(58),
+    width: s(42),
+    height: s(42),
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: COLORS.black,
-    shadowOpacity: 0.22,
-    shadowRadius: s(6),
+    shadowOpacity: 0.24,
+    shadowRadius: s(7),
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
 
+  pointBubbleImage: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+
   pointBubbleText: {
-    color: COLORS.nearBlack,
+    color: COLORS.gold,
     fontSize: sf(11),
-    fontWeight: '800',
+    fontWeight: '900',
+    textShadowColor: 'rgba(0,0,0,0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: s(3),
+    transform: [{ translateY: s(25) }],
   },
 });

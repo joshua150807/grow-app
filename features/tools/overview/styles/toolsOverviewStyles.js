@@ -119,9 +119,9 @@ export const styles = StyleSheet.create({
   },
 
   coinImage: {
-    width: veryCompact ? s(32) : compact ? s(34) : s(38),
-    height: veryCompact ? s(32) : compact ? s(34) : s(38),
-    marginRight: compact ? s(6) : s(7),
+    width: veryCompact ? s(34) : compact ? s(36) : s(40),
+    height: veryCompact ? s(34) : compact ? s(36) : s(40),
+    marginRight: compact ? s(5) : s(6),
   },
 
   pointsValue: {

@@ -20,7 +20,7 @@ import { COLORS } from '../../../../constants/colors';
 import { s, sv } from '../../../../constants/layout';
 import {
   GROW_AVATAR,
-  GROW_COIN,
+  GROW_POINTS_ICON,
   MENTOR_BG,
   preloadToolOverviewImageAssets,
   preloadToolPageBackgroundAssets,
@@ -304,7 +304,7 @@ export default function ToolsScreen() {
               >
                 <View style={styles.pointsContentRow}>
                   <Image
-                    source={GROW_COIN}
+                    source={GROW_POINTS_ICON}
                     style={styles.coinImage}
                     resizeMode="contain"
                   />

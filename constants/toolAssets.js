@@ -16,6 +16,7 @@ export const TOOL_IMAGES = {
 
 export const MENTOR_BG = require('../assets/tool-icons/mentor-bg.webp');
 export const GROW_COIN = require('../assets/images/grow_coin.webp');
+export const GROW_POINTS_ICON = require('../assets/images/grow_points_leaf.webp');
 export const GROW_AVATAR = require('../assets/images/grow_avatar.webp');
 export const TRACKER_BG = require('../assets/tool-icons/active-tracker-bg.webp');
 export const TODO_PAGE_BG = require('../assets/tool-icons/backgrounds/todo-page-bg.webp');
@@ -34,6 +35,7 @@ export const TOOL_OVERVIEW_IMAGE_ASSETS = [
   MENTOR_BG,
   TRACKER_BG,
   GROW_COIN,
+  GROW_POINTS_ICON,
   GROW_AVATAR,
 ];
 
