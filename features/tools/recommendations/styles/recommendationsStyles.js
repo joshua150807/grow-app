@@ -16,7 +16,7 @@ export const styles = StyleSheet.create({
   },
   backgroundOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(5, 4, 10, 0.56)',
+    backgroundColor: 'rgba(0, 0, 0, 0.42)',
   },
   topBar: {
     paddingTop: sv(52),
@@ -93,7 +93,7 @@ export const styles = StyleSheet.create({
   },
   heroCard: {
     overflow: 'hidden',
-    backgroundColor: 'rgba(10, 9, 17, 0.82)',
+    backgroundColor: 'rgba(5, 5, 8, 0.72)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.toolsCardBorderActive ?? COLORS.borderMid,
     borderRadius: s(24),
@@ -165,7 +165,7 @@ export const styles = StyleSheet.create({
     flex: 1,
     minHeight: sv(44),
     borderRadius: s(16),
-    backgroundColor: 'rgba(14, 13, 22, 0.78)',
+    backgroundColor: 'rgba(5, 5, 8, 0.72)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.toolsCardBorder ?? COLORS.borderDeep,
     flexDirection: 'row',
@@ -203,7 +203,7 @@ export const styles = StyleSheet.create({
     fontWeight: '900',
   },
   recommendationCard: {
-    backgroundColor: 'rgba(10, 9, 17, 0.82)',
+    backgroundColor: 'rgba(5, 5, 8, 0.72)',
     borderRadius: s(22),
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.toolsCardBorder ?? COLORS.borderDeep,
@@ -230,7 +230,7 @@ export const styles = StyleSheet.create({
     width: s(38),
     height: s(38),
     borderRadius: s(15),
-    backgroundColor: 'rgba(14, 13, 22, 0.78)',
+    backgroundColor: 'rgba(5, 5, 8, 0.72)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.toolsCardBorder ?? COLORS.borderDeep,
     alignItems: 'center',
@@ -291,7 +291,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: 'rgba(10, 9, 17, 0.82)',
+    backgroundColor: 'rgba(5, 5, 8, 0.72)',
     borderTopLeftRadius: s(30),
     borderTopRightRadius: s(30),
     borderWidth: StyleSheet.hairlineWidth,
@@ -363,7 +363,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: s(26),
     borderRadius: s(24),
-    backgroundColor: 'rgba(10, 9, 17, 0.82)',
+    backgroundColor: 'rgba(5, 5, 8, 0.72)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.toolsCardBorder ?? COLORS.borderDeep,
     marginTop: sv(8),

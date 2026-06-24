@@ -81,7 +81,7 @@ export const styles = StyleSheet.create({
   },
   heroCard: {
     overflow: 'hidden',
-    backgroundColor: 'rgba(10, 9, 17, 0.82)',
+    backgroundColor: 'rgba(5, 5, 8, 0.72)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.toolsCardBorderActive ?? COLORS.borderMid,
     borderRadius: s(24),
@@ -199,7 +199,7 @@ export const styles = StyleSheet.create({
   affirmationCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(10, 9, 17, 0.82)',
+    backgroundColor: 'rgba(5, 5, 8, 0.72)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.toolsCardBorder ?? COLORS.borderDeep,
     borderRadius: s(21),
@@ -270,7 +270,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: s(26),
     borderRadius: s(24),
-    backgroundColor: 'rgba(10, 9, 17, 0.82)',
+    backgroundColor: 'rgba(5, 5, 8, 0.72)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.toolsCardBorder ?? COLORS.borderDeep,
   },
@@ -320,7 +320,7 @@ export const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: 'rgba(10, 9, 17, 0.82)',
+    backgroundColor: 'rgba(5, 5, 8, 0.72)',
     borderTopLeftRadius: s(30),
     borderTopRightRadius: s(30),
     borderWidth: StyleSheet.hairlineWidth,
@@ -438,7 +438,7 @@ export const styles = StyleSheet.create({
   helpCard: {
     maxHeight: '82%',
     borderRadius: s(28),
-    backgroundColor: 'rgba(10, 9, 17, 0.82)',
+    backgroundColor: 'rgba(5, 5, 8, 0.72)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.toolsCardBorderActive ?? COLORS.borderMid,
     padding: s(20),
@@ -517,7 +517,7 @@ export const styles = StyleSheet.create({
   repeatModalCard: {
     minHeight: sv(430),
     borderRadius: s(32),
-    backgroundColor: 'rgba(10, 9, 17, 0.82)',
+    backgroundColor: 'rgba(5, 5, 8, 0.72)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.toolsCardBorderActive ?? COLORS.borderMid,
     padding: s(22),
