@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useRef } from 'react';
-import { findNodeHandle, UIManager } from 'react-native';
+import { useCallback, useEffect, useRef } from "react";
+import { findNodeHandle, UIManager } from "react-native";
 
-import { useOnboarding } from '../context/OnboardingContext';
+import { useOnboarding } from "../context/OnboardingContext";
 
 export function useTourTarget(id) {
   const ref = useRef(null);
-  const { registerTarget, unregisterTarget, isTourActive } = useOnboarding();
+  const { registerTarget, unregisterTarget, isTourActive, currentStepIndex } =
+    useOnboarding();
 
   const measureTarget = useCallback(() => {
     const node = findNodeHandle(ref.current);
@@ -22,14 +23,16 @@ export function useTourTarget(id) {
     if (!isTourActive) return undefined;
 
     const frame = requestAnimationFrame(measureTarget);
-    const timer = setTimeout(measureTarget, 250);
+    const timers = [120, 300, 550, 850].map((delay) =>
+      setTimeout(measureTarget, delay),
+    );
 
     return () => {
       cancelAnimationFrame(frame);
-      clearTimeout(timer);
+      timers.forEach(clearTimeout);
       unregisterTarget(id);
     };
-  }, [id, isTourActive, measureTarget, unregisterTarget]);
+  }, [currentStepIndex, id, isTourActive, measureTarget, unregisterTarget]);
 
   return { ref, onLayout: measureTarget };
 }

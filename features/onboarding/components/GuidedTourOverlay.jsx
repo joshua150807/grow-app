@@ -1,3 +1,4 @@
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 
@@ -74,8 +75,6 @@ export default function GuidedTourOverlay() {
     steps,
     currentStep,
     currentStepIndex,
-    isFirstStep,
-    isLastStep,
     targets,
     skipTutorial,
     goToNextStep,
@@ -83,12 +82,90 @@ export default function GuidedTourOverlay() {
     startToolsExplanation,
   } = useOnboarding();
 
-  if (!isTourActive || !currentStep) return null;
+  const requestedTargetRect = currentStep?.targetId ? targets[currentStep.targetId] : null;
+  const isRequestedStepReady = Boolean(currentStep) && (!currentStep.targetId || requestedTargetRect);
 
-  const targetRect = currentStep.targetId ? targets[currentStep.targetId] : null;
-  const { bubbleStyle, arrowStyle, arrowDirection } = getBubbleLayout(targetRect);
-  const progressLabel = `${currentStepIndex + 1} von ${steps.length}`;
-  const isToolsChoiceStep = currentStep.actionType === 'toolsChoice';
+  const [visibleStepState, setVisibleStepState] = useState({
+    step: null,
+    index: 0,
+    targetRect: null,
+  });
+
+  useEffect(() => {
+    if (!isTourActive || !currentStep) {
+      setVisibleStepState({ step: null, index: 0, targetRect: null });
+      return;
+    }
+
+    // Wichtig: Beim Step-Wechsel nicht sofort Text/Box wechseln.
+    // Erst warten, bis der neue Zielbereich wirklich gemessen wurde.
+    // So bleibt der alte Step stabil sichtbar, während Route/ScrollView wechseln.
+    if (!isRequestedStepReady) return;
+
+    const nextTargetRect = currentStep.targetId ? requestedTargetRect : null;
+
+    setVisibleStepState((previous) => {
+      const sameStep = previous.step?.id === currentStep.id && previous.index === currentStepIndex;
+      const sameRect =
+        !nextTargetRect && !previous.targetRect
+          ? true
+          : Boolean(nextTargetRect && previous.targetRect) &&
+            Math.abs(nextTargetRect.x - previous.targetRect.x) < 1 &&
+            Math.abs(nextTargetRect.y - previous.targetRect.y) < 1 &&
+            Math.abs(nextTargetRect.width - previous.targetRect.width) < 1 &&
+            Math.abs(nextTargetRect.height - previous.targetRect.height) < 1;
+
+      if (sameStep && sameRect) return previous;
+
+      return {
+        step: currentStep,
+        index: currentStepIndex,
+        targetRect: nextTargetRect,
+      };
+    });
+  }, [currentStep, currentStepIndex, isRequestedStepReady, isTourActive, requestedTargetRect]);
+
+  useEffect(() => {
+    if (!isTourActive || !visibleStepState.step?.targetId) return;
+
+    const freshRect = targets[visibleStepState.step.targetId];
+    if (!freshRect) return;
+
+    setVisibleStepState((previous) => {
+      if (!previous.step || previous.step.id !== visibleStepState.step.id) return previous;
+
+      const sameRect =
+        previous.targetRect &&
+        Math.abs(freshRect.x - previous.targetRect.x) < 1 &&
+        Math.abs(freshRect.y - previous.targetRect.y) < 1 &&
+        Math.abs(freshRect.width - previous.targetRect.width) < 1 &&
+        Math.abs(freshRect.height - previous.targetRect.height) < 1;
+
+      if (sameRect) return previous;
+
+      return {
+        ...previous,
+        targetRect: freshRect,
+      };
+    });
+  }, [isTourActive, targets, visibleStepState.step]);
+
+  const visibleStep = visibleStepState.step ?? currentStep;
+  const visibleStepIndex = visibleStepState.step ? visibleStepState.index : currentStepIndex;
+  const targetRect = visibleStep?.targetId ? visibleStepState.targetRect : null;
+
+  const { bubbleStyle, arrowStyle, arrowDirection } = useMemo(
+    () => getBubbleLayout(targetRect),
+    [targetRect]
+  );
+
+  const progressLabel = `${visibleStepIndex + 1} von ${steps.length}`;
+  const isToolsChoiceStep = visibleStep?.actionType === 'toolsChoice';
+  const isVisibleFirstStep = visibleStepIndex === 0;
+  const isVisibleLastStep = visibleStepIndex === steps.length - 1;
+  const isStepChanging = visibleStep?.id !== currentStep?.id || visibleStepIndex !== currentStepIndex;
+
+  if (!isTourActive || !visibleStep) return null;
 
   return (
     <View style={styles.root} pointerEvents="auto">
@@ -107,7 +184,6 @@ export default function GuidedTourOverlay() {
         />
       )}
 
-
       <View style={[styles.bubble, bubbleStyle]}>
         {arrowDirection && (
           <View
@@ -120,21 +196,29 @@ export default function GuidedTourOverlay() {
           />
         )}
         <View style={styles.topRow}>
-          <Text style={styles.eyebrow}>{currentStep.eyebrow}</Text>
+          <Text style={styles.eyebrow}>{visibleStep.eyebrow}</Text>
           <Text style={styles.progress}>{progressLabel}</Text>
         </View>
 
-        <Text style={styles.title}>{currentStep.title}</Text>
-        <Text style={styles.text}>{currentStep.text}</Text>
+        <Text style={styles.title}>{visibleStep.title}</Text>
+        <Text style={styles.text}>{visibleStep.text}</Text>
 
         {isToolsChoiceStep ? (
           <View style={styles.choiceFooter}>
-            <Pressable style={styles.choiceSecondaryButton} onPress={goToNextStep}>
-              <Text style={styles.choiceSecondaryText}>{currentStep.primaryLabel ?? 'Loslegen'}</Text>
+            <Pressable
+              style={[styles.choiceSecondaryButton, isStepChanging && styles.disabledButton]}
+              onPress={goToNextStep}
+              disabled={isStepChanging}
+            >
+              <Text style={styles.choiceSecondaryText}>{visibleStep.primaryLabel ?? 'Loslegen'}</Text>
             </Pressable>
 
-            <Pressable style={styles.choicePrimaryButton} onPress={startToolsExplanation}>
-              <Text style={styles.choicePrimaryText}>{currentStep.secondaryLabel ?? 'Tools erklären'}</Text>
+            <Pressable
+              style={[styles.choicePrimaryButton, isStepChanging && styles.disabledButton]}
+              onPress={startToolsExplanation}
+              disabled={isStepChanging}
+            >
+              <Text style={styles.choicePrimaryText}>{visibleStep.secondaryLabel ?? 'Tools erklären'}</Text>
             </Pressable>
           </View>
         ) : (
@@ -144,15 +228,23 @@ export default function GuidedTourOverlay() {
             </Pressable>
 
             <View style={styles.actionRow}>
-              {!isFirstStep && (
-                <Pressable style={styles.backButton} onPress={goToPreviousStep}>
+              {!isVisibleFirstStep && (
+                <Pressable
+                  style={[styles.backButton, isStepChanging && styles.disabledButton]}
+                  onPress={goToPreviousStep}
+                  disabled={isStepChanging}
+                >
                   <Feather name="chevron-left" size={s(18)} color={COLORS.toolsText} />
                 </Pressable>
               )}
 
-              <Pressable style={styles.nextButton} onPress={goToNextStep}>
+              <Pressable
+                style={[styles.nextButton, isStepChanging && styles.disabledButton]}
+                onPress={goToNextStep}
+                disabled={isStepChanging}
+              >
                 <Text style={styles.nextButtonText}>
-                  {isLastStep ? 'Loslegen' : currentStep.primaryLabel ?? 'Weiter'}
+                  {isVisibleLastStep ? 'Loslegen' : visibleStep.primaryLabel ?? 'Weiter'}
                 </Text>
               </Pressable>
             </View>
@@ -258,77 +350,73 @@ const styles = StyleSheet.create({
     gap: s(12),
   },
   skipButton: {
-    minHeight: sv(40),
-    justifyContent: 'center',
+    paddingVertical: sv(10),
+    paddingRight: s(10),
   },
   skipText: {
-    color: 'rgba(255,241,210,0.52)',
+    color: 'rgba(255,241,210,0.54)',
     fontSize: sf(13),
     fontWeight: '700',
-  },
-  choiceFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: s(10),
-  },
-  choiceSecondaryButton: {
-    flex: 1,
-    minHeight: sv(44),
-    borderRadius: s(999),
-    borderWidth: 1,
-    borderColor: 'rgba(255,241,210,0.16)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: s(12),
-  },
-  choiceSecondaryText: {
-    color: 'rgba(255,241,210,0.78)',
-    fontSize: sf(13),
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  choicePrimaryButton: {
-    flex: 1.15,
-    minHeight: sv(44),
-    borderRadius: s(999),
-    backgroundColor: COLORS.toolsGold,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: s(12),
-  },
-  choicePrimaryText: {
-    color: COLORS.nearBlack,
-    fontSize: sf(13),
-    fontWeight: '900',
-    textAlign: 'center',
   },
   actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: s(8),
+    gap: s(10),
   },
   backButton: {
-    width: s(40),
-    height: s(40),
-    borderRadius: s(20),
-    borderWidth: 1,
-    borderColor: 'rgba(255,241,210,0.16)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    justifyContent: 'center',
+    width: s(42),
+    height: s(42),
+    borderRadius: s(21),
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,241,210,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   nextButton: {
-    minHeight: sv(42),
-    borderRadius: s(999),
-    backgroundColor: COLORS.toolsGold,
-    justifyContent: 'center',
+    minWidth: s(94),
+    height: s(42),
+    borderRadius: s(21),
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.toolsGold,
     paddingHorizontal: s(18),
   },
   nextButtonText: {
-    color: COLORS.nearBlack,
+    color: '#16100A',
     fontSize: sf(14),
     fontWeight: '900',
+  },
+  disabledButton: {
+    opacity: 0.65,
+  },
+  choiceFooter: {
+    gap: sv(10),
+  },
+  choicePrimaryButton: {
+    height: sv(44),
+    borderRadius: s(22),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.toolsGold,
+  },
+  choicePrimaryText: {
+    color: '#16100A',
+    fontSize: sf(14),
+    fontWeight: '900',
+  },
+  choiceSecondaryButton: {
+    height: sv(42),
+    borderRadius: s(21),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,241,210,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  choiceSecondaryText: {
+    color: COLORS.toolsText,
+    fontSize: sf(14),
+    fontWeight: '800',
   },
 });

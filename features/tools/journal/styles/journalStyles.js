@@ -24,7 +24,6 @@ export const styles = StyleSheet.create({
     paddingBottom: sv(2),
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
   backButton: {
     alignSelf: 'flex-start',
@@ -52,6 +51,25 @@ export const styles = StyleSheet.create({
   tocTopText: {
     color: COLORS.softGold,
     fontSize: sf(12),
+    fontWeight: '900',
+  },
+  tocHeaderButton: {
+    alignSelf: 'flex-end',
+    minWidth: s(150),
+    height: s(46),
+    borderRadius: s(23),
+    borderWidth: 1,
+    borderColor: COLORS.goldBorderLight,
+    backgroundColor: 'rgba(5, 5, 8, 0.58)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: s(7),
+    marginTop: sv(10),
+  },
+  tocHeaderText: {
+    color: COLORS.softGold,
+    fontSize: sf(15),
     fontWeight: '900',
   },
   gestureArea: {

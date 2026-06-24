@@ -1,5 +1,5 @@
 import { logger } from '../../../lib/logger';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   Text,
   StyleSheet,
@@ -9,6 +9,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 
 import FeedbackHero from '../components/FeedbackHero';
 import FeedbackTypeCards from '../components/FeedbackTypeCards';
@@ -21,11 +22,17 @@ import { useFeedbackForm } from '../hooks/useFeedbackForm';
 import { COLORS } from '../../../constants/colors';
 import { preloadFeedbackImageAssets } from '../../../constants/toolAssets';
 import { s, sv, sf } from '../../../constants/layout';
+import { useOnboarding } from '../../onboarding/context/OnboardingContext';
 
 const GROW_LOGO_HEADER = require('../../../assets/images/grow_banner_lossless.webp');
+const FEEDBACK_TOUR_SCROLL_Y = sv(255);
+const FEEDBACK_TOUR_CONTENT_OFFSET = { x: 0, y: FEEDBACK_TOUR_SCROLL_Y };
  
 export default function FeedbackScreen() {
   const [feedbackAssetsReady, setFeedbackAssetsReady] = useState(false);
+  const scrollRef = useRef(null);
+  const { isTourActive, currentStep } = useOnboarding();
+  const isFeedbackTutorialStep = isTourActive && currentStep?.id === 'feedback';
 
   useEffect(() => {
     let mounted = true;
@@ -44,6 +51,39 @@ export default function FeedbackScreen() {
       mounted = false;
     };
   }, []);
+
+
+  useLayoutEffect(() => {
+    if (!feedbackAssetsReady) return;
+
+    // Während des Tutorials darf die Feedback-Seite beim Verlassen des Feedback-Steps
+    // nicht sichtbar zurück an den Seitenanfang springen. Genau dieser Reset hat beim
+    // Wechsel von Feedback -> Abschluss-Step den kurzen Hänger verursacht.
+    if (isTourActive) {
+      if (isFeedbackTutorialStep) {
+        scrollRef.current?.scrollTo({
+          y: FEEDBACK_TOUR_SCROLL_Y,
+          animated: false,
+        });
+      }
+
+      return;
+    }
+
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [feedbackAssetsReady, isFeedbackTutorialStep, isTourActive]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!feedbackAssetsReady || isTourActive) return undefined;
+
+      const frame = requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
+      });
+
+      return () => cancelAnimationFrame(frame);
+    }, [feedbackAssetsReady, isTourActive])
+  );
 
   const {
     selectedType,
@@ -75,6 +115,8 @@ export default function FeedbackScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
+        ref={scrollRef}
+        contentOffset={isFeedbackTutorialStep ? FEEDBACK_TOUR_CONTENT_OFFSET : undefined}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >

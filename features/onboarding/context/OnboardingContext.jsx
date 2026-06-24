@@ -199,10 +199,22 @@ export function OnboardingProvider({ children, isAuthenticated = false }) {
   const registerTarget = useCallback((id, layout) => {
     if (!id || !layout) return;
 
-    setTargets((previous) => ({
-      ...previous,
-      [id]: layout,
-    }));
+    setTargets((previous) => {
+      const current = previous[id];
+      const isSameLayout =
+        current &&
+        Math.abs(current.x - layout.x) < 1 &&
+        Math.abs(current.y - layout.y) < 1 &&
+        Math.abs(current.width - layout.width) < 1 &&
+        Math.abs(current.height - layout.height) < 1;
+
+      if (isSameLayout) return previous;
+
+      return {
+        ...previous,
+        [id]: layout,
+      };
+    });
   }, []);
 
   const unregisterTarget = useCallback((id) => {

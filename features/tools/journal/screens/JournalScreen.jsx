@@ -534,11 +534,6 @@ export default function JournalScreen() {
               <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
               <Text style={styles.backText}>Tools</Text>
             </PressableScale>
-
-            <PressableScale onPress={() => setTocVisible(true)} style={styles.tocTopButton}>
-              <Ionicons name="list-outline" size={s(20)} color={COLORS.softGold} />
-              <Text style={styles.tocTopText}>Fragen</Text>
-            </PressableScale>
           </View>
 
           <GestureDetector gesture={journalSwipeGesture}>
@@ -552,6 +547,12 @@ export default function JournalScreen() {
               >
                 <View style={styles.header}>
                   <Text style={styles.title}>JOURNAL</Text>
+
+                  <PressableScale onPress={() => setTocVisible(true)} style={styles.tocHeaderButton}>
+                    <Ionicons name="list-outline" size={s(22)} color={COLORS.softGold} />
+                    <Text style={styles.tocHeaderText}>Fragen</Text>
+                  </PressableScale>
+
                   <Text style={styles.subtitle}>Dein persönliches Buch. Jeden Tag eine Seite.</Text>
                 </View>
 
