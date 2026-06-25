@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { COLORS } from '../../../constants/colors';
-import { SCREEN } from '../../../constants/layout';
+import { SCREEN, sv } from '../../../constants/layout';
 
 const TOUCH_ZONE_HEIGHT = 120;
 const TOUCH_ZONE_BELOW_LINE = 28;
@@ -27,10 +27,13 @@ export default function FeedProgressBar({
 
   const PROGRESS_LINE_GAP_ABOVE_TAB = 0;
 
+  const ANDROID_PROGRESS_LIFT = SCREEN.isAndroid ? sv(7.5) : 0;
+
   const progressLineBottom =
     insets.bottom +
     VISIBLE_TAB_BAR_HEIGHT +
-    PROGRESS_LINE_GAP_ABOVE_TAB;
+    PROGRESS_LINE_GAP_ABOVE_TAB +
+    ANDROID_PROGRESS_LIFT;
 
   const bottomOffset = progressLineBottom - TOUCH_ZONE_BELOW_LINE;
 
@@ -77,10 +80,7 @@ export default function FeedProgressBar({
           {canScrub && isScrubbing && (
             <View
               pointerEvents="none"
-              style={[
-                styles.progressThumb,
-                { left: thumbLeft },
-              ]}
+              style={[styles.progressThumb, { left: thumbLeft }]}
             />
           )}
         </View>

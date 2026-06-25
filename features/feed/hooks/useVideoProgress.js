@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PanResponder } from "react-native";
+import { useEventListener } from "expo";
 import { logVideoPlayerError } from "../utils/videoPlayerSafety";
 
 const PROGRESS_UPDATE_INTERVAL = 150;
@@ -46,6 +47,72 @@ export function useVideoProgress({
 
   const canScrub = duration > 0 && trackWidth > 0;
 
+  const updateProgressState = useCallback((nextCurrentTime, nextDuration) => {
+    const safeDuration = Number.isFinite(nextDuration) ? nextDuration : 0;
+    const safeCurrentTime = Number.isFinite(nextCurrentTime) ? nextCurrentTime : 0;
+
+    latestDurationRef.current = safeDuration;
+    setDuration(safeDuration);
+    setCurrentTime(safeCurrentTime);
+
+    if (safeDuration > 0) {
+      setProgress(clamp(safeCurrentTime / safeDuration, 0, 1));
+    } else {
+      setProgress(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!player) {
+      return;
+    }
+
+    try {
+      player.timeUpdateEventInterval =
+        isActive && isFeedFocused && !isScrubbing
+          ? PROGRESS_UPDATE_INTERVAL / 1000
+          : 0;
+    } catch (error) {
+      logVideoPlayerError(
+        "Fehler beim Setzen des Video-Fortschritt-Intervalls:",
+        error,
+      );
+    }
+  }, [isActive, isFeedFocused, isScrubbing, player]);
+
+  useEventListener(player, "sourceLoad", ({ duration: loadedDuration }) => {
+    const safeDuration = Number.isFinite(loadedDuration) ? loadedDuration : 0;
+
+    latestDurationRef.current = safeDuration;
+    setDuration(safeDuration);
+
+    if (safeDuration <= 0) {
+      setProgress(0);
+    }
+  });
+
+  useEventListener(player, "timeUpdate", ({ currentTime: eventCurrentTime }) => {
+    if (!isActive || !isFeedFocused || isScrubbing) {
+      return;
+    }
+
+    const nextDuration = latestDurationRef.current || player.duration || 0;
+    updateProgressState(eventCurrentTime, nextDuration);
+  });
+
+  useEventListener(player, "statusChange", ({ status }) => {
+    if (status !== "readyToPlay") {
+      return;
+    }
+
+    const nextDuration = player.duration || latestDurationRef.current || 0;
+    const nextCurrentTime = player.currentTime || 0;
+
+    if (nextDuration > 0) {
+      updateProgressState(nextCurrentTime, nextDuration);
+    }
+  });
+
   const seekToProgress = useCallback(
     (ratio) => {
       const total = latestDurationRef.current || duration;
@@ -82,41 +149,6 @@ export function useVideoProgress({
     },
     [seekToProgress],
   );
-
-  useEffect(() => {
-    let intervalId;
-
-    if (isActive && isFeedFocused && !isScrubbing) {
-      intervalId = setInterval(() => {
-        try {
-          const current = player.currentTime ?? 0;
-          const total = player.duration ?? 0;
-
-          latestDurationRef.current = total;
-          setDuration(total);
-          setCurrentTime(current);
-
-          if (total > 0) {
-            const nextProgress = current / total;
-            setProgress(clamp(nextProgress, 0, 1));
-          } else {
-            setProgress(0);
-          }
-        } catch (error) {
-          logVideoPlayerError(
-            "Fehler beim Aktualisieren des Video-Fortschritts:",
-            error,
-          );
-        }
-      }, PROGRESS_UPDATE_INTERVAL);
-    }
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [isActive, isFeedFocused, isScrubbing, player]);
 
   useEffect(() => {
     return () => {

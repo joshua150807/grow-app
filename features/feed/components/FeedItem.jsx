@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Pressable, StyleSheet, Dimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { VideoView, useVideoPlayer } from "expo-video";
 
 import VideoOverlay from "./VideoOverlay";
@@ -9,7 +10,7 @@ import { useWatchReward } from "../hooks/useWatchReward";
 import { useVideoProgress } from "../hooks/useVideoProgress";
 import { useVideoRating } from "../hooks/useVideoRating";
 import { COLORS } from "../../../constants/colors";
-import { s, sv, sf, SCREEN } from "../../../constants/layout";
+import { s, sv, SCREEN } from "../../../constants/layout";
 import { logVideoPlayerError } from "../utils/videoPlayerSafety";
 
 const { width, height } = Dimensions.get("window");
@@ -31,6 +32,8 @@ export default function FeedItem({
   onRatingDragEnd,
   isInteractionDisabled = false,
 }) {
+  const insets = useSafeAreaInsets();
+
   const [isHolding, setIsHolding] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isPausedByUser, setIsPausedByUser] = useState(false);
@@ -41,6 +44,20 @@ export default function FeedItem({
   const player = useVideoPlayer(item.source, (playerInstance) => {
     playerInstance.loop = true;
   });
+
+  const VISIBLE_TAB_BAR_HEIGHT = Math.round(
+    Math.min(44, Math.max(34, SCREEN.height * 0.045))
+  );
+
+  // Muss mit deinem Android-Lift in FeedProgressBar.jsx übereinstimmen.
+  const ANDROID_PROGRESS_LIFT = SCREEN.isAndroid ? sv(7.5) : 0;
+
+  const videoBottom =
+    insets.bottom + VISIBLE_TAB_BAR_HEIGHT + ANDROID_PROGRESS_LIFT;
+
+  const mediaLayerStyle = {
+    bottom: videoBottom,
+  };
 
   const pausePlayerSafely = () => {
     try {
@@ -140,7 +157,6 @@ export default function FeedItem({
     setProgress,
   ]);
 
-
   const { showPointReward } = useWatchReward({
     isActive,
     progress,
@@ -167,7 +183,7 @@ export default function FeedItem({
       )}
 
       <VideoView
-        style={styles.video}
+        style={[styles.video, mediaLayerStyle]}
         player={player}
         contentFit="contain"
         nativeControls={false}
@@ -180,7 +196,7 @@ export default function FeedItem({
       />
 
       <Pressable
-        style={styles.touchLayer}
+        style={[styles.touchLayer, mediaLayerStyle]}
         pointerEvents={isInteractionDisabled ? "none" : "auto"}
         disabled={isInteractionDisabled}
         onPress={() => setIsPausedByUser((prev) => !prev)}
@@ -189,7 +205,10 @@ export default function FeedItem({
         onPressOut={() => setIsHolding(false)}
       />
 
-      <View style={styles.overlayDark} pointerEvents="none" />
+      <View
+        style={[styles.overlayDark, mediaLayerStyle]}
+        pointerEvents="none"
+      />
 
       <View
         style={styles.overlayContent}
@@ -234,11 +253,14 @@ const styles = StyleSheet.create({
     height,
     backgroundColor: COLORS.background,
   },
+
   video: {
     position: "absolute",
-    width: "100%",
-    height: "100%",
+    top: 0,
+    left: 0,
+    right: 0,
   },
+
   videoTourTarget: {
     position: "absolute",
     left: s(20),
@@ -247,19 +269,24 @@ const styles = StyleSheet.create({
     height: SCREEN.height * 0.42,
     zIndex: 3,
   },
+
   touchLayer: {
     position: "absolute",
-    width: "100%",
-    height: "100%",
+    top: 0,
+    left: 0,
+    right: 0,
     zIndex: 2,
   },
+
   overlayDark: {
     position: "absolute",
-    width: "100%",
-    height: "100%",
+    top: 0,
+    left: 0,
+    right: 0,
     backgroundColor: COLORS.overlayDark,
     zIndex: 1,
   },
+
   overlayContent: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 6,
