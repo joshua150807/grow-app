@@ -25,6 +25,32 @@ const ANDROID_TALL_DEVICE_START_HEIGHT = 860;
 const ANDROID_TALL_DEVICE_RANGE = 180;
 const ANDROID_TALL_DEVICE_MAX_EXTRA_LIFT = 6.5;
 
+// Kleine Extra-Korrektur für mittelhohe Android-Geräte wie Pixel 6.
+// Pixel 5 bleibt darunter, Pixel 9 Pro XL liegt darüber und wird dadurch nicht verändert.
+const ANDROID_MID_DEVICE_START_HEIGHT = 880;
+const ANDROID_MID_DEVICE_PEAK_HEIGHT = 920;
+const ANDROID_MID_DEVICE_END_HEIGHT = 960;
+const ANDROID_MID_DEVICE_EXTRA_LIFT = 1;
+
+function getAndroidMidDeviceLift(screenHeight) {
+  if (screenHeight <= ANDROID_MID_DEVICE_START_HEIGHT) return 0;
+  if (screenHeight >= ANDROID_MID_DEVICE_END_HEIGHT) return 0;
+
+  if (screenHeight <= ANDROID_MID_DEVICE_PEAK_HEIGHT) {
+    const progress =
+      (screenHeight - ANDROID_MID_DEVICE_START_HEIGHT) /
+      (ANDROID_MID_DEVICE_PEAK_HEIGHT - ANDROID_MID_DEVICE_START_HEIGHT);
+
+    return progress * ANDROID_MID_DEVICE_EXTRA_LIFT;
+  }
+
+  const progress =
+    (ANDROID_MID_DEVICE_END_HEIGHT - screenHeight) /
+    (ANDROID_MID_DEVICE_END_HEIGHT - ANDROID_MID_DEVICE_PEAK_HEIGHT);
+
+  return progress * ANDROID_MID_DEVICE_EXTRA_LIFT;
+}
+
 function getAndroidProgressLift(screenHeight) {
   if (!SCREEN.isAndroid) return 0;
 
@@ -36,7 +62,11 @@ function getAndroidProgressLift(screenHeight) {
     )
   );
 
-  return sv(ANDROID_PROGRESS_BASE_LIFT) + tallDeviceProgress * ANDROID_TALL_DEVICE_MAX_EXTRA_LIFT;
+  return (
+    sv(ANDROID_PROGRESS_BASE_LIFT) +
+    tallDeviceProgress * ANDROID_TALL_DEVICE_MAX_EXTRA_LIFT +
+    getAndroidMidDeviceLift(screenHeight)
+  );
 }
 
 export default function FeedItem({

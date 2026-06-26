@@ -15,7 +15,7 @@ const infoCards = [
     key: 'growth',
     image: require('../../../assets/feedback/feedback-info-growth.webp'),
     title: 'Gemeinsam wachsen',
-    text: 'Wir hören zu und setzen um.',
+    text: 'Wir hören zu\nund setzen um.',
   },
   {
     key: 'points',

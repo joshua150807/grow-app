@@ -7,8 +7,9 @@ import {
   View,
   ActivityIndicator,
   Image,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 
 import FeedbackHero from '../components/FeedbackHero';
@@ -31,6 +32,11 @@ const FEEDBACK_TOUR_CONTENT_OFFSET = { x: 0, y: FEEDBACK_TOUR_SCROLL_Y };
 export default function FeedbackScreen() {
   const [feedbackAssetsReady, setFeedbackAssetsReady] = useState(false);
   const scrollRef = useRef(null);
+  const insets = useSafeAreaInsets();
+  const bottomContentPadding = sv(72) + Math.max(insets.bottom, 0);
+  const footerSafeStyle = Platform.OS === 'android'
+    ? { marginTop: -sv(24), marginBottom: sv(24) + Math.max(insets.bottom, 0) }
+    : { marginBottom: sv(14) + Math.max(insets.bottom, 0) };
   const { isTourActive, currentStep } = useOnboarding();
   const isFeedbackTutorialStep = isTourActive && currentStep?.id === 'feedback';
 
@@ -117,7 +123,7 @@ export default function FeedbackScreen() {
       <ScrollView
         ref={scrollRef}
         contentOffset={isFeedbackTutorialStep ? FEEDBACK_TOUR_CONTENT_OFFSET : undefined}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: bottomContentPadding }]}
         showsVerticalScrollIndicator={false}
       >
         <Image
@@ -181,7 +187,7 @@ export default function FeedbackScreen() {
  
         {sendError && <Text style={styles.errorText}>{sendError}</Text>}
  
-        <Text style={styles.footerText}>
+        <Text style={[styles.footerText, footerSafeStyle]}>
           Danke, dass du Grow besser machst. 🙏
         </Text>
       </ScrollView>

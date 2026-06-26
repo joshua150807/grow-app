@@ -8,6 +8,7 @@ import { SCREEN, sv } from '../../../constants/layout';
 const TOUCH_ZONE_HEIGHT = 120;
 const TOUCH_ZONE_BELOW_LINE = 28;
 const THUMB_SIZE = 12;
+const ACTIVE_TRACK_HEIGHT = 5;
 
 function getVisibleTabBarHeight(screenHeight) {
   return Math.round(Math.min(44, Math.max(34, screenHeight * 0.045)));
@@ -17,6 +18,32 @@ const ANDROID_PROGRESS_BASE_LIFT = 7.5;
 const ANDROID_TALL_DEVICE_START_HEIGHT = 860;
 const ANDROID_TALL_DEVICE_RANGE = 180;
 const ANDROID_TALL_DEVICE_MAX_EXTRA_LIFT = 6.5;
+
+// Kleine Extra-Korrektur für mittelhohe Android-Geräte wie Pixel 6.
+// Pixel 5 bleibt darunter, Pixel 9 Pro XL liegt darüber und wird dadurch nicht verändert.
+const ANDROID_MID_DEVICE_START_HEIGHT = 880;
+const ANDROID_MID_DEVICE_PEAK_HEIGHT = 920;
+const ANDROID_MID_DEVICE_END_HEIGHT = 960;
+const ANDROID_MID_DEVICE_EXTRA_LIFT = 1;
+
+function getAndroidMidDeviceLift(screenHeight) {
+  if (screenHeight <= ANDROID_MID_DEVICE_START_HEIGHT) return 0;
+  if (screenHeight >= ANDROID_MID_DEVICE_END_HEIGHT) return 0;
+
+  if (screenHeight <= ANDROID_MID_DEVICE_PEAK_HEIGHT) {
+    const progress =
+      (screenHeight - ANDROID_MID_DEVICE_START_HEIGHT) /
+      (ANDROID_MID_DEVICE_PEAK_HEIGHT - ANDROID_MID_DEVICE_START_HEIGHT);
+
+    return progress * ANDROID_MID_DEVICE_EXTRA_LIFT;
+  }
+
+  const progress =
+    (ANDROID_MID_DEVICE_END_HEIGHT - screenHeight) /
+    (ANDROID_MID_DEVICE_END_HEIGHT - ANDROID_MID_DEVICE_PEAK_HEIGHT);
+
+  return progress * ANDROID_MID_DEVICE_EXTRA_LIFT;
+}
 
 function getAndroidProgressLift(screenHeight) {
   if (!SCREEN.isAndroid) return 0;
@@ -29,7 +56,11 @@ function getAndroidProgressLift(screenHeight) {
     )
   );
 
-  return sv(ANDROID_PROGRESS_BASE_LIFT) + tallDeviceProgress * ANDROID_TALL_DEVICE_MAX_EXTRA_LIFT;
+  return (
+    sv(ANDROID_PROGRESS_BASE_LIFT) +
+    tallDeviceProgress * ANDROID_TALL_DEVICE_MAX_EXTRA_LIFT +
+    getAndroidMidDeviceLift(screenHeight)
+  );
 }
 
 export default function FeedProgressBar({
@@ -48,6 +79,13 @@ export default function FeedProgressBar({
   const visibleTabBarHeight = getVisibleTabBarHeight(height);
   const progressLineGapAboveTab = 0;
   const androidProgressLift = getAndroidProgressLift(height);
+  const androidMidDeviceLift = SCREEN.isAndroid ? getAndroidMidDeviceLift(height) : 0;
+  const progressThumbTop =
+    TOUCH_ZONE_HEIGHT -
+    TOUCH_ZONE_BELOW_LINE -
+    THUMB_SIZE / 2 -
+    ACTIVE_TRACK_HEIGHT / 2 -
+    androidMidDeviceLift;
 
   const progressLineBottom =
     insets.bottom +
@@ -64,7 +102,7 @@ export default function FeedProgressBar({
           pointerEvents="none"
           style={[
             styles.timeContainer,
-            { bottom: bottomOffset + TOUCH_ZONE_HEIGHT + 18 },
+            { bottom: bottomOffset + TOUCH_ZONE_BELOW_LINE + ACTIVE_TRACK_HEIGHT + 50 },
           ]}
         >
           <Text style={styles.timeText}>
@@ -100,7 +138,7 @@ export default function FeedProgressBar({
           {canScrub && isScrubbing && (
             <View
               pointerEvents="none"
-              style={[styles.progressThumb, { left: thumbLeft }]}
+              style={[styles.progressThumb, { left: thumbLeft, top: progressThumbTop }]}
             />
           )}
         </View>
@@ -132,7 +170,7 @@ const styles = StyleSheet.create({
   },
 
   progressTrackActive: {
-    height: 5,
+    height: ACTIVE_TRACK_HEIGHT,
     backgroundColor: 'rgba(255,255,255,0.26)',
   },
 
@@ -148,7 +186,6 @@ const styles = StyleSheet.create({
 
   progressThumb: {
     position: 'absolute',
-    top: TOUCH_ZONE_HEIGHT - TOUCH_ZONE_BELOW_LINE - THUMB_SIZE / 2,
     width: THUMB_SIZE,
     height: THUMB_SIZE,
     borderRadius: THUMB_SIZE / 2,

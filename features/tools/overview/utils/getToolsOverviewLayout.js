@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { s, sv } from '../../../../constants/layout';
 
 export function getToolsOverviewLayout({ width, height }) {
@@ -31,6 +32,9 @@ export function getToolsOverviewLayout({ width, height }) {
   const compactGridHeight = compactCardSize * 2 + compactGridRowGap;
 
   const moreToolsButtonHeight = sv(38);
+  const moreToolsButtonMargin = sv(12);
+  const moreToolsButtonBottomReserve =
+    Platform.OS === 'android' && height >= 860 && height < 930 ? sv(3) : 0;
 
   const expandedCardSize = Math.floor(
     (contentWidth - expandedGridGap * 3) / 4
@@ -72,6 +76,8 @@ export function getToolsOverviewLayout({ width, height }) {
     compactGridHeight,
     expandedGridHeight,
     moreToolsButtonHeight,
+    moreToolsButtonMargin,
+    moreToolsButtonBottomReserve,
 
     mentorCardHeight,
     trackerRowHeight,

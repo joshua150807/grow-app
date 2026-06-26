@@ -4,7 +4,7 @@ import { usePathname } from "expo-router";
 
 import { useOnboarding } from "../context/OnboardingContext";
 
-const ANDROID_EXTRA_TARGET_Y_OFFSET = 10;
+const ANDROID_EXTRA_TARGET_Y_OFFSET = 20;
 
 const ANDROID_WINDOW_Y_CORRECTION =
   Platform.OS === "android"

@@ -253,8 +253,10 @@ export default function AnimatedToolsGridSwitcher({
     return compactCardSize * 2 + compactRowGap;
   }, [compactCardSize, compactRowGap]);
 
-  const moreToolsButtonMargin = 12;
-  const compactTotalHeight = compactGridHeight + moreToolsButtonMargin + moreToolsButtonHeight;
+  const moreToolsButtonMargin = layout?.moreToolsButtonMargin ?? 12;
+  const moreToolsButtonBottomReserve = layout?.moreToolsButtonBottomReserve ?? 0;
+  const compactTotalHeight =
+    compactGridHeight + moreToolsButtonMargin + moreToolsButtonHeight + moreToolsButtonBottomReserve;
   const replacementTotalHeight = compactCardSize
     ? compactCardSize + 14 + compactGridHeight
     : compactTotalHeight;
