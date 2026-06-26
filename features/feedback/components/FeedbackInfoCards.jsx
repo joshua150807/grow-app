@@ -8,8 +8,8 @@ const infoCards = [
   {
     key: 'opinion',
     image: require('../../../assets/feedback/feedback-info-opinion.webp'),
-    title: 'Deine Meinung zählt',
-    text: 'Jedes Feedback bringt uns weiter.',
+    title: 'Deine Meinung\nzählt',
+    text: 'Jedes Feedback\nbringt uns weiter.',
   },
   {
     key: 'growth',

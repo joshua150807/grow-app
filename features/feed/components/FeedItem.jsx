@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Pressable, StyleSheet, Dimensions } from "react-native";
+import { View, Pressable, StyleSheet, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { VideoView, useVideoPlayer } from "expo-video";
 
@@ -13,9 +13,31 @@ import { COLORS } from "../../../constants/colors";
 import { s, sv, SCREEN } from "../../../constants/layout";
 import { logVideoPlayerError } from "../utils/videoPlayerSafety";
 
-const { width, height } = Dimensions.get("window");
 
 const LONG_PRESS_DELAY = 120;
+
+function getVisibleTabBarHeight(screenHeight) {
+  return Math.round(Math.min(44, Math.max(34, screenHeight * 0.045)));
+}
+
+const ANDROID_PROGRESS_BASE_LIFT = 7.5;
+const ANDROID_TALL_DEVICE_START_HEIGHT = 860;
+const ANDROID_TALL_DEVICE_RANGE = 180;
+const ANDROID_TALL_DEVICE_MAX_EXTRA_LIFT = 6.5;
+
+function getAndroidProgressLift(screenHeight) {
+  if (!SCREEN.isAndroid) return 0;
+
+  const tallDeviceProgress = Math.min(
+    1,
+    Math.max(
+      0,
+      (screenHeight - ANDROID_TALL_DEVICE_START_HEIGHT) / ANDROID_TALL_DEVICE_RANGE
+    )
+  );
+
+  return sv(ANDROID_PROGRESS_BASE_LIFT) + tallDeviceProgress * ANDROID_TALL_DEVICE_MAX_EXTRA_LIFT;
+}
 
 export default function FeedItem({
   item,
@@ -33,6 +55,7 @@ export default function FeedItem({
   isInteractionDisabled = false,
 }) {
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
 
   const [isHolding, setIsHolding] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
@@ -45,18 +68,25 @@ export default function FeedItem({
     playerInstance.loop = true;
   });
 
-  const VISIBLE_TAB_BAR_HEIGHT = Math.round(
-    Math.min(44, Math.max(34, SCREEN.height * 0.045))
-  );
+  const visibleTabBarHeight = getVisibleTabBarHeight(height);
 
   // Muss mit deinem Android-Lift in FeedProgressBar.jsx übereinstimmen.
-  const ANDROID_PROGRESS_LIFT = SCREEN.isAndroid ? sv(7.5) : 0;
+  const androidProgressLift = getAndroidProgressLift(height);
 
   const videoBottom =
-    insets.bottom + VISIBLE_TAB_BAR_HEIGHT + ANDROID_PROGRESS_LIFT;
+    insets.bottom + visibleTabBarHeight + androidProgressLift;
 
   const mediaLayerStyle = {
     bottom: videoBottom,
+  };
+
+  const videoTourTargetTop = Math.max(insets.top + sv(62), height * 0.12);
+  const videoTourTargetBottom = videoBottom + sv(74);
+  const videoTourTargetStyle = {
+    left: s(14),
+    right: s(74),
+    top: videoTourTargetTop,
+    height: Math.max(sv(240), height - videoTourTargetTop - videoTourTargetBottom),
   };
 
   const pausePlayerSafely = () => {
@@ -173,11 +203,11 @@ export default function FeedItem({
   });
 
   return (
-    <View style={styles.page}>
+    <View style={[styles.page, { width, height }]}>
       {isActive && (
         <TourTarget
           id="feed-video-area"
-          style={styles.videoTourTarget}
+          style={[styles.videoTourTarget, videoTourTargetStyle]}
           pointerEvents="none"
         />
       )}
@@ -249,8 +279,6 @@ export default function FeedItem({
 
 const styles = StyleSheet.create({
   page: {
-    width,
-    height,
     backgroundColor: COLORS.background,
   },
 
@@ -263,10 +291,6 @@ const styles = StyleSheet.create({
 
   videoTourTarget: {
     position: "absolute",
-    left: s(20),
-    right: s(68),
-    top: SCREEN.height * 0.22,
-    height: SCREEN.height * 0.42,
     zIndex: 3,
   },
 

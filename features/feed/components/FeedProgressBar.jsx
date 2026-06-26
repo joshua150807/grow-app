@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { COLORS } from '../../../constants/colors';
@@ -8,6 +8,29 @@ import { SCREEN, sv } from '../../../constants/layout';
 const TOUCH_ZONE_HEIGHT = 120;
 const TOUCH_ZONE_BELOW_LINE = 28;
 const THUMB_SIZE = 12;
+
+function getVisibleTabBarHeight(screenHeight) {
+  return Math.round(Math.min(44, Math.max(34, screenHeight * 0.045)));
+}
+
+const ANDROID_PROGRESS_BASE_LIFT = 7.5;
+const ANDROID_TALL_DEVICE_START_HEIGHT = 860;
+const ANDROID_TALL_DEVICE_RANGE = 180;
+const ANDROID_TALL_DEVICE_MAX_EXTRA_LIFT = 6.5;
+
+function getAndroidProgressLift(screenHeight) {
+  if (!SCREEN.isAndroid) return 0;
+
+  const tallDeviceProgress = Math.min(
+    1,
+    Math.max(
+      0,
+      (screenHeight - ANDROID_TALL_DEVICE_START_HEIGHT) / ANDROID_TALL_DEVICE_RANGE
+    )
+  );
+
+  return sv(ANDROID_PROGRESS_BASE_LIFT) + tallDeviceProgress * ANDROID_TALL_DEVICE_MAX_EXTRA_LIFT;
+}
 
 export default function FeedProgressBar({
   safeProgress,
@@ -20,20 +43,17 @@ export default function FeedProgressBar({
   durationText = '0:00',
 }) {
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
 
-  const VISIBLE_TAB_BAR_HEIGHT = Math.round(
-    Math.min(44, Math.max(34, SCREEN.height * 0.045))
-  );
-
-  const PROGRESS_LINE_GAP_ABOVE_TAB = 0;
-
-  const ANDROID_PROGRESS_LIFT = SCREEN.isAndroid ? sv(7.5) : 0;
+  const visibleTabBarHeight = getVisibleTabBarHeight(height);
+  const progressLineGapAboveTab = 0;
+  const androidProgressLift = getAndroidProgressLift(height);
 
   const progressLineBottom =
     insets.bottom +
-    VISIBLE_TAB_BAR_HEIGHT +
-    PROGRESS_LINE_GAP_ABOVE_TAB +
-    ANDROID_PROGRESS_LIFT;
+    visibleTabBarHeight +
+    progressLineGapAboveTab +
+    androidProgressLift;
 
   const bottomOffset = progressLineBottom - TOUCH_ZONE_BELOW_LINE;
 

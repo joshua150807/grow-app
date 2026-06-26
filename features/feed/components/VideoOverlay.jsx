@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { Animated, View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { Animated, View, Text, StyleSheet, TouchableOpacity, Image, useWindowDimensions } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 
 import { COLORS } from '../../../constants/colors';
-import { s, sv, sf, SCREEN } from '../../../constants/layout';
+import { s, sv, sf } from '../../../constants/layout';
 import TourTarget from '../../onboarding/components/TourTarget';
 import VideoRatingSlider from './VideoRatingSlider';
 import { GROW_POINTS_ICON } from '../../../constants/toolAssets';
@@ -24,6 +24,7 @@ export default function VideoOverlay({
   onRatingDragEnd = () => {},
   isActive = false,
 }) {
+  const { height } = useWindowDimensions();
   const pointFlyY = useRef(new Animated.Value(0)).current;
   const pointOpacity = useRef(new Animated.Value(0)).current;
   const pointScale = useRef(new Animated.Value(0.86)).current;
@@ -79,6 +80,8 @@ export default function VideoOverlay({
     onRate(null);
   };
 
+  const rightSideTop = Math.max(sv(230), Math.min(height * 0.32, height - sv(390)));
+
   return (
     <View style={styles.container} pointerEvents="box-none">
       <Image
@@ -87,7 +90,7 @@ export default function VideoOverlay({
         resizeMode="contain"
       />
 
-      <View style={styles.rightSide} pointerEvents="box-none">
+      <View style={[styles.rightSide, { top: rightSideTop }]} pointerEvents="box-none">
         <TourTarget
           id={isActive ? 'feed-actions' : null}
           style={styles.actionsTarget}
@@ -182,7 +185,6 @@ const styles = StyleSheet.create({
   rightSide: {
     position: 'absolute',
     right: s(5),
-    top: SCREEN.height * 0.32,
     alignItems: 'center',
   },
 

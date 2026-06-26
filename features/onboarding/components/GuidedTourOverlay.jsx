@@ -1,28 +1,64 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 
 import { COLORS } from '../../../constants/colors';
-import { s, sv, sf, SCREEN } from '../../../constants/layout';
+import { s, sv, sf } from '../../../constants/layout';
 import { useOnboarding } from '../context/OnboardingContext';
 
 const BUBBLE_MARGIN = s(16);
-const BUBBLE_MAX_WIDTH = Math.min(SCREEN.width - BUBBLE_MARGIN * 2, s(344));
 const ESTIMATED_BUBBLE_HEIGHT = sv(224);
 const TARGET_GAP = sv(18);
 const ARROW_SIZE = s(16);
+const SCREEN_EDGE_GAP = s(6);
 
 function clamp(value, min, max) {
+  if (max < min) return min;
   return Math.max(min, Math.min(value, max));
 }
 
-function getBubbleLayout(targetRect) {
+function getHighlightLayout(targetRect, dimensions) {
+  if (!targetRect) return null;
+
+  const horizontalPadding = clamp(targetRect.width * 0.045, s(6), s(14));
+  const verticalPadding = clamp(targetRect.height * 0.045, sv(6), sv(14));
+
+  const rawLeft = targetRect.x - horizontalPadding;
+  const rawTop = targetRect.y - verticalPadding;
+  const rawRight = targetRect.x + targetRect.width + horizontalPadding;
+  const rawBottom = targetRect.y + targetRect.height + verticalPadding;
+
+  const left = clamp(rawLeft, SCREEN_EDGE_GAP, dimensions.width - SCREEN_EDGE_GAP);
+  const top = clamp(rawTop, SCREEN_EDGE_GAP, dimensions.height - SCREEN_EDGE_GAP);
+  const right = clamp(rawRight, left + s(12), dimensions.width - SCREEN_EDGE_GAP);
+  const bottom = clamp(rawBottom, top + sv(12), dimensions.height - SCREEN_EDGE_GAP);
+
+  return {
+    left,
+    top,
+    width: right - left,
+    height: bottom - top,
+    borderRadius: clamp(Math.min(right - left, bottom - top) * 0.12, s(14), s(24)),
+  };
+}
+
+function getBubbleLayout(targetRect, dimensions, insets) {
+  const safeTop = Math.max(insets.top + sv(10), sv(34));
+  const safeBottom = Math.max(insets.bottom + sv(18), sv(28));
+  const availableWidth = Math.max(dimensions.width - BUBBLE_MARGIN * 2, s(260));
+  const bubbleWidth = Math.min(availableWidth, s(344));
+
   if (!targetRect) {
     return {
       bubbleStyle: {
-        left: BUBBLE_MARGIN,
-        width: SCREEN.width - BUBBLE_MARGIN * 2,
-        top: clamp(SCREEN.height * 0.54, sv(120), SCREEN.height - ESTIMATED_BUBBLE_HEIGHT - sv(34)),
+        left: Math.max(BUBBLE_MARGIN, (dimensions.width - bubbleWidth) / 2),
+        width: bubbleWidth,
+        top: clamp(
+          dimensions.height * 0.54,
+          safeTop,
+          dimensions.height - ESTIMATED_BUBBLE_HEIGHT - safeBottom
+        ),
       },
       arrowStyle: null,
       arrowDirection: null,
@@ -30,14 +66,14 @@ function getBubbleLayout(targetRect) {
   }
 
   const targetCenterX = targetRect.x + targetRect.width / 2;
-  const targetCenterY = targetRect.y + targetRect.height / 2;
-  const shouldShowBelow = targetCenterY < SCREEN.height * 0.5;
+  const spaceAbove = targetRect.y - safeTop;
+  const spaceBelow = dimensions.height - (targetRect.y + targetRect.height) - safeBottom;
+  const shouldShowBelow = spaceBelow >= ESTIMATED_BUBBLE_HEIGHT || spaceBelow >= spaceAbove;
 
-  const bubbleWidth = BUBBLE_MAX_WIDTH;
   const bubbleLeft = clamp(
     targetCenterX - bubbleWidth / 2,
     BUBBLE_MARGIN,
-    SCREEN.width - bubbleWidth - BUBBLE_MARGIN
+    dimensions.width - bubbleWidth - BUBBLE_MARGIN
   );
 
   const preferredTop = shouldShowBelow
@@ -46,8 +82,8 @@ function getBubbleLayout(targetRect) {
 
   const bubbleTop = clamp(
     preferredTop,
-    sv(52),
-    SCREEN.height - ESTIMATED_BUBBLE_HEIGHT - sv(28)
+    safeTop,
+    dimensions.height - ESTIMATED_BUBBLE_HEIGHT - safeBottom
   );
 
   const arrowLeft = clamp(
@@ -70,6 +106,9 @@ function getBubbleLayout(targetRect) {
 }
 
 export default function GuidedTourOverlay() {
+  const dimensions = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+
   const {
     isTourActive,
     steps,
@@ -82,7 +121,12 @@ export default function GuidedTourOverlay() {
     startToolsExplanation,
   } = useOnboarding();
 
-  const requestedTargetRect = currentStep?.targetId ? targets[currentStep.targetId] : null;
+  const currentTargetRect = currentStep?.targetId ? targets[currentStep.targetId] : null;
+  const requestedTargetRect =
+    currentTargetRect?.measuredStepIndex === currentStepIndex &&
+    currentTargetRect?.measuredStepId === currentStep?.id
+      ? currentTargetRect
+      : null;
   const isRequestedStepReady = Boolean(currentStep) && (!currentStep.targetId || requestedTargetRect);
 
   const [visibleStepState, setVisibleStepState] = useState({
@@ -97,10 +141,12 @@ export default function GuidedTourOverlay() {
       return;
     }
 
-    // Wichtig: Beim Step-Wechsel nicht sofort Text/Box wechseln.
-    // Erst warten, bis der neue Zielbereich wirklich gemessen wurde.
-    // So bleibt der alte Step stabil sichtbar, während Route/ScrollView wechseln.
-    if (!isRequestedStepReady) return;
+    // Wichtig: Beim Step-/Seitenwechsel den alten Rahmen nicht weiter anzeigen.
+    // Erst wieder einblenden, wenn der neue Zielbereich auf der neuen Seite gemessen wurde.
+    if (!isRequestedStepReady) {
+      setVisibleStepState({ step: null, index: currentStepIndex, targetRect: null });
+      return;
+    }
 
     const nextTargetRect = currentStep.targetId ? requestedTargetRect : null;
 
@@ -129,7 +175,13 @@ export default function GuidedTourOverlay() {
     if (!isTourActive || !visibleStepState.step?.targetId) return;
 
     const freshRect = targets[visibleStepState.step.targetId];
-    if (!freshRect) return;
+    if (
+      !freshRect ||
+      freshRect.measuredStepIndex !== visibleStepState.index ||
+      freshRect.measuredStepId !== visibleStepState.step.id
+    ) {
+      return;
+    }
 
     setVisibleStepState((previous) => {
       if (!previous.step || previous.step.id !== visibleStepState.step.id) return previous;
@@ -148,39 +200,40 @@ export default function GuidedTourOverlay() {
         targetRect: freshRect,
       };
     });
-  }, [isTourActive, targets, visibleStepState.step]);
+  }, [isTourActive, targets, visibleStepState.index, visibleStepState.step]);
 
-  const visibleStep = visibleStepState.step ?? currentStep;
-  const visibleStepIndex = visibleStepState.step ? visibleStepState.index : currentStepIndex;
+  const visibleStep = visibleStepState.step;
+  const visibleStepIndex = visibleStepState.index;
   const targetRect = visibleStep?.targetId ? visibleStepState.targetRect : null;
 
-  const { bubbleStyle, arrowStyle, arrowDirection } = useMemo(
-    () => getBubbleLayout(targetRect),
-    [targetRect]
+  const highlightStyle = useMemo(
+    () => getHighlightLayout(targetRect, dimensions),
+    [dimensions, targetRect]
   );
 
-  const progressLabel = `${visibleStepIndex + 1} von ${steps.length}`;
+  const { bubbleStyle, arrowStyle, arrowDirection } = useMemo(
+    () => getBubbleLayout(targetRect, dimensions, insets),
+    [dimensions, insets, targetRect]
+  );
+
+  const progressLabel = visibleStep ? `${visibleStepIndex + 1} von ${steps.length}` : '';
   const isToolsChoiceStep = visibleStep?.actionType === 'toolsChoice';
   const isVisibleFirstStep = visibleStepIndex === 0;
   const isVisibleLastStep = visibleStepIndex === steps.length - 1;
   const isStepChanging = visibleStep?.id !== currentStep?.id || visibleStepIndex !== currentStepIndex;
 
-  if (!isTourActive || !visibleStep) return null;
+  if (!isTourActive) return null;
+
+  if (!visibleStep) {
+    return <View style={styles.root} pointerEvents="auto" />;
+  }
 
   return (
     <View style={styles.root} pointerEvents="auto">
-      {targetRect && (
+      {highlightStyle && (
         <View
           pointerEvents="none"
-          style={[
-            styles.highlight,
-            {
-              left: targetRect.x - s(8),
-              top: targetRect.y - sv(8),
-              width: targetRect.width + s(16),
-              height: targetRect.height + sv(16),
-            },
-          ]}
+          style={[styles.highlight, highlightStyle]}
         />
       )}
 
@@ -266,12 +319,7 @@ const styles = StyleSheet.create({
     borderRadius: s(18),
     borderWidth: 2,
     borderColor: COLORS.toolsGold,
-    backgroundColor: 'rgba(231,201,138,0.08)',
-    shadowColor: COLORS.toolsGold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.85,
-    shadowRadius: 16,
-    elevation: 14,
+    backgroundColor: 'transparent',
   },
   bubble: {
     position: 'absolute',
