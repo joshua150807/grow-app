@@ -38,6 +38,23 @@ export const MUSCLE_GROUP_EXERCISES = {
         ],
       },
       {
+        id: 'chest_press_machine',
+        name: 'Brustpresse',
+        category: 'Brust',
+        description:
+          'Die Brustpresse trainiert vor allem die Brustmuskulatur und bietet durch die geführte Bewegung eine stabile Ausführung.',
+        execution: [
+          'Stelle den Sitz so ein, dass die Griffe ungefähr auf Brusthöhe sind.',
+          'Drücke das Gewicht kontrolliert nach vorne.',
+          'Führe das Gewicht langsam zurück, bis eine gute Dehnung in der Brust entsteht.',
+        ],
+        tips: [
+          'Halte die Schulterblätter leicht hinten und unten.',
+          'Drücke nicht aus den Schultern heraus.',
+          'Nutze einen kontrollierten Bewegungsradius.',
+        ],
+      },
+      {
         id: 'dumbbell_press',
         name: 'Kurzhantel Bankdrücken',
         category: 'Brust',
@@ -56,7 +73,7 @@ export const MUSCLE_GROUP_EXERCISES = {
       },
       {
         id: 'chest_fly',
-        name: 'Butterfly / Chest Fly',
+        name: 'Butterfly',
         category: 'Brust',
         description:
           'Butterfly isoliert die Brust und eignet sich besonders gut, um Spannung und Muskelgefühl aufzubauen.',
@@ -199,7 +216,7 @@ export const MUSCLE_GROUP_EXERCISES = {
       },
       {
         id: 'close_grip_lat_pulldown',
-        name: 'Enger Latzug',
+        name: 'Latzug eng',
         category: 'Latissimus',
         description:
           'Der enge Griff belastet besonders den unteren und mittleren Bereich des Latissimus.',
@@ -232,6 +249,40 @@ export const MUSCLE_GROUP_EXERCISES = {
         ],
       },
       {
+        id: 'medium_row',
+        name: 'Mittelbreites Rudern',
+        category: 'Mittlerer Rücken',
+        description:
+          'Mittelbreites Rudern trainiert den mittleren Rücken, den Latissimus und die Schulterblattmuskulatur.',
+        execution: [
+          'Setze dich stabil an die Maschine oder den Kabelzug.',
+          'Ziehe den Griff kontrolliert Richtung Bauch oder unteren Brustkorb.',
+          'Führe das Gewicht langsam zurück und nutze die Dehnung im Rücken.',
+        ],
+        tips: [
+          'Halte die Brust aufrecht.',
+          'Ziehe die Ellenbogen bewusst nach hinten.',
+          'Arbeite nicht mit Schwung aus dem Oberkörper.',
+        ],
+      },
+      {
+        id: 'medium_grip_row_machine',
+        name: 'Rudermaschine mittlerer Griff',
+        category: 'Mittlerer Rücken',
+        description:
+          'Die Rudermaschine mit mittlerem Griff trainiert besonders den mittleren Rücken und ermöglicht eine kontrollierte Zugbewegung.',
+        execution: [
+          'Stelle Sitz und Brustpolster passend auf deine Körpergröße ein.',
+          'Ziehe die Griffe kontrolliert Richtung Oberkörper.',
+          'Lasse das Gewicht langsam zurück, ohne die Spannung zu verlieren.',
+        ],
+        tips: [
+          'Halte die Brust am Polster oder aufrecht.',
+          'Ziehe die Schulterblätter am Ende der Bewegung zusammen.',
+          'Vermeide Schwung und ruckartige Bewegungen.',
+        ],
+      },
+      {
         id: 'wide_row',
         name: 'Breites Rudern',
         category: 'Oberer Rücken',
@@ -250,10 +301,10 @@ export const MUSCLE_GROUP_EXERCISES = {
       },
       {
         id: 't_bar_row',
-        name: 'T-Bar Rudern',
+        name: 'T-Bar Rows',
         category: 'Oberer Rücken',
         description:
-          'T-Bar Rudern trainiert vor allem den oberen Rücken.',
+          'T-Bar Rows trainieren vor allem den oberen Rücken.',
         execution: [
           'Positioniere dich stabil an der Maschine.',
           'Ziehe das Gewicht Richtung unteren Brustkorb und führe die Schulterblätter zusammen.',
@@ -511,6 +562,23 @@ export const MUSCLE_GROUP_EXERCISES = {
         ],
       },
       {
+        id: 'seated_leg_curl',
+        name: 'Beinbeuger sitzend',
+        category: 'Beine',
+        description:
+          'Der sitzende Beinbeuger trainiert gezielt die Rückseite der Oberschenkel und ermöglicht eine starke Dehnung der Beinbeuger.',
+        execution: [
+          'Stelle Sitz, Rückenlehne und Polster passend auf deine Körpergröße ein.',
+          'Beuge die Beine kontrolliert nach unten.',
+          'Lasse das Gewicht langsam zurück und halte die Spannung in den Beinbeugern.',
+        ],
+        tips: [
+          'Halte die Hüfte fest im Sitz.',
+          'Nutze die Dehnung am Startpunkt.',
+          'Arbeite kontrolliert und ohne Schwung.',
+        ],
+      },
+      {
         id: 'romanian_deadlift',
         name: 'Rumänisches Kreuzheben',
         category: 'Beine',
@@ -544,7 +612,6 @@ export const MUSCLE_GROUP_EXERCISES = {
           'Spanne die Waden am oberen Punkt bewusst an.',
         ],
       },
-,
       {
         id: 'adductor_machine',
         name: 'Adduktoren Maschine',
@@ -605,18 +672,18 @@ export const MUSCLE_GROUP_EXERCISES = {
     exercises: [
       {
         id: 'shoulder_press',
-        name: 'Schulterdrücken Maschine',
+        name: 'Schulterdrücken',
         category: 'Vordere Schulter',
         description:
-          'Schulterdrücken an der Maschine trainiert vor allem die vordere Schulter. Durch die geführte Bewegung eignet sich die Übung besonders gut für Anfänger und ermöglicht eine stabile Ausführung.',
+          'Schulterdrücken trainiert vor allem die vordere Schulter und den Trizeps. Die Übung kann je nach Gym an der Maschine, mit Kurzhanteln oder an einer geführten Station ausgeführt werden.',
         execution: [
-          'Stelle den Sitz so ein, dass sich die Griffe etwas unterhalb der Schulterhöhe befinden.',
+          'Positioniere dich stabil und halte die Griffe oder Hanteln auf Schulterhöhe.',
           'Drücke das Gewicht kontrolliert nach oben.',
           'Senke das Gewicht langsam wieder ab, bis du eine gute Dehnung in der Schulter spürst.',
         ],
         tips: [
           'Ziehe die Schultern nicht zu den Ohren.',
-          'Greife breit und halte die Ellenbogen in einer Linie mit den Griffen.',
+          'Halte die Ellenbogen stabil und kontrolliere die Bewegung.',
           'Bilde kein starkes Hohlkreuz.',
         ],
       },
@@ -656,10 +723,10 @@ export const MUSCLE_GROUP_EXERCISES = {
       },
       {
         id: 'lateral_raise',
-        name: 'Kurzhantel Seitheben',
+        name: 'Seitheben',
         category: 'Seitliche Schulter',
         description:
-          'Kurzhantel Seitheben ist eine der besten Übungen für die seitliche Schulter und sorgt für mehr Schulterbreite.',
+          'Seitheben ist eine der besten Übungen für die seitliche Schulter und sorgt für mehr Schulterbreite.',
         execution: [
           'Halte die Hanteln seitlich neben dem Körper.',
           'Hebe die Arme kontrolliert bis etwa auf Schulterhöhe an.',
@@ -790,6 +857,23 @@ export const MUSCLE_GROUP_EXERCISES = {
           'Ziehe nicht höher, als es für die Schulter angenehm ist.',
         ],
       },
+      {
+        id: 'shrugs',
+        name: 'Shrugs',
+        category: 'Nacken / Trapez',
+        description:
+          'Shrugs trainieren vor allem den oberen Trapezmuskel und unterstützen eine kräftige Schulter- und Nackenpartie.',
+        execution: [
+          'Halte die Hanteln oder Griffe seitlich neben dem Körper.',
+          'Ziehe die Schultern kontrolliert nach oben.',
+          'Senke die Schultern langsam wieder ab und nutze den vollen Bewegungsradius.',
+        ],
+        tips: [
+          'Rolle die Schultern nicht nach vorne oder hinten.',
+          'Arbeite kontrolliert und ohne Schwung.',
+          'Halte Kopf und Oberkörper stabil.',
+        ],
+      },
     ],
   },
 
@@ -832,8 +916,25 @@ export const MUSCLE_GROUP_EXERCISES = {
               ],
             },
       {
+              id: 'preacher_curl_machine',
+              name: 'Preacher Curl Maschine',
+              category: 'Bizeps',
+              description:
+                'Die Preacher Curl Maschine trainiert den Bizeps isoliert und reduziert Schwung durch die feste Position der Oberarme.',
+              execution: [
+                'Stelle Sitz und Polster so ein, dass die Oberarme vollständig aufliegen.',
+                'Beuge die Arme kontrolliert nach oben.',
+                'Senke das Gewicht langsam wieder ab und nutze die Dehnung.',
+              ],
+              tips: [
+                'Halte die Oberarme während der gesamten Bewegung ruhig.',
+                'Arbeite nicht mit Schwung.',
+                'Spanne den Bizeps am oberen Punkt bewusst an.',
+              ],
+            },
+      {
               id: 'hammer_curl',
-              name: 'Hammercurls mit Kurzhanteln',
+              name: 'Hammer Curls',
               category: 'Bizeps',
               description:
                 'Hammercurls trainieren besonders den Brachialis und tragen zu mehr Armdicke bei.',
@@ -918,10 +1019,10 @@ export const MUSCLE_GROUP_EXERCISES = {
             },
       {
               id: 'cable_curl',
-              name: 'Kabelcurls',
+              name: 'Kabel Curls',
               category: 'Bizeps',
               description:
-                'Kabelcurls trainieren den gesamten Bizeps und sorgen durch den konstanten Widerstand für eine gleichmäßige Belastung.',
+                'Kabel Curls trainieren den gesamten Bizeps und sorgen durch den konstanten Widerstand für eine gleichmäßige Belastung.',
               execution: [
                 'Stelle dich aufrecht vor den Kabelturm.',
                 'Beuge die Arme kontrolliert nach oben.',
@@ -976,7 +1077,7 @@ export const MUSCLE_GROUP_EXERCISES = {
             },
       {
               id: 'triceps_pushdown',
-              name: 'Trizepsdrücken am Kabel',
+              name: 'Trizeps Pushdowns',
               category: 'Trizeps',
               description:
                 'Trizeps Pushdowns trainieren vor allem den seitlichen Kopf des Trizeps und eignen sich hervorragend, um Spannung auf dem Muskel aufzubauen.',
@@ -1010,7 +1111,7 @@ export const MUSCLE_GROUP_EXERCISES = {
             },
       {
               id: 'overhead_extension',
-              name: 'Überkopf Trizepsstrecken',
+              name: 'Overhead Trizeps Extension',
               category: 'Trizeps',
               description:
                 'Overhead Extensions trainieren besonders den langen Kopf des Trizeps, da dieser in der Überkopfposition stark gedehnt wird.',
@@ -1105,6 +1206,23 @@ export const MUSCLE_GROUP_EXERCISES = {
           'Ziehe nicht am Nacken.',
           'Spanne den Bauch bewusst an.',
           'Arbeite kontrolliert.',
+        ],
+      },
+      {
+        id: 'abdominal_machine',
+        name: 'Bauchmaschine',
+        category: 'Bauch',
+        description:
+          'Die Bauchmaschine trainiert vor allem den geraden Bauchmuskel und ermöglicht eine kontrollierte Belastung mit Zusatzgewicht.',
+        execution: [
+          'Stelle Sitz und Polster passend auf deine Körpergröße ein.',
+          'Rolle den Oberkörper kontrolliert nach vorne ein.',
+          'Führe das Gewicht langsam zurück, ohne die Spannung im Bauch zu verlieren.',
+        ],
+        tips: [
+          'Ziehe nicht aus den Armen oder der Hüfte.',
+          'Rolle den Oberkörper bewusst ein.',
+          'Arbeite kontrolliert und vermeide Schwung.',
         ],
       },
       {
