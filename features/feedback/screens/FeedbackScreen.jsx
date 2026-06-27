@@ -39,6 +39,7 @@ export default function FeedbackScreen() {
     : { marginBottom: sv(14) + Math.max(insets.bottom, 0) };
   const { isTourActive, currentStep } = useOnboarding();
   const isFeedbackTutorialStep = isTourActive && currentStep?.id === 'feedback';
+  const shouldHideAndroidTutorialReset = Platform.OS === 'android' && isTourActive && !isFeedbackTutorialStep;
 
   useEffect(() => {
     let mounted = true;
@@ -62,15 +63,17 @@ export default function FeedbackScreen() {
   useLayoutEffect(() => {
     if (!feedbackAssetsReady) return;
 
-    // Während des Tutorials darf die Feedback-Seite beim Verlassen des Feedback-Steps
-    // nicht sichtbar zurück an den Seitenanfang springen. Genau dieser Reset hat beim
-    // Wechsel von Feedback -> Abschluss-Step den kurzen Hänger verursacht.
+    // Android zeigt den Scroll-Reset beim Tutorial-Wechsel 8 -> 9 sichtbar als
+    // kurzes Hochspringen. Deshalb setzen wir nur dort während des versteckten
+    // Moments zurück. iOS bleibt unverändert.
     if (isTourActive) {
       if (isFeedbackTutorialStep) {
         scrollRef.current?.scrollTo({
           y: FEEDBACK_TOUR_SCROLL_Y,
           animated: false,
         });
+      } else if (Platform.OS === 'android') {
+        scrollRef.current?.scrollTo({ y: 0, animated: false });
       }
 
       return;
@@ -122,6 +125,7 @@ export default function FeedbackScreen() {
     <SafeAreaView style={styles.container}>
       <ScrollView
         ref={scrollRef}
+        style={shouldHideAndroidTutorialReset ? styles.hiddenTutorialContent : undefined}
         contentOffset={isFeedbackTutorialStep ? FEEDBACK_TOUR_CONTENT_OFFSET : undefined}
         contentContainerStyle={[styles.content, { paddingBottom: bottomContentPadding }]}
         showsVerticalScrollIndicator={false}
@@ -212,6 +216,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: sv(12),
     textAlign: 'center',
+  },
+  hiddenTutorialContent: {
+    opacity: 0,
   },
   content: {
     paddingHorizontal: s(20),

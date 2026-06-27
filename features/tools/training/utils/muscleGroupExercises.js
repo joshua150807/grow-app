@@ -42,16 +42,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Brustpresse',
         category: 'Brust',
         description:
-          'Die Brustpresse trainiert vor allem die Brustmuskulatur und bietet durch die geführte Bewegung eine stabile Ausführung.',
+          'Die Brustpresse trainiert hauptsächlich die Brustmuskulatur und zusätzlich die vordere Schulter sowie den Trizeps. Durch die geführte Bewegung eignet sie sich besonders gut für Anfänger.',
         execution: [
-          'Stelle den Sitz so ein, dass die Griffe ungefähr auf Brusthöhe sind.',
+          'Stelle den Sitz so ein, dass sich die Griffe etwa auf Brusthöhe befinden.',
           'Drücke das Gewicht kontrolliert nach vorne.',
-          'Führe das Gewicht langsam zurück, bis eine gute Dehnung in der Brust entsteht.',
+          'Lasse das Gewicht langsam zurück, bis eine angenehme Dehnung in der Brust entsteht.',
         ],
         tips: [
-          'Halte die Schulterblätter leicht hinten und unten.',
-          'Drücke nicht aus den Schultern heraus.',
-          'Nutze einen kontrollierten Bewegungsradius.',
+          'Halte die Schultern während der gesamten Bewegung hinten und unten.',
+          'Strecke die Arme kontrolliert aus, ohne die Spannung in der Brust zu verlieren.',
+          'Arbeite mit einem Gewicht, das du sauber bewegen kannst.',
         ],
       },
       {
@@ -253,16 +253,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Mittelbreites Rudern',
         category: 'Mittlerer Rücken',
         description:
-          'Mittelbreites Rudern trainiert den mittleren Rücken, den Latissimus und die Schulterblattmuskulatur.',
+          'Mittelbreites Rudern trainiert vor allem den Latissimus, die Rhomboiden und den mittleren Rücken. Der mittlere Griff bietet eine gute Kombination aus Bewegungsradius und Muskelaktivierung.',
         execution: [
-          'Setze dich stabil an die Maschine oder den Kabelzug.',
-          'Ziehe den Griff kontrolliert Richtung Bauch oder unteren Brustkorb.',
-          'Führe das Gewicht langsam zurück und nutze die Dehnung im Rücken.',
+          'Setze dich aufrecht hin und hebe die Brust leicht an.',
+          'Ziehe den Griff kontrolliert Richtung Bauchnabel.',
+          'Lasse das Gewicht langsam wieder nach vorne.',
         ],
         tips: [
-          'Halte die Brust aufrecht.',
-          'Ziehe die Ellenbogen bewusst nach hinten.',
-          'Arbeite nicht mit Schwung aus dem Oberkörper.',
+          'Ziehe die Ellbogen Richtung Hüfte.',
+          'Führe die Schulterblätter am Ende der Bewegung bewusst zusammen.',
+          'Nutze die Dehnung im Rücken.',
         ],
       },
       {
@@ -270,16 +270,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Rudermaschine mittlerer Griff',
         category: 'Mittlerer Rücken',
         description:
-          'Die Rudermaschine mit mittlerem Griff trainiert besonders den mittleren Rücken und ermöglicht eine kontrollierte Zugbewegung.',
+          'Die Rudermaschine trainiert den gesamten Rücken mit Fokus auf Latissimus und mittleren Rücken. Durch die geführte Bewegung eignet sie sich besonders gut für Anfänger.',
         execution: [
-          'Stelle Sitz und Brustpolster passend auf deine Körpergröße ein.',
-          'Ziehe die Griffe kontrolliert Richtung Oberkörper.',
-          'Lasse das Gewicht langsam zurück, ohne die Spannung zu verlieren.',
+          'Stelle den Sitz passend ein und richte die Brust auf.',
+          'Ziehe die Griffe kontrolliert zum Oberkörper.',
+          'Lasse das Gewicht langsam wieder zurück.',
         ],
         tips: [
-          'Halte die Brust am Polster oder aufrecht.',
-          'Ziehe die Schulterblätter am Ende der Bewegung zusammen.',
-          'Vermeide Schwung und ruckartige Bewegungen.',
+          'Ziehe die Ellbogen nach hinten und leicht Richtung Hüfte.',
+          'Halte den Oberkörper möglichst ruhig.',
+          'Nutze die Dehnung am Ende der Bewegung.',
         ],
       },
       {
@@ -566,16 +566,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Beinbeuger sitzend',
         category: 'Beine',
         description:
-          'Der sitzende Beinbeuger trainiert gezielt die Rückseite der Oberschenkel und ermöglicht eine starke Dehnung der Beinbeuger.',
+          'Der sitzende Beinbeuger trainiert gezielt die Muskulatur auf der Rückseite des Oberschenkels. Durch die sitzende Position entsteht eine besonders gute Dehnung der Beinbeuger.',
         execution: [
-          'Stelle Sitz, Rückenlehne und Polster passend auf deine Körpergröße ein.',
-          'Beuge die Beine kontrolliert nach unten.',
-          'Lasse das Gewicht langsam zurück und halte die Spannung in den Beinbeugern.',
+          'Stelle die Maschine passend auf deine Körpergröße ein.',
+          'Beuge die Beine kontrolliert nach hinten.',
+          'Lasse das Gewicht langsam wieder zurück.',
         ],
         tips: [
-          'Halte die Hüfte fest im Sitz.',
-          'Nutze die Dehnung am Startpunkt.',
-          'Arbeite kontrolliert und ohne Schwung.',
+          'Nutze die Dehnung am unteren Punkt.',
+          'Halte das Gesäß während der Übung auf dem Sitz.',
+          'Spanne die Beinbeuger am Endpunkt bewusst an.',
         ],
       },
       {
@@ -862,16 +862,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Shrugs',
         category: 'Nacken / Trapez',
         description:
-          'Shrugs trainieren vor allem den oberen Trapezmuskel und unterstützen eine kräftige Schulter- und Nackenpartie.',
+          'Shrugs trainieren hauptsächlich den oberen Trapezmuskel und tragen zu einem kräftigen Nacken und Schulterbereich bei.',
         execution: [
-          'Halte die Hanteln oder Griffe seitlich neben dem Körper.',
+          'Halte die Hanteln seitlich am Körper.',
           'Ziehe die Schultern kontrolliert nach oben.',
-          'Senke die Schultern langsam wieder ab und nutze den vollen Bewegungsradius.',
+          'Senke die Schultern langsam wieder ab.',
         ],
         tips: [
-          'Rolle die Schultern nicht nach vorne oder hinten.',
-          'Arbeite kontrolliert und ohne Schwung.',
-          'Halte Kopf und Oberkörper stabil.',
+          'Ziehe die Schultern nur nach oben und nicht nach vorne oder hinten.',
+          'Nutze den vollen Bewegungsradius.',
+          'Halte die Arme während der gesamten Übung gestreckt.',
         ],
       },
     ],
@@ -920,15 +920,15 @@ export const MUSCLE_GROUP_EXERCISES = {
               name: 'Preacher Curl Maschine',
               category: 'Bizeps',
               description:
-                'Die Preacher Curl Maschine trainiert den Bizeps isoliert und reduziert Schwung durch die feste Position der Oberarme.',
+                'Die Scottcurl Maschine trainiert vor allem den kurzen Kopf des Bizeps. Durch die feste Armposition wird Schwung minimiert und der Bizeps gezielt belastet.',
               execution: [
-                'Stelle Sitz und Polster so ein, dass die Oberarme vollständig aufliegen.',
+                'Lege die Oberarme vollständig auf dem Polster ab.',
                 'Beuge die Arme kontrolliert nach oben.',
                 'Senke das Gewicht langsam wieder ab und nutze die Dehnung.',
               ],
               tips: [
                 'Halte die Oberarme während der gesamten Bewegung ruhig.',
-                'Arbeite nicht mit Schwung.',
+                'Nutze den vollen Bewegungsradius.',
                 'Spanne den Bizeps am oberen Punkt bewusst an.',
               ],
             },
@@ -1213,16 +1213,16 @@ export const MUSCLE_GROUP_EXERCISES = {
         name: 'Bauchmaschine',
         category: 'Bauch',
         description:
-          'Die Bauchmaschine trainiert vor allem den geraden Bauchmuskel und ermöglicht eine kontrollierte Belastung mit Zusatzgewicht.',
+          'Die Bauchmaschine trainiert hauptsächlich den geraden Bauchmuskel und ermöglicht eine kontrollierte Bewegung mit zusätzlichem Widerstand.',
         execution: [
-          'Stelle Sitz und Polster passend auf deine Körpergröße ein.',
+          'Positioniere dich bequem in der Maschine.',
           'Rolle den Oberkörper kontrolliert nach vorne ein.',
-          'Führe das Gewicht langsam zurück, ohne die Spannung im Bauch zu verlieren.',
+          'Kehre langsam in die Ausgangsposition zurück.',
         ],
         tips: [
-          'Ziehe nicht aus den Armen oder der Hüfte.',
-          'Rolle den Oberkörper bewusst ein.',
-          'Arbeite kontrolliert und vermeide Schwung.',
+          'Bewege den Oberkörper bewusst aus der Bauchmuskulatur.',
+          'Halte den unteren Rücken stabil.',
+          'Arbeite langsam und kontrolliert.',
         ],
       },
       {
