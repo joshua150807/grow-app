@@ -116,6 +116,11 @@ export default function GoalsScreen() {
           <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
           <Text style={styles.backText}>Tools</Text>
         </PressableScale>
+
+        <PressableScale onPress={() => router.push('/tools/leitfragen')} style={styles.leitfragenTopButton}>
+          <Ionicons name="help-circle-outline" size={s(16)} color={COLORS.softGold} />
+          <Text style={styles.leitfragenTopButtonText}>Leitfragen</Text>
+        </PressableScale>
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

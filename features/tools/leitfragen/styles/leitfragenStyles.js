@@ -93,9 +93,16 @@ export const styles = StyleSheet.create({
   gestureArea: {
     flex: 1,
   },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: s(20),
     paddingBottom: sv(36),
+  },
+  questionDetailContent: {
+    flexGrow: 1,
+    paddingBottom: sv(72),
   },
   header: {
     alignItems: 'center',
@@ -262,7 +269,7 @@ export const styles = StyleSheet.create({
     lineHeight: sf(29),
     marginBottom: sv(7),
   },
-  starterQuestionTitle: {
+  leitfragenQuestionTitle: {
     color: COLORS.textPrimary,
     fontSize: sf(23),
     fontWeight: '900',
@@ -276,7 +283,7 @@ export const styles = StyleSheet.create({
     lineHeight: sf(20),
     marginBottom: sv(17),
   },
-  starterSectionLabel: {
+  leitfragenSectionLabel: {
     color: COLORS.gold,
     fontSize: sf(11),
     fontWeight: '900',
@@ -364,12 +371,30 @@ export const styles = StyleSheet.create({
     lineHeight: sf(19),
     textAlignVertical: 'top',
   },
-  starterInput: {
-    minHeight: sv(230),
+  leitfragenInputWrap: {
+    position: 'relative',
+    width: '100%',
+    minHeight: sv(120),
     marginBottom: sv(14),
   },
-  leitfragenAnswerInput: {
-    minHeight: sv(140),
+  leitfragenInput: {
+    flex: 1,
+    marginBottom: 0,
+  },
+  leitfragenInputMeasure: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    opacity: 0,
+    zIndex: -1,
+    paddingHorizontal: s(12),
+    paddingVertical: sv(10),
+  },
+  leitfragenInputMeasureText: {
+    color: COLORS.textSecondary,
+    fontSize: sf(13),
+    lineHeight: sf(19),
   },
   checkboxRow: {
     flexDirection: 'row',

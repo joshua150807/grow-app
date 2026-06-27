@@ -66,6 +66,13 @@ export const tools = [
     route: '/tools/journal',
   },
   {
+    id: 'leitfragen',
+    title: 'Leitfragen',
+    description: 'Finde Klarheit.',
+    image: TOOL_IMAGES.leitfragen,
+    route: '/tools/leitfragen',
+  },
+  {
     id: 'notes',
     title: 'Notizen',
     description: 'Gedanken festhalten.',

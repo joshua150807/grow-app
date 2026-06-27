@@ -30,17 +30,26 @@ export default function JournalPageNavigation({
         activeScale={isStarterPage ? 1 : 0.96}
         disabled={isStarterPage}
       >
-        <Text style={styles.pageNavKicker}>
-          {isStarterPage ? starterPage?.eyebrow : getRelativeDayLabel(selectedDate)}
-        </Text>
-        <View style={styles.pageNavTitleRow}>
-          <Text style={styles.pageNavTitle} numberOfLines={1}>
-            {isStarterPage ? starterPage?.title : formatShortJournalDate(selectedDate)}
+        {isStarterPage ? (
+          <Text style={styles.pageNavQuestionNumber} numberOfLines={1}>
+            {starterPage?.eyebrow}
           </Text>
-          {!isStarterPage && (
-            <Ionicons name="calendar-outline" size={s(15)} color={COLORS.textDim} />
-          )}
-        </View>
+        ) : (
+          <>
+            <Text style={styles.pageNavKicker}>{getRelativeDayLabel(selectedDate)}</Text>
+            <View style={styles.pageNavTitleRow}>
+              <Text style={styles.pageNavTitle} numberOfLines={1}>
+                {formatShortJournalDate(selectedDate)}
+              </Text>
+              <Ionicons
+                name="calendar-outline"
+                size={s(15)}
+                color={COLORS.textDim}
+                style={styles.pageNavCalendarIcon}
+              />
+            </View>
+          </>
+        )}
       </PressableScale>
 
       <PressableScale onPress={onNextPage} style={styles.pageArrowButton} activeScale={0.94}>

@@ -19,7 +19,6 @@ import { s } from '../../../../constants/layout';
 
 import { useJournalEntries } from '../hooks/useJournalEntries';
 import {
-  JOURNAL_STARTER_PAGES,
   addDaysToIsoDate,
   isFutureJournalDate,
   isJournalEntryValid,
@@ -32,8 +31,6 @@ import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 import JournalCalendarModal from '../components/JournalCalendarModal';
 import JournalDayPage from '../components/JournalDayPage';
 import JournalPageNavigation from '../components/JournalPageNavigation';
-import JournalStarterPage from '../components/JournalStarterPage';
-import JournalTableOfContentsModal from '../components/JournalTableOfContentsModal';
 
 const SWIPE_BACK_EDGE_WIDTH = s(30);
 const SWIPE_TRIGGER_DISTANCE = s(96);
@@ -50,11 +47,8 @@ const emptyForm = {
   missedHabits: '',
 };
 
-const getInitialPage = () => ({ type: 'day', date: toLocalDateString() });
-
-function getStarterPageIndex(page) {
-  if (page.type !== 'starter') return -1;
-  return JOURNAL_STARTER_PAGES.findIndex(item => item.key === page.key);
+function getInitialPage() {
+  return { type: 'day', date: toLocalDateString() };
 }
 
 function formFromEntry(entry) {
@@ -71,12 +65,9 @@ function formFromEntry(entry) {
 
 export default function JournalScreen() {
   const [selectedPage, setSelectedPage] = useState(getInitialPage);
-  const [tocVisible, setTocVisible] = useState(false);
   const [calendarVisible, setCalendarVisible] = useState(false);
   const [form, setForm] = useState(emptyForm);
-  const [starterAnswer, setStarterAnswer] = useState('');
   const [saving, setSaving] = useState(false);
-  const [starterSaving, setStarterSaving] = useState(false);
   const [formError, setFormError] = useState(null);
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const pageTurn = useRef(new Animated.Value(0)).current;
@@ -91,16 +82,11 @@ export default function JournalScreen() {
     fromProtectedEdge: false,
   });
 
-  const selectedDate = selectedPage.type === 'day' ? selectedPage.date : toLocalDateString();
-  const isStarterPage = selectedPage.type === 'starter';
-  const starterPage = isStarterPage
-    ? JOURNAL_STARTER_PAGES.find(item => item.key === selectedPage.key)
-    : null;
-  const isFutureDay = selectedPage.type === 'day' && isFutureJournalDate(selectedPage.date);
+  const selectedDate = selectedPage.date;
+  const isFutureDay = isFutureJournalDate(selectedDate);
 
   const {
     visibleEntries,
-    starterEntriesByKey,
     loading,
     loadError,
     actionError,
@@ -108,7 +94,6 @@ export default function JournalScreen() {
     loadEntries,
     add,
     update,
-    saveStarterPage,
   } = useJournalEntries(selectedDate);
 
   const showLoading = useDelayedLoading(loading);
@@ -172,7 +157,6 @@ export default function JournalScreen() {
     ],
   };
 
-
   const updateSwipePreview = useCallback((translationX) => {
     const dragDistance = s(180);
     const progress = Math.max(-0.72, Math.min(0.72, translationX / dragDistance));
@@ -180,15 +164,9 @@ export default function JournalScreen() {
   }, [pageTurn]);
 
   useEffect(() => {
-    if (!starterPage) return;
-    setStarterAnswer(starterEntriesByKey[starterPage.key]?.answer || '');
-  }, [starterPage, starterEntriesByKey]);
-
-  useEffect(() => {
-    if (isStarterPage) return;
     setForm(formFromEntry(currentDayEntry));
     setFormError(null);
-  }, [currentDayEntry, isStarterPage, selectedDate]);
+  }, [currentDayEntry, selectedDate]);
 
   const showFutureAlert = useCallback(() => {
     Alert.alert('Der Tag liegt in der Zukunft');
@@ -209,7 +187,6 @@ export default function JournalScreen() {
     const inValue = direction === 'next' ? 1 : -1;
 
     isTurningRef.current = true;
-    setTocVisible(false);
     setCalendarVisible(false);
     resetPageState();
     pageTurn.stopAnimation();
@@ -249,32 +226,12 @@ export default function JournalScreen() {
   }, [pageTurn]);
 
   const handlePreviousPage = useCallback(() => {
-    if (selectedPage.type === 'starter') {
-      const currentIndex = getStarterPageIndex(selectedPage);
-      if (currentIndex <= 0) {
-        snapPageBack();
-        return;
-      }
-      openPage({ type: 'starter', key: JOURNAL_STARTER_PAGES[currentIndex - 1].key }, 'prev');
-      return;
-    }
-
     openPage({ type: 'day', date: addDaysToIsoDate(selectedPage.date, -1) }, 'prev');
-  }, [openPage, selectedPage, snapPageBack]);
+  }, [openPage, selectedPage.date]);
 
   const handleNextPage = useCallback(() => {
-    if (selectedPage.type === 'starter') {
-      const currentIndex = getStarterPageIndex(selectedPage);
-      if (currentIndex < JOURNAL_STARTER_PAGES.length - 1) {
-        openPage({ type: 'starter', key: JOURNAL_STARTER_PAGES[currentIndex + 1].key }, 'next');
-        return;
-      }
-      openPage({ type: 'day', date: toLocalDateString() }, 'next');
-      return;
-    }
-
     openPage({ type: 'day', date: addDaysToIsoDate(selectedPage.date, 1) }, 'next');
-  }, [openPage, selectedPage]);
+  }, [openPage, selectedPage.date]);
 
   const handleTextInputTouchStart = useCallback((event) => {
     const nativeEvent = event?.nativeEvent ?? {};
@@ -401,15 +358,12 @@ export default function JournalScreen() {
           return;
         }
 
-        const shouldGoNext = event.translationX < 0;
-        const shouldGoPrevious = event.translationX > 0;
-
-        if (shouldGoNext) {
+        if (event.translationX < 0) {
           handleNextPage();
           return;
         }
 
-        if (shouldGoPrevious) {
+        if (event.translationX > 0) {
           handlePreviousPage();
         }
       })
@@ -418,15 +372,12 @@ export default function JournalScreen() {
         swipeActiveRef.current = false;
       });
 
-    // Wichtig: Dadurch kann die vertikale ScrollView weiter funktionieren,
-    // während klare horizontale Swipes trotzdem erkannt werden.
     return Gesture.Simultaneous(panGesture, Gesture.Native());
   }, [handleNextPage, handlePreviousPage, snapPageBack, updateSwipePreview]);
 
   const handleOpenCalendar = useCallback(() => {
-    if (isStarterPage) return;
     setCalendarVisible(true);
-  }, [isStarterPage]);
+  }, []);
 
   const handleCalendarChange = useCallback((event, date) => {
     if (Platform.OS === 'android' && event?.type === 'dismissed') {
@@ -488,27 +439,6 @@ export default function JournalScreen() {
     }
   }, [isFutureDay, selectedDate, form, currentDayEntry, add, update, showFutureAlert]);
 
-  const handleSaveStarterPage = useCallback(async () => {
-    if (!starterPage) return;
-
-    const answer = starterAnswer.trim();
-    if (!answer) {
-      setFormError('Fülle die Startseite aus, bevor du speicherst.');
-      return;
-    }
-
-    setStarterSaving(true);
-    setFormError(null);
-
-    try {
-      await saveStarterPage({ pageKey: starterPage.key, answer });
-    } catch (e) {
-      setFormError('Startseite konnte nicht gespeichert werden. Bitte versuche es erneut.');
-    } finally {
-      setStarterSaving(false);
-    }
-  }, [saveStarterPage, starterAnswer, starterPage]);
-
   const handleToggleHabits = useCallback(() => {
     if (isFutureDay) {
       showFutureAlert();
@@ -518,7 +448,6 @@ export default function JournalScreen() {
   }, [form.habitsCompleted, isFutureDay, showFutureAlert, updateForm]);
 
   const canSave = !saving && (isFutureDay || isJournalEntryValid(form));
-  const canSaveStarter = !starterSaving && starterAnswer.trim().length > 0;
 
   return (
     <View style={styles.screen}>
@@ -534,6 +463,11 @@ export default function JournalScreen() {
               <Ionicons name="chevron-back" size={s(24)} color={COLORS.softGold} />
               <Text style={styles.backText}>Tools</Text>
             </PressableScale>
+
+            <PressableScale onPress={() => router.push('/tools/leitfragen')} style={styles.leitfragenTopButton}>
+              <Ionicons name="help-circle-outline" size={s(16)} color={COLORS.softGold} />
+              <Text style={styles.leitfragenTopButtonText}>Leitfragen</Text>
+            </PressableScale>
           </View>
 
           <GestureDetector gesture={journalSwipeGesture}>
@@ -547,12 +481,6 @@ export default function JournalScreen() {
               >
                 <View style={styles.header}>
                   <Text style={styles.title}>JOURNAL</Text>
-
-                  <PressableScale onPress={() => setTocVisible(true)} style={styles.tocHeaderButton}>
-                    <Ionicons name="list-outline" size={s(22)} color={COLORS.softGold} />
-                    <Text style={styles.tocHeaderText}>Fragen</Text>
-                  </PressableScale>
-
                   <Text style={styles.subtitle}>Dein persönliches Buch. Jeden Tag eine Seite.</Text>
                 </View>
 
@@ -576,8 +504,7 @@ export default function JournalScreen() {
                 )}
 
                 <JournalPageNavigation
-                  isStarterPage={isStarterPage}
-                  starterPage={starterPage}
+                  isStarterPage={false}
                   selectedDate={selectedDate}
                   onPreviousPage={handlePreviousPage}
                   onNextPage={handleNextPage}
@@ -587,48 +514,27 @@ export default function JournalScreen() {
                 <Animated.View style={[styles.pageTurnWrap, pageAnimatedStyle]}>
                   <Animated.View pointerEvents="none" style={[styles.pageTurnShadow, pageShadowStyle]} />
                   <Animated.View pointerEvents="none" style={[styles.pageTurnFold, pageFoldStyle]} />
-                  {isStarterPage ? (
-                    <JournalStarterPage
-                      starterPage={starterPage}
-                      starterAnswer={starterAnswer}
-                      onChangeStarterAnswer={setStarterAnswer}
-                      inputGestureProps={inputGestureProps}
-                      onTextInputTouchEnd={handleTextInputTouchEnd}
-                      formError={formError}
-                      canSaveStarter={canSaveStarter}
-                      starterSaving={starterSaving}
-                      onSaveStarterPage={handleSaveStarterPage}
-                    />
-                  ) : (
-                    <JournalDayPage
-                      selectedDate={selectedDate}
-                      isFutureDay={isFutureDay}
-                      currentDayEntry={currentDayEntry}
-                      showLoading={showLoading}
-                      form={form}
-                      onUpdateForm={updateForm}
-                      onToggleHabits={handleToggleHabits}
-                      inputGestureProps={inputGestureProps}
-                      onTextInputTouchEnd={handleTextInputTouchEnd}
-                      formError={formError}
-                      canSave={canSave}
-                      saving={saving}
-                      onSave={handleSave}
-                    />
-                  )}
+                  <JournalDayPage
+                    selectedDate={selectedDate}
+                    isFutureDay={isFutureDay}
+                    currentDayEntry={currentDayEntry}
+                    showLoading={showLoading}
+                    form={form}
+                    onUpdateForm={updateForm}
+                    onToggleHabits={handleToggleHabits}
+                    inputGestureProps={inputGestureProps}
+                    onTextInputTouchEnd={handleTextInputTouchEnd}
+                    formError={formError}
+                    canSave={canSave}
+                    saving={saving}
+                    onSave={handleSave}
+                  />
                 </Animated.View>
               </ScrollView>
             </View>
           </GestureDetector>
         </View>
       </ImageBackground>
-
-      <JournalTableOfContentsModal
-        visible={tocVisible}
-        onClose={() => setTocVisible(false)}
-        starterEntriesByKey={starterEntriesByKey}
-        openPage={openPage}
-      />
 
       <JournalCalendarModal
         visible={calendarVisible}

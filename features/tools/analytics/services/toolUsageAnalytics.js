@@ -31,6 +31,10 @@ export function getTrackedToolForPath(pathname) {
       return true;
     }
 
+    if (route === '/tools/leitfragen' && normalizedPath.startsWith('/tools/leitfragen/')) {
+      return true;
+    }
+
     return false;
   }) ?? null;
 }

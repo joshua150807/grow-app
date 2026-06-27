@@ -10,6 +10,7 @@ export const TOOL_IMAGES = {
   affirmations: require('../assets/tool-icons/affirmationIcon.webp'),
   notes: require('../assets/tool-icons/notesIcon.webp'),
   journal: require('../assets/tool-icons/journalIcon.webp'),
+  leitfragen: require('../assets/tool-icons/leitfragen-icon.webp'),
   recommendations: require('../assets/tool-icons/recommendationIcon.webp'),
   inProgress: require('../assets/tool-icons/in-progress-icon.webp')
 };
@@ -29,6 +30,7 @@ export const AFFIRMATIONS_PAGE_BG = require('../assets/tool-icons/backgrounds/af
 export const RECOMMENDATIONS_PAGE_BG = require('../assets/tool-icons/backgrounds/recommendations-page-bg.webp');
 export const NOTES_PAGE_BG = require('../assets/tool-icons/backgrounds/notes-page-bg.webp');
 export const JOURNAL_PAGE_BG = require('../assets/tool-icons/backgrounds/journal-page-bg.webp')
+export const LEITFRAGEN_PAGE_BG = require('../assets/tool-icons/backgrounds/leitfragen-page-bg.webp')
 
 export const TOOL_OVERVIEW_IMAGE_ASSETS = [
   ...Object.values(TOOL_IMAGES),
@@ -68,6 +70,7 @@ export const TOOL_PAGE_BACKGROUND_ASSETS = [
   RECOMMENDATIONS_PAGE_BG,
   NOTES_PAGE_BG,
   JOURNAL_PAGE_BG,
+  LEITFRAGEN_PAGE_BG,
 ];  
 
 let toolOverviewImagesPreloaded = false;

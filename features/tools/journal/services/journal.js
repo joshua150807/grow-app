@@ -16,20 +16,6 @@ export async function getJournalEntries() {
   return data ?? [];
 }
 
-export async function getJournalStarterEntries() {
-  const userId = await getCurrentUserId();
-  if (!userId) return [];
-
-  const { data, error } = await supabase
-    .from('journal_starter_entries')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: true });
-
-  if (error) throw error;
-  return data ?? [];
-}
-
 export async function addJournalEntry({
   entryDate,
   gratitude,
@@ -90,27 +76,6 @@ export async function updateJournalEntry(id, {
     throw new Error('Journal-Eintrag konnte nicht aktualisiert werden. Keine passende Zeile gefunden.');
   }
 
-  return data;
-}
-
-export async function upsertJournalStarterEntry({ pageKey, answer }) {
-  const userId = await getCurrentUserId();
-  if (!userId) throw new Error('Nicht eingeloggt');
-
-  const { data, error } = await supabase
-    .from('journal_starter_entries')
-    .upsert({
-      user_id: userId,
-      page_key: pageKey,
-      answer,
-      updated_at: new Date().toISOString(),
-    }, {
-      onConflict: 'user_id,page_key',
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
   return data;
 }
 

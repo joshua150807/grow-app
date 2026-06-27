@@ -1,8 +1,6 @@
 import { View, Text, TextInput, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
-import { s } from '../../../../constants/layout';
 import PressableScale from '../../../../components/ui/PressableScale';
 import { styles } from '../styles/journalStyles';
 
@@ -17,18 +15,26 @@ export default function JournalStarterPage({
   starterSaving,
   onSaveStarterPage,
 }) {
+  const prompts = starterPage?.prompts ?? [];
+  const exampleAnswer = starterPage?.exampleAnswer?.trim();
+
   return (
     <View style={styles.bookPageCard}>
-      <View style={styles.pageHeaderRow}>
-        <View style={styles.pageBadge}>
-          <Ionicons name="sparkles-outline" size={s(16)} color={COLORS.gold} />
-          <Text style={styles.pageBadgeText}>{starterPage?.eyebrow}</Text>
+      <Text style={styles.starterQuestionTitle}>{starterPage?.title}</Text>
+
+      {prompts.length > 0 && (
+        <View style={styles.promptCard}>
+          <Text style={styles.promptTitle}>Erklärung</Text>
+          {prompts.map((prompt, index) => (
+            <View key={`${starterPage?.key}-prompt-${index}`} style={styles.promptRow}>
+              <Text style={styles.promptBullet}>•</Text>
+              <Text style={styles.promptText}>{prompt}</Text>
+            </View>
+          ))}
         </View>
-      </View>
+      )}
 
-      <Text style={styles.bookPageTitle}>{starterPage?.title}</Text>
-      <Text style={styles.bookPageDescription}>{starterPage?.description}</Text>
-
+      <Text style={styles.answerLabel}>Deine Antwort</Text>
       <TextInput
         value={starterAnswer}
         onChangeText={onChangeStarterAnswer}
@@ -41,6 +47,13 @@ export default function JournalStarterPage({
         style={[styles.input, styles.starterInput]}
       />
 
+      {exampleAnswer ? (
+        <View style={styles.exampleCard}>
+          <Text style={styles.exampleTitle}>Beispiel-Antwort</Text>
+          <Text style={styles.exampleText}>{exampleAnswer}</Text>
+        </View>
+      ) : null}
+
       {formError && <Text style={styles.errorText}>{formError}</Text>}
 
       <PressableScale
@@ -51,7 +64,7 @@ export default function JournalStarterPage({
         {starterSaving ? (
           <ActivityIndicator color={COLORS.gold} />
         ) : (
-          <Text style={styles.saveText}>Startseite speichern</Text>
+          <Text style={styles.saveText}>Antwort speichern</Text>
         )}
       </PressableScale>
     </View>
