@@ -35,6 +35,11 @@ export function getTrackedToolForPath(pathname) {
       return true;
     }
 
+
+    if (route === '/tools/daily-planner' && normalizedPath.startsWith('/tools/daily-planner/')) {
+      return true;
+    }
+
     return false;
   }) ?? null;
 }

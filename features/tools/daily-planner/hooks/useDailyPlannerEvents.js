@@ -63,30 +63,25 @@ export function useDailyPlannerEvents(currentYear, currentMonth, selectedDate) {
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
+  const loadMonthEvents = useCallback(async () => {
     const requestId = monthRequestRef.current + 1;
     monthRequestRef.current = requestId;
 
-    async function loadMonthEvents() {
-      try {
-        const data = normalizeEvents(await getEventsForMonth(currentYear, currentMonth + 1));
+    try {
+      const data = normalizeEvents(await getEventsForMonth(currentYear, currentMonth + 1));
 
-        if (!cancelled && mountedRef.current && requestId === monthRequestRef.current) {
-          setMonthEventDates(new Set(data.map(event => event.date)));
-          setPreloadedToolData(monthCacheKey, data);
-        }
-      } catch {
-        // Dots may fail silently.
+      if (mountedRef.current && requestId === monthRequestRef.current) {
+        setMonthEventDates(new Set(data.map(event => event.date)));
+        setPreloadedToolData(monthCacheKey, data);
       }
+    } catch {
+      // Dots may fail silently.
     }
-
-    loadMonthEvents();
-
-    return () => {
-      cancelled = true;
-    };
   }, [currentYear, currentMonth, monthCacheKey]);
+
+  useEffect(() => {
+    loadMonthEvents();
+  }, [loadMonthEvents]);
 
   const loadDayEvents = useCallback(async (dateStr, { silent = false } = {}) => {
     if (!isValidDateString(dateStr)) return;
@@ -236,6 +231,7 @@ export function useDailyPlannerEvents(currentYear, currentMonth, selectedDate) {
 
   return {
     monthEventDates,
+    loadMonthEvents,
     events,
     dayLoading,
     dayError,
