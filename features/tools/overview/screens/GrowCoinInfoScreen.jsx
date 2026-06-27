@@ -1,65 +1,53 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
-import PressableScale from '../../../../components/ui/PressableScale';
 import { COLORS } from '../../../../constants/colors';
-import { s, sv, sf } from '../../../../constants/layout';
+import { s, sv } from '../../../../constants/layout';
+
+const GROW_COIN_INFO_IMAGE = require('../../../../assets/tool-icons/backgrounds/grow-coin-info-page.webp');
+const GROW_COIN_INFO_ASPECT_RATIO = 941 / 1672;
 
 export default function GrowCoinInfoScreen() {
+  const { width: windowWidth } = useWindowDimensions();
+
+  const imageWidth = Math.max(0, windowWidth - s(52));
+  const imageHeight = imageWidth / GROW_COIN_INFO_ASPECT_RATIO;
+
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <PressableScale
-          onPress={() => router.back()}
-          style={styles.backButton}
-          activeScale={0.94}
-          activeOpacity={0.8}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel="Zurück"
-        >
-          <Feather name="chevron-left" size={s(24)} color={COLORS.toolsText} />
-        </PressableScale>
-
-        <Text style={styles.headerTitle}>GROW COIN</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        bounces
       >
-        <View style={styles.coinPlaceholder}>
-          <Text style={styles.coinSymbol}>G</Text>
-        </View>
-
-        <Text style={styles.title}>Deine Grow Points</Text>
-        <Text style={styles.intro}>
-          Hier entsteht die vollständige Erklärung zur Grow Coin und zum Grow-Points-System.
-        </Text>
-
-        <View style={styles.infoCard}>
-          <Text style={styles.cardTitle}>Was sind Grow Points?</Text>
-          <Text style={styles.cardText}>
-            Platzhaltertext: Grow Points belohnen dich für deine Aktivität und deinen Fortschritt innerhalb von Grow.
-          </Text>
-        </View>
-
-        <View style={styles.infoCard}>
-          <Text style={styles.cardTitle}>Wie sammle ich sie?</Text>
-          <Text style={styles.cardText}>
-            Platzhaltertext: Hier werden später alle Möglichkeiten erklärt, mit denen du Grow Points verdienen kannst.
-          </Text>
-        </View>
-
-        <View style={styles.infoCard}>
-          <Text style={styles.cardTitle}>Wofür kann ich sie nutzen?</Text>
-          <Text style={styles.cardText}>
-            Platzhaltertext: An dieser Stelle folgen später Belohnungen, Vorteile und weitere Funktionen der Grow Coin.
-          </Text>
-        </View>
+        <Image
+          source={GROW_COIN_INFO_IMAGE}
+          style={[
+            styles.infoImage,
+            {
+              width: imageWidth,
+              height: imageHeight,
+            },
+          ]}
+          resizeMode="cover"
+        />
       </ScrollView>
+
+      <View pointerEvents="box-none" style={styles.backOverlay}>
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && styles.backButtonPressed,
+          ]}
+          hitSlop={s(12)}
+          accessibilityRole="button"
+          accessibilityLabel="Zurück"
+        >
+          <Feather name="chevron-left" size={s(25)} color={COLORS.softGold ?? COLORS.toolsText} />
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -67,91 +55,37 @@ export default function GrowCoinInfoScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: COLORS.toolsBg ?? COLORS.black,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: sv(56),
-    paddingHorizontal: s(18),
-    paddingBottom: sv(14),
-  },
-  backButton: {
-    width: s(42),
-    height: s(42),
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: s(21),
-    backgroundColor: COLORS.toolsCard,
-    borderWidth: 1,
-    borderColor: COLORS.toolsCardBorder,
-  },
-  headerTitle: {
-    color: COLORS.toolsText,
-    fontSize: sf(13),
-    fontWeight: '700',
-    letterSpacing: 1.5,
-  },
-  headerSpacer: {
-    width: s(42),
+    backgroundColor: COLORS.black,
   },
   content: {
     alignItems: 'center',
-    paddingHorizontal: s(20),
-    paddingTop: sv(20),
-    paddingBottom: sv(50),
+    paddingHorizontal: s(32),
+    paddingTop: sv(120),
+    paddingBottom: sv(30),
   },
-  coinPlaceholder: {
-    width: s(104),
-    height: s(104),
+  infoImage: {
+    alignSelf: 'center',
+  },
+  backOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 999,
+    elevation: 999,
+  },
+  backButton: {
+    position: 'absolute',
+    top: sv(56),
+    left: s(16),
+    width: s(44),
+    height: s(44),
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: s(52),
-    backgroundColor: COLORS.toolsCardSoft,
+    borderRadius: s(22),
+    backgroundColor: 'rgba(5, 5, 8, 0.78)',
     borderWidth: 1,
-    borderColor: COLORS.toolsCardBorderActive,
-    marginBottom: sv(24),
+    borderColor: COLORS.goldBorderLight ?? COLORS.toolsCardBorder,
   },
-  coinSymbol: {
-    color: COLORS.toolsGold,
-    fontSize: sf(44),
-    fontWeight: '800',
-  },
-  title: {
-    color: COLORS.toolsText,
-    fontSize: sf(25),
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: sv(10),
-  },
-  intro: {
-    color: COLORS.toolsTextMuted,
-    fontSize: sf(14),
-    lineHeight: sf(21),
-    textAlign: 'center',
-    marginBottom: sv(26),
-    maxWidth: s(330),
-  },
-  infoCard: {
-    width: '100%',
-    paddingHorizontal: s(18),
-    paddingVertical: sv(18),
-    marginBottom: sv(14),
-    borderRadius: s(16),
-    backgroundColor: COLORS.toolsCard,
-    borderWidth: 1,
-    borderColor: COLORS.toolsCardBorder,
-  },
-  cardTitle: {
-    color: COLORS.toolsGold,
-    fontSize: sf(15),
-    fontWeight: '700',
-    marginBottom: sv(8),
-  },
-  cardText: {
-    color: COLORS.toolsTextMuted,
-    fontSize: sf(13.5),
-    lineHeight: sf(20),
+  backButtonPressed: {
+    opacity: 0.78,
+    transform: [{ scale: 0.96 }],
   },
 });
