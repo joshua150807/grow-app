@@ -41,6 +41,10 @@ const ANATOMY_IMAGES = {
     source: require('../../../../assets/training-anatomy/triceps.webp'),
     aspectRatio: 1024 / 1536,
   },
+  forearms: {
+    source: require('../../../../assets/training-anatomy/forearms.webp'),
+    aspectRatio: 1024 / 1536,
+  },
 };
 
 const TAB_BAR_SPACE = sv(88);
