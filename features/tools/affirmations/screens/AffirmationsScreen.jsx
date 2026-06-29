@@ -426,43 +426,24 @@ export default function AffirmationsScreen() {
               <View style={styles.helpIntroBox}>
                 <Ionicons name="sparkles" size={s(22)} color={COLORS.toolsGold ?? COLORS.gold} />
                 <Text style={styles.helpIntroText}>
-                  Affirmationen sind kurze Sätze, mit denen du deine gewünschte Identität bewusst wiederholst.
+                  Affirmationen sind bewusst formulierte Gedanken und Überzeugungen, die du regelmäßig wiederholst.
                 </Text>
               </View>
 
-              <View style={styles.helpStep}>
-                <Text style={styles.helpStepNumber}>1</Text>
-                <View style={styles.helpStepTextWrap}>
-                  <Text style={styles.helpStepTitle}>Formuliere sie aktiv</Text>
-                  <Text style={styles.helpStepText}>
-                    Schreibe nicht „Ich will disziplinierter sein“, sondern „Ich halte Versprechen an mich selbst.“
-                  </Text>
-                </View>
-              </View>
+              <Text style={styles.helpStepText}>
+                Sie werden immer so formuliert, als wären sie bereits Realität. Statt „Ich möchte erfolgreich werden“ heißt es beispielsweise: „Ich bin glücklich und dankbar für meinen Erfolg und die Freiheiten, die daraus resultieren.“
+              </Text>
 
-              <View style={styles.helpStep}>
-                <Text style={styles.helpStepNumber}>2</Text>
-                <View style={styles.helpStepTextWrap}>
-                  <Text style={styles.helpStepTitle}>Wiederhole sie bewusst</Text>
-                  <Text style={styles.helpStepText}>
-                    Lies den Satz langsam. Es geht nicht um Magie, sondern darum, deinen Fokus täglich neu auszurichten.
-                  </Text>
-                </View>
-              </View>
+              <Text style={styles.helpStepText}>
+                Der Grund dafür ist, dass unser Unterbewusstsein nicht zwischen einer tatsächlichen Erfahrung und einer häufig wiederholten Vorstellung klar unterscheidet. Durch die regelmäßige Wiederholung entstehen Überzeugungen, die Einfluss auf unsere Wahrnehmung, unsere Entscheidungen und unser tägliches Handeln haben können.
+              </Text>
 
-              <View style={styles.helpStep}>
-                <Text style={styles.helpStepNumber}>3</Text>
-                <View style={styles.helpStepTextWrap}>
-                  <Text style={styles.helpStepTitle}>Beweise sie mit Handlung</Text>
-                  <Text style={styles.helpStepText}>
-                    Eine Affirmation wirkt erst richtig, wenn du danach eine kleine Entscheidung triffst, die zu diesem Satz passt.
-                  </Text>
-                </View>
-              </View>
+              <Text style={styles.helpStepText}>
+                Richtig verinnerlichte Affirmationen können eine enorme Wirkung entfalten. Wenn sich bestimmte Überzeugungen tief im Unterbewusstsein verankern, beeinflussen sie häufig unbewusst die vielen kleinen Entscheidungen des Alltags. Genau diese täglichen Entscheidungen formen langfristig unsere Gewohnheiten, unser Verhalten und letztendlich unsere Ergebnisse.
+              </Text>
 
-              <Text style={styles.helpExampleTitle}>Beispiel</Text>
-              <Text style={styles.helpExampleText}>
-                „Ich bin jemand, der auch dann handelt, wenn es unbequem wird.“
+              <Text style={styles.helpStepText}>
+                Deshalb ist es wichtig, deine Visionen und Ziele so zu formulieren, als wären sie bereits Realität – damit dein Unterbewusstsein beginnt, dich Schritt für Schritt in diese Richtung zu lenken.
               </Text>
             </ScrollView>
           </View>
