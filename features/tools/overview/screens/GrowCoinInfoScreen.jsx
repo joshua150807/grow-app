@@ -1,15 +1,27 @@
-import { Image, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 
 import { COLORS } from '../../../../constants/colors';
-import { s, sv } from '../../../../constants/layout';
+import { s, sv, sf } from '../../../../constants/layout';
 
 const GROW_COIN_INFO_IMAGE = require('../../../../assets/tool-icons/backgrounds/grow-coin-info-page.webp');
 const GROW_COIN_INFO_ASPECT_RATIO = 941 / 1672;
 
 export default function GrowCoinInfoScreen() {
   const { width: windowWidth } = useWindowDimensions();
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
 
   const imageWidth = windowWidth;
   const imageHeight = imageWidth / GROW_COIN_INFO_ASPECT_RATIO;
@@ -31,8 +43,33 @@ export default function GrowCoinInfoScreen() {
             },
           ]}
           resizeMode="contain"
+          onLoadStart={() => {
+            setImageError(false);
+            setImageLoading(true);
+          }}
+          onLoadEnd={() => setImageLoading(false)}
+          onError={() => {
+            setImageError(true);
+            setImageLoading(false);
+          }}
         />
       </ScrollView>
+
+      {(imageLoading || imageError) && (
+        <View pointerEvents="none" style={styles.loadingOverlay}>
+          {imageError ? (
+            <>
+              <Feather name="alert-circle" size={s(30)} color={COLORS.softGold ?? COLORS.toolsText} />
+              <Text style={styles.loadingText}>Bild konnte nicht geladen werden.</Text>
+            </>
+          ) : (
+            <>
+              <ActivityIndicator size="large" color={COLORS.softGold ?? COLORS.toolsText} />
+              <Text style={styles.loadingText}>Grow Points & Coins werden geladen ...</Text>
+            </>
+          )}
+        </View>
+      )}
 
       <View pointerEvents="box-none" style={styles.backOverlay}>
         <Pressable
@@ -64,6 +101,22 @@ const styles = StyleSheet.create({
   },
   infoImage: {
     alignSelf: 'center',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: s(28),
+    backgroundColor: COLORS.black,
+    zIndex: 90,
+    elevation: 90,
+  },
+  loadingText: {
+    marginTop: sv(14),
+    color: COLORS.toolsTextMuted ?? COLORS.textSecondary,
+    fontSize: sf(13),
+    lineHeight: sf(19),
+    textAlign: 'center',
   },
   backOverlay: {
     ...StyleSheet.absoluteFillObject,

@@ -31,6 +31,7 @@ export default function VideoFeed({
   errorMessage = "Videos konnten nicht geladen werden.",
   reloadButtonText = "Erneut versuchen",
   showBackButton = false,
+  backRoute = null,
   reloadOnFocus = false,
   syncSavedStateOnFocus = false,
   removeUnsavedVideos = false,
@@ -42,6 +43,7 @@ export default function VideoFeed({
   const [userId, setUserId] = useState(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [listInitialIndex, setListInitialIndex] = useState(initialIndex);
+  const [feedInstanceKey, setFeedInstanceKey] = useState(0);
   const [feedError, setFeedError] = useState(null);
   const [hasNoVideos, setHasNoVideos] = useState(false);
   const [isFeedScrollEnabled, setIsFeedScrollEnabled] = useState(true);
@@ -117,7 +119,6 @@ export default function VideoFeed({
         return;
       }
 
-      logger.debug("Video ready fallback: Loading wurde automatisch beendet.");
       setIsInitialLoading(false);
       videoReadyFallbackTimerRef.current = null;
     }, VIDEO_READY_TIMEOUT_MS);
@@ -206,6 +207,7 @@ export default function VideoFeed({
 
       setFeedData(validVideos);
       setListInitialIndex(safeInitialIndex);
+      setFeedInstanceKey((currentKey) => currentKey + 1);
       setActiveVideoId(validVideos[safeInitialIndex].id);
       currentIndexRef.current = safeInitialIndex;
 
@@ -299,6 +301,18 @@ export default function VideoFeed({
     clearVideoReadyFallbackTimer();
     setIsInitialLoading(false);
   }, [clearVideoReadyFallbackTimer]);
+
+  const handleBackPress = useCallback(() => {
+    setActiveVideoId(null);
+    setIsInitialLoading(false);
+
+    if (backRoute) {
+      router.replace({ pathname: backRoute });
+      return;
+    }
+
+    router.back();
+  }, [backRoute]);
 
   const handleToggleSaved = useCallback(
     async (id) => {
@@ -475,6 +489,7 @@ export default function VideoFeed({
       isFocused,
       isMuted,
       listInitialIndex,
+      feedInstanceKey,
       userId,
     }),
     [
@@ -485,6 +500,7 @@ export default function VideoFeed({
       isFocused,
       isMuted,
       listInitialIndex,
+      feedInstanceKey,
       userId,
     ],
   );
@@ -510,7 +526,7 @@ export default function VideoFeed({
 
         <Pressable
           style={styles.stateButton}
-          onPress={showBackButton ? () => router.back() : loadFeedVideos}
+          onPress={showBackButton ? handleBackPress : loadFeedVideos}
         >
           <Text style={styles.stateButtonText}>
             {showBackButton ? "Zurück" : "Neu laden"}
@@ -524,6 +540,7 @@ export default function VideoFeed({
     <View style={styles.container}>
       {feedData.length > 0 && (
         <FlatList
+          key={`feed-${feedInstanceKey}-${listInitialIndex}`}
           ref={flatListRef}
           data={feedData}
           keyExtractor={(item) => item.id}
@@ -558,7 +575,7 @@ export default function VideoFeed({
       )}
 
       {showBackButton && (
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
+        <Pressable style={styles.backButton} onPress={handleBackPress}>
           <Feather name="chevron-left" size={26} color={COLORS.softGold} />
         </Pressable>
       )}

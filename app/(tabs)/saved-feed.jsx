@@ -15,6 +15,7 @@ export default function SavedFeedScreen() {
       emptyText="Du hast aktuell keine Videos in deiner Sammlung."
       errorMessage="Gespeicherte Videos konnten nicht geladen werden."
       showBackButton
+      backRoute="/(tabs)/tools/saved-videos"
       reloadOnFocus
       removeUnsavedVideos
     />

@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { View, Pressable, StyleSheet, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { VideoView, useVideoPlayer } from "expo-video";
+import { useEventListener } from "expo";
 
 import VideoOverlay from "./VideoOverlay";
 import FeedProgressBar from "./FeedProgressBar";
@@ -15,26 +16,9 @@ import { logVideoPlayerError } from "../utils/videoPlayerSafety";
 
 
 const LONG_PRESS_DELAY = 120;
+const AUDIO_UNLOCK_DELAY_MS = 45;
+const READY_TO_PLAY_VISUAL_FALLBACK_MS = 220;
 
-function getCachedVideoSource(source) {
-  if (!source) return null;
-
-  if (typeof source === "string") {
-    return {
-      uri: source,
-      useCaching: true,
-    };
-  }
-
-  if (typeof source === "object" && source.uri) {
-    return {
-      ...source,
-      useCaching: source.useCaching ?? true,
-    };
-  }
-
-  return source;
-}
 
 function getVisibleTabBarHeight(screenHeight) {
   return Math.round(Math.min(44, Math.max(34, screenHeight * 0.045)));
@@ -110,22 +94,53 @@ export default function FeedItem({
   const [isHolding, setIsHolding] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isPausedByUser, setIsPausedByUser] = useState(false);
-  const [hasRenderedFirstFrame, setHasRenderedFirstFrame] = useState(false);
-
-  const videoSource = useMemo(() => getCachedVideoSource(item.source), [item.source]);
+  const [isVisualReady, setIsVisualReady] = useState(false);
 
   const hasReportedReady = useRef(false);
   const isMountedRef = useRef(true);
+  const visualReadyTimerRef = useRef(null);
 
-  const player = useVideoPlayer(videoSource, (playerInstance) => {
+  const player = useVideoPlayer(item.source, (playerInstance) => {
     playerInstance.loop = true;
     playerInstance.muted = true;
   });
 
+  const clearVisualReadyTimer = useCallback(() => {
+    if (visualReadyTimerRef.current) {
+      clearTimeout(visualReadyTimerRef.current);
+      visualReadyTimerRef.current = null;
+    }
+  }, []);
+
+  const reportVideoReadyOnce = useCallback(() => {
+    if (hasReportedReady.current) {
+      return;
+    }
+
+    hasReportedReady.current = true;
+    onVideoReady?.();
+  }, [onVideoReady]);
+
+  const markVisualReady = useCallback((delayMs = AUDIO_UNLOCK_DELAY_MS) => {
+    clearVisualReadyTimer();
+
+    visualReadyTimerRef.current = setTimeout(() => {
+      visualReadyTimerRef.current = null;
+
+      if (!isMountedRef.current || !isActive || !isFeedFocused) {
+        return;
+      }
+
+      setIsVisualReady(true);
+      reportVideoReadyOnce();
+    }, delayMs);
+  }, [clearVisualReadyTimer, isActive, isFeedFocused, reportVideoReadyOnce]);
+
   useEffect(() => {
     hasReportedReady.current = false;
-    setHasRenderedFirstFrame(false);
-  }, [item.id, item.source]);
+    setIsVisualReady(false);
+    clearVisualReadyTimer();
+  }, [clearVisualReadyTimer, item.id, item.source]);
 
   const visibleTabBarHeight = getVisibleTabBarHeight(height);
 
@@ -176,19 +191,55 @@ export default function FeedItem({
 
   useEffect(() => {
     try {
-      player.muted = isMuted || !isActive || !hasRenderedFirstFrame;
+      player.muted = isMuted || !isActive || !isVisualReady;
     } catch (error) {
       logVideoPlayerError("Fehler beim Stummschalten des Videos:", error);
     }
-  }, [hasRenderedFirstFrame, isActive, isMuted, player]);
+  }, [isActive, isMuted, isVisualReady, player]);
 
   useEffect(() => {
     isMountedRef.current = true;
 
     return () => {
       isMountedRef.current = false;
+      clearVisualReadyTimer();
+
+      try {
+        player.muted = true;
+        player.pause();
+      } catch (error) {
+        logVideoPlayerError("Fehler beim Stoppen des Videos beim Unmount:", error);
+      }
     };
-  }, [player]);
+  }, [clearVisualReadyTimer, player]);
+
+  useEventListener(player, "sourceLoad", () => {
+    if (isActive && isFeedFocused) {
+      markVisualReady(READY_TO_PLAY_VISUAL_FALLBACK_MS);
+    }
+  });
+
+  useEventListener(player, "statusChange", ({ status }) => {
+    if (status === "readyToPlay" && isActive && isFeedFocused && !isVisualReady) {
+      markVisualReady(READY_TO_PLAY_VISUAL_FALLBACK_MS);
+    }
+  });
+
+  useEffect(() => {
+    if (!isActive || !isFeedFocused) {
+      setIsVisualReady(false);
+      clearVisualReadyTimer();
+      return;
+    }
+
+    try {
+      if (player.status === "readyToPlay") {
+        markVisualReady(READY_TO_PLAY_VISUAL_FALLBACK_MS);
+      }
+    } catch (error) {
+      logVideoPlayerError("Fehler beim Prüfen des Video-Status:", error);
+    }
+  }, [clearVisualReadyTimer, isActive, isFeedFocused, markVisualReady, player]);
 
   const {
     progress,
@@ -281,12 +332,7 @@ export default function FeedItem({
             return;
           }
 
-          setHasRenderedFirstFrame(true);
-
-          if (!hasReportedReady.current) {
-            hasReportedReady.current = true;
-            onVideoReady?.();
-          }
+          markVisualReady(AUDIO_UNLOCK_DELAY_MS);
         }}
       />
 

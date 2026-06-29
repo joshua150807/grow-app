@@ -1,6 +1,21 @@
 import { supabase } from "../../../services/supabaseClient";
 import { getCurrentUserId } from '../../../services/authUser';
 
+const SAVED_VIDEOS_CACHE_TTL_MS = 60 * 1000;
+let savedVideosCache = {
+  userId: null,
+  data: null,
+  expiresAt: 0,
+};
+
+function clearSavedVideosCache() {
+  savedVideosCache = {
+    userId: null,
+    data: null,
+    expiresAt: 0,
+  };
+}
+
 function shuffleArray(array) {
   const shuffled = [...array];
 
@@ -100,11 +115,23 @@ export async function getActiveVideos() {
   return shuffleArray(mapVideos(videosForFeed, bookmarkedVideoIds));
 }
 
-export async function getSavedVideos() {
+export async function getSavedVideos({ forceRefresh = false } = {}) {
   const userId = await getCurrentUserId();
 
   if (!userId) {
+    clearSavedVideosCache();
     return [];
+  }
+
+  const now = Date.now();
+  const hasValidCache =
+    !forceRefresh &&
+    savedVideosCache.userId === userId &&
+    Array.isArray(savedVideosCache.data) &&
+    savedVideosCache.expiresAt > now;
+
+  if (hasValidCache) {
+    return savedVideosCache.data;
   }
 
   const { data, error } = await supabase
@@ -129,7 +156,7 @@ export async function getSavedVideos() {
     throw error;
   }
 
-  return (data ?? [])
+  const savedVideos = (data ?? [])
     .filter((bookmark) => {
       const video = bookmark.videos;
 
@@ -143,6 +170,14 @@ export async function getSavedVideos() {
       saved: true,
       savedAt: bookmark.created_at,
     }));
+
+  savedVideosCache = {
+    userId,
+    data: savedVideos,
+    expiresAt: now + SAVED_VIDEOS_CACHE_TTL_MS,
+  };
+
+  return savedVideos;
 }
 
 export async function getSavedVideoIds() {
@@ -182,6 +217,8 @@ export async function toggleVideoBookmark(videoId, currentlySaved) {
       throw error;
     }
 
+    clearSavedVideosCache();
+
     return false;
   }
 
@@ -198,6 +235,8 @@ export async function toggleVideoBookmark(videoId, currentlySaved) {
   if (error) {
     throw error;
   }
+
+  clearSavedVideosCache();
 
   return true;
 }
