@@ -41,6 +41,7 @@ export default function VideoFeed({
   const [isMuted, setIsMuted] = useState(false);
   const [userId, setUserId] = useState(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [listInitialIndex, setListInitialIndex] = useState(initialIndex);
   const [feedError, setFeedError] = useState(null);
   const [hasNoVideos, setHasNoVideos] = useState(false);
   const [isFeedScrollEnabled, setIsFeedScrollEnabled] = useState(true);
@@ -192,6 +193,7 @@ export default function VideoFeed({
       if (validVideos.length === 0) {
         setFeedData([]);
         setActiveVideoId(null);
+        setListInitialIndex(0);
         setHasNoVideos(true);
         setIsInitialLoading(false);
         return;
@@ -203,6 +205,7 @@ export default function VideoFeed({
       );
 
       setFeedData(validVideos);
+      setListInitialIndex(safeInitialIndex);
       setActiveVideoId(validVideos[safeInitialIndex].id);
       currentIndexRef.current = safeInitialIndex;
 
@@ -218,6 +221,7 @@ export default function VideoFeed({
       clearVideoReadyFallbackTimer();
       setFeedData([]);
       setActiveVideoId(null);
+      setListInitialIndex(0);
       setFeedError(errorMessage);
       setIsInitialLoading(false);
     }
@@ -415,6 +419,17 @@ export default function VideoFeed({
     [feedData],
   );
 
+  const handleScrollToIndexFailed = useCallback((info) => {
+    const safeIndex = Math.max(0, Math.min(info.index ?? 0, feedData.length - 1));
+
+    requestAnimationFrame(() => {
+      flatListRef.current?.scrollToOffset({
+        offset: safeIndex * height,
+        animated: false,
+      });
+    });
+  }, [feedData.length]);
+
   const renderItem = useCallback(
     ({ item, index }) => (
       <FeedItem
@@ -459,6 +474,7 @@ export default function VideoFeed({
       isFeedScrollEnabled,
       isFocused,
       isMuted,
+      listInitialIndex,
       userId,
     }),
     [
@@ -468,6 +484,7 @@ export default function VideoFeed({
       isFeedScrollEnabled,
       isFocused,
       isMuted,
+      listInitialIndex,
       userId,
     ],
   );
@@ -524,11 +541,13 @@ export default function VideoFeed({
           onViewableItemsChanged={handleViewableItemsChanged}
           viewabilityConfig={viewabilityConfigRef.current}
           onMomentumScrollEnd={handleMomentumScrollEnd}
+          onScrollToIndexFailed={handleScrollToIndexFailed}
+          initialScrollIndex={listInitialIndex}
           scrollEventThrottle={16}
-          windowSize={3}
-          initialNumToRender={2}
-          maxToRenderPerBatch={2}
-          updateCellsBatchingPeriod={40}
+          windowSize={5}
+          initialNumToRender={3}
+          maxToRenderPerBatch={3}
+          updateCellsBatchingPeriod={20}
           removeClippedSubviews={false}
           getItemLayout={(_, index) => ({
             length: height,

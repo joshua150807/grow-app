@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { View, Pressable, StyleSheet, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { VideoView, useVideoPlayer } from "expo-video";
@@ -15,6 +15,26 @@ import { logVideoPlayerError } from "../utils/videoPlayerSafety";
 
 
 const LONG_PRESS_DELAY = 120;
+
+function getCachedVideoSource(source) {
+  if (!source) return null;
+
+  if (typeof source === "string") {
+    return {
+      uri: source,
+      useCaching: true,
+    };
+  }
+
+  if (typeof source === "object" && source.uri) {
+    return {
+      ...source,
+      useCaching: source.useCaching ?? true,
+    };
+  }
+
+  return source;
+}
 
 function getVisibleTabBarHeight(screenHeight) {
   return Math.round(Math.min(44, Math.max(34, screenHeight * 0.045)));
@@ -90,13 +110,22 @@ export default function FeedItem({
   const [isHolding, setIsHolding] = useState(false);
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isPausedByUser, setIsPausedByUser] = useState(false);
+  const [hasRenderedFirstFrame, setHasRenderedFirstFrame] = useState(false);
+
+  const videoSource = useMemo(() => getCachedVideoSource(item.source), [item.source]);
 
   const hasReportedReady = useRef(false);
   const isMountedRef = useRef(true);
 
-  const player = useVideoPlayer(item.source, (playerInstance) => {
+  const player = useVideoPlayer(videoSource, (playerInstance) => {
     playerInstance.loop = true;
+    playerInstance.muted = true;
   });
+
+  useEffect(() => {
+    hasReportedReady.current = false;
+    setHasRenderedFirstFrame(false);
+  }, [item.id, item.source]);
 
   const visibleTabBarHeight = getVisibleTabBarHeight(height);
 
@@ -147,11 +176,11 @@ export default function FeedItem({
 
   useEffect(() => {
     try {
-      player.muted = isMuted;
+      player.muted = isMuted || !isActive || !hasRenderedFirstFrame;
     } catch (error) {
       logVideoPlayerError("Fehler beim Stummschalten des Videos:", error);
     }
-  }, [isMuted, player]);
+  }, [hasRenderedFirstFrame, isActive, isMuted, player]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -248,7 +277,13 @@ export default function FeedItem({
         contentFit="contain"
         nativeControls={false}
         onFirstFrameRender={() => {
-          if (!hasReportedReady.current && isMountedRef.current) {
+          if (!isMountedRef.current) {
+            return;
+          }
+
+          setHasRenderedFirstFrame(true);
+
+          if (!hasReportedReady.current) {
             hasReportedReady.current = true;
             onVideoReady?.();
           }

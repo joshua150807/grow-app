@@ -11,7 +11,7 @@ const GROW_COIN_INFO_ASPECT_RATIO = 941 / 1672;
 export default function GrowCoinInfoScreen() {
   const { width: windowWidth } = useWindowDimensions();
 
-  const imageWidth = Math.max(0, windowWidth - s(52));
+  const imageWidth = windowWidth;
   const imageHeight = imageWidth / GROW_COIN_INFO_ASPECT_RATIO;
 
   return (
@@ -19,7 +19,7 @@ export default function GrowCoinInfoScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        bounces
+        bounces={false}
       >
         <Image
           source={GROW_COIN_INFO_IMAGE}
@@ -30,7 +30,7 @@ export default function GrowCoinInfoScreen() {
               height: imageHeight,
             },
           ]}
-          resizeMode="cover"
+          resizeMode="contain"
         />
       </ScrollView>
 
@@ -59,9 +59,8 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
-    paddingHorizontal: s(32),
-    paddingTop: sv(120),
-    paddingBottom: sv(30),
+    paddingTop: sv(70),
+    paddingBottom: sv(18),
   },
   infoImage: {
     alignSelf: 'center',
@@ -73,7 +72,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: sv(56),
+    top: sv(46),
     left: s(16),
     width: s(44),
     height: s(44),
