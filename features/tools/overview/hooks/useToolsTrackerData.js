@@ -1,9 +1,12 @@
 import { logger } from '../../../../lib/logger';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 
-import { getHabitStreak, getTodayHabitProgress } from '../../habits/services/habits';
+import { getHabitStreak } from '../../habits/services/habits';
+import { getTodos } from '../../todo/services/todo';
 import { getTodayDeepWorkSeconds } from '../../deep-work/services/deepWorkStore';
 import { useSteps } from '../../../steps/hooks/useSteps';
+import { getPreloadedToolData } from '../../../../lib/preloadedTools';
 
 function formatDeepWork(seconds) {
   const safeSeconds = Math.max(0, Number(seconds) || 0);
@@ -23,19 +26,20 @@ function formatSteps(count) {
   return String(safeCount);
 }
 
-function normalizeHabitProgress(progress) {
-  const completed = Math.max(0, Number(progress?.completed) || 0);
-  const total = Math.max(0, Number(progress?.total) || 0);
+function normalizeTodoProgress(todos) {
+  const safeTodos = Array.isArray(todos) ? todos : [];
+  const total = safeTodos.length;
+  const completed = safeTodos.filter((todo) => Boolean(todo?.completed)).length;
 
   return {
-    completed: Math.min(completed, total || completed),
+    completed,
     total,
   };
 }
 
 export function useToolsTrackerData() {
   const [streak, setStreak] = useState(0);
-  const [habitProgress, setHabitProgress] = useState({
+  const [todoProgress, setTodoProgress] = useState({
     completed: 0,
     total: 0,
   });
@@ -51,33 +55,65 @@ export function useToolsTrackerData() {
   useEffect(() => {
     let mounted = true;
 
-    async function loadHabitSummary() {
+    async function loadHabitStreak() {
       try {
-        const [nextStreak, nextProgress] = await Promise.all([
-          getHabitStreak(),
-          getTodayHabitProgress(),
-        ]);
+        const nextStreak = await getHabitStreak();
 
         if (!mounted) return;
 
         setStreak(Math.max(0, Number(nextStreak) || 0));
-        setHabitProgress(normalizeHabitProgress(nextProgress));
       } catch (error) {
-        logger.debug('[ToolsTracker] Failed to load habit summary:', error);
+        logger.debug('[ToolsTracker] Failed to load habit streak:', error);
 
         if (!mounted) return;
 
         setStreak(0);
-        setHabitProgress({ completed: 0, total: 0 });
       }
     }
 
-    loadHabitSummary();
+    loadHabitStreak();
 
     return () => {
       mounted = false;
     };
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      const cachedTodos = getPreloadedToolData('todos');
+      const hasCachedTodos = Array.isArray(cachedTodos);
+
+      if (hasCachedTodos) {
+        setTodoProgress(normalizeTodoProgress(cachedTodos));
+        return () => {
+          active = false;
+        };
+      }
+
+      async function loadTodoProgress() {
+        try {
+          const todos = await getTodos();
+
+          if (!active) return;
+
+          setTodoProgress(normalizeTodoProgress(todos));
+        } catch (error) {
+          logger.debug('[ToolsTracker] Failed to load todo progress:', error);
+
+          if (!active) return;
+
+          setTodoProgress({ completed: 0, total: 0 });
+        }
+      }
+
+      loadTodoProgress();
+
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -108,9 +144,7 @@ export function useToolsTrackerData() {
     };
   }, []);
 
-  const habitPercent = habitProgress.total === 0
-    ? '–'
-    : `${Math.round((habitProgress.completed / habitProgress.total) * 100)}%`;
+  const todoProgressValue = `${todoProgress.completed}/${todoProgress.total}`;
 
   const stepsValue = !stepsAvailable
     ? '–'
@@ -126,8 +160,8 @@ export function useToolsTrackerData() {
       label: 'Tage Streak',
     },
     {
-      value: habitPercent,
-      label: 'Tagesziele',
+      value: todoProgressValue,
+      label: 'To-dos',
     },
     {
       value: deepWorkTime > 0 ? formatDeepWork(deepWorkTime) : '00:00',
@@ -137,11 +171,11 @@ export function useToolsTrackerData() {
       value: stepsValue,
       label: 'Schritte',
     },
-  ], [streak, habitPercent, deepWorkTime, stepsValue]);
+  ], [streak, todoProgressValue, deepWorkTime, stepsValue]);
 
   return {
     streak,
-    habitProgress,
+    todoProgress,
     deepWorkTime,
     steps,
     stepsAvailable,

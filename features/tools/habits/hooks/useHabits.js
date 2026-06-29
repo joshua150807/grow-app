@@ -109,6 +109,10 @@ export function useHabits(selectedDay) {
     }
   }, [selectedDate, completionsCacheKey]);
 
+  const invalidatePendingCompletionsLoad = useCallback(() => {
+    completionsRequestRef.current += 1;
+  }, []);
+
   useEffect(() => {
     const cached = getPreloadedToolData('habits');
 
@@ -127,6 +131,8 @@ export function useHabits(selectedDay) {
 
     if (cached) {
       setCompletedIds(new Set(normalizeIds(cached)));
+    } else {
+      setCompletedIds(new Set());
     }
 
     loadCompletions();
@@ -154,6 +160,10 @@ export function useHabits(selectedDay) {
 
     let nextIsDone = false;
 
+    // Verhindert, dass ein noch laufender Server-Reload den gerade gesetzten Haken
+    // mit veralteten Daten wieder überschreibt.
+    invalidatePendingCompletionsLoad();
+
     setCompletedIds(prev => {
       const isDone = prev.has(id);
       nextIsDone = !isDone;
@@ -178,7 +188,7 @@ export function useHabits(selectedDay) {
     } finally {
       pendingActionsRef.current.delete(actionKey);
     }
-  }, [selectedDate, completionsCacheKey]);
+  }, [selectedDate, completionsCacheKey, invalidatePendingCompletionsLoad]);
 
   const remove = useCallback(async (id) => {
     if (!id) return;
@@ -186,6 +196,8 @@ export function useHabits(selectedDay) {
     const actionKey = `delete:${id}`;
     if (pendingActionsRef.current.has(actionKey)) return;
     pendingActionsRef.current.add(actionKey);
+
+    invalidatePendingCompletionsLoad();
 
     setHabits(prev => {
       const nextHabits = prev.filter(habit => habit.id !== id);
@@ -211,7 +223,7 @@ export function useHabits(selectedDay) {
     } finally {
       pendingActionsRef.current.delete(actionKey);
     }
-  }, [loadHabits, loadCompletions, completionsCacheKey]);
+  }, [loadHabits, loadCompletions, completionsCacheKey, invalidatePendingCompletionsLoad]);
 
   const add = useCallback(async (name, days, linkedTool = null) => {
     const safeName = typeof name === 'string' ? name.trim() : '';
