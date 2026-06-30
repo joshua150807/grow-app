@@ -171,6 +171,11 @@ with check (
   and status in ('pending', 'requested')
   and reviewed_by is null
   and reviewed_at is null
+  and not exists (
+    select 1
+    from public.creators c
+    where c.user_id = auth.uid()
+  )
 );
 
 drop policy if exists "Admins can read creator applications" on public.creator_applications;
