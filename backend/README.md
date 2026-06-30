@@ -57,6 +57,7 @@ http://127.0.0.1:4000/v1/health
 - `PATCH /v1/profile/me` verifies `Authorization: Bearer <supabase-access-token>`, validates profile fields, updates only the authenticated user's profile, and returns the updated profile.
 - `GET /v1/creator/applications/me` verifies `Authorization: Bearer <supabase-access-token>` and returns the authenticated user's latest creator application status. If no application exists, it returns `{ "status": "none", "application": null }`.
 - `POST /v1/creator/applications` verifies `Authorization: Bearer <supabase-access-token>`, validates the creator application, creates it for the authenticated user only, and returns `201`. Open existing applications return `409 CREATOR_APPLICATION_EXISTS`.
+- `GET /v1/admin/creator/applications` verifies `Authorization: Bearer <supabase-access-token>`, requires an authenticated `admin` or `ceo` role server-side, and lists creator applications with optional `status`, `limit`, and `page` query filters.
 
 Test `/v1/me` locally with a real Supabase access token from the mobile app session:
 
@@ -94,6 +95,13 @@ Check your creator application status locally:
 
 ```bash
 curl http://127.0.0.1:4000/v1/creator/applications/me \
+  -H "Authorization: Bearer YOUR_SUPABASE_ACCESS_TOKEN"
+```
+
+List creator applications as an admin or CEO:
+
+```bash
+curl "http://127.0.0.1:4000/v1/admin/creator/applications?status=pending&limit=25&page=0" \
   -H "Authorization: Bearer YOUR_SUPABASE_ACCESS_TOKEN"
 ```
 

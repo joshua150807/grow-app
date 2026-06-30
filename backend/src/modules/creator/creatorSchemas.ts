@@ -33,11 +33,39 @@ export const creatorApplicationResponseSchema = z.object({
   updated_at: z.string().nullable(),
 });
 
+export const creatorApplicationStatusSchema = z.enum([
+  'pending',
+  'requested',
+  'approved',
+  'rejected',
+  'suspended',
+]);
+
+export const listCreatorApplicationsQuerySchema = z
+  .object({
+    status: creatorApplicationStatusSchema.optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+    page: z.coerce.number().int().min(0).default(0),
+  })
+  .strict();
+
 export const myCreatorApplicationResponseSchema = z.object({
   status: z.string(),
   application: creatorApplicationResponseSchema.nullable(),
 });
 
+export const listCreatorApplicationsResponseSchema = z.object({
+  applications: z.array(creatorApplicationResponseSchema),
+  pagination: z.object({
+    limit: z.number().int(),
+    page: z.number().int(),
+    has_more: z.boolean(),
+  }),
+});
+
 export type CreatorApplicationInput = z.infer<typeof creatorApplicationRequestSchema>;
 export type CreatorApplicationResponse = z.infer<typeof creatorApplicationResponseSchema>;
+export type CreatorApplicationStatusInput = z.infer<typeof creatorApplicationStatusSchema>;
+export type ListCreatorApplicationsQuery = z.infer<typeof listCreatorApplicationsQuerySchema>;
+export type ListCreatorApplicationsResponse = z.infer<typeof listCreatorApplicationsResponseSchema>;
 export type MyCreatorApplicationResponse = z.infer<typeof myCreatorApplicationResponseSchema>;

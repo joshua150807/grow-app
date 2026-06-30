@@ -1,11 +1,15 @@
 import type { AuthUser } from '../../auth/types.js';
+import { requireAdminOrCeo } from '../../auth/permissions.js';
 import { AppError } from '../../errors/appError.js';
 import {
   creatorApplicationRequestSchema,
   creatorApplicationResponseSchema,
+  listCreatorApplicationsQuerySchema,
+  listCreatorApplicationsResponseSchema,
   myCreatorApplicationResponseSchema,
   type CreatorApplicationInput,
   type CreatorApplicationResponse,
+  type ListCreatorApplicationsResponse,
   type MyCreatorApplicationResponse,
 } from './creatorSchemas.js';
 import {
@@ -16,9 +20,17 @@ import {
 
 const OPEN_CREATOR_APPLICATION_STATUSES = new Set(['pending', 'requested']);
 const INITIAL_CREATOR_APPLICATION_STATUS = 'pending';
+const APPLICATION_STATUS_PRIORITY = new Map([
+  ['pending', 0],
+  ['requested', 1],
+]);
 
 export type CreatorService = {
   getMyCreatorApplication(user: AuthUser): Promise<MyCreatorApplicationResponse>;
+  listCreatorApplicationsForAdmin(
+    user: AuthUser,
+    filters: unknown,
+  ): Promise<ListCreatorApplicationsResponse>;
   createCreatorApplication(
     user: AuthUser,
     input: unknown,
@@ -71,6 +83,21 @@ function mapMyCreatorApplicationResponse(
   });
 }
 
+function sortCreatorApplicationsForAdmin(
+  applications: CreatorApplicationRow[],
+): CreatorApplicationRow[] {
+  return [...applications].sort((left, right) => {
+    const leftPriority = APPLICATION_STATUS_PRIORITY.get(left.status) ?? 10;
+    const rightPriority = APPLICATION_STATUS_PRIORITY.get(right.status) ?? 10;
+
+    if (leftPriority !== rightPriority) {
+      return leftPriority - rightPriority;
+    }
+
+    return String(right.created_at ?? '').localeCompare(String(left.created_at ?? ''));
+  });
+}
+
 function isCreatorApplicationConflictError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
 
@@ -110,6 +137,27 @@ export function createCreatorService(
         await creatorRepository.getLatestCreatorApplicationByUserId(user.id);
 
       return mapMyCreatorApplicationResponse(latestApplication);
+    },
+
+    async listCreatorApplicationsForAdmin(
+      user: AuthUser,
+      filters: unknown,
+    ): Promise<ListCreatorApplicationsResponse> {
+      requireAdminOrCeo(user);
+
+      const parsedFilters = listCreatorApplicationsQuerySchema.parse(filters);
+      const result = await creatorRepository.listCreatorApplications(parsedFilters);
+      const applications = sortCreatorApplicationsForAdmin(result.applications)
+        .map(mapCreatorApplicationRow);
+
+      return listCreatorApplicationsResponseSchema.parse({
+        applications,
+        pagination: {
+          limit: parsedFilters.limit,
+          page: parsedFilters.page,
+          has_more: result.hasMore,
+        },
+      });
     },
 
     async createCreatorApplication(

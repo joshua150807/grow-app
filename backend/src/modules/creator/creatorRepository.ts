@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdminClient } from '../../integrations/supabase/adminClient.js';
-import type { CreatorApplicationInput } from './creatorSchemas.js';
+import type {
+  CreatorApplicationInput,
+  CreatorApplicationStatusInput,
+} from './creatorSchemas.js';
 
 export type CreatorApplicationStatus =
   | 'pending'
@@ -28,6 +31,14 @@ export type CreateCreatorApplicationInput = CreatorApplicationInput & {
 
 export type CreatorRepository = {
   getLatestCreatorApplicationByUserId(userId: string): Promise<CreatorApplicationRow | null>;
+  listCreatorApplications(input: {
+    status?: CreatorApplicationStatusInput;
+    limit: number;
+    page: number;
+  }): Promise<{
+    applications: CreatorApplicationRow[];
+    hasMore: boolean;
+  }>;
   createCreatorApplicationForUser(
     userId: string,
     input: CreateCreatorApplicationInput,
@@ -57,6 +68,37 @@ export function createCreatorRepository(
       }
 
       return data;
+    },
+
+    async listCreatorApplications(input): Promise<{
+      applications: CreatorApplicationRow[];
+      hasMore: boolean;
+    }> {
+      const from = input.page * input.limit;
+      const to = from + input.limit;
+
+      let query = supabase
+        .from('creator_applications')
+        .select(creatorApplicationSelect)
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
+      if (input.status) {
+        query = query.eq('status', input.status);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      const applications = data ?? [];
+
+      return {
+        applications: applications.slice(0, input.limit),
+        hasMore: applications.length > input.limit,
+      };
     },
 
     async createCreatorApplicationForUser(

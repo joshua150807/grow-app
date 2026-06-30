@@ -21,9 +21,12 @@ const authTokenVerifier: AuthTokenVerifier = async (token) => {
   return validUser;
 };
 
-function buildTestApp(creatorService: CreatorService) {
+function buildTestApp(
+  creatorService: CreatorService,
+  verifier: AuthTokenVerifier = authTokenVerifier,
+) {
   return buildApp({
-    authTokenVerifier,
+    authTokenVerifier: verifier,
     creatorService,
   });
 }
@@ -31,6 +34,10 @@ function buildTestApp(creatorService: CreatorService) {
 function createMockRepository(overrides: Partial<CreatorRepository> = {}): CreatorRepository {
   return {
     getLatestCreatorApplicationByUserId: vi.fn(async () => null),
+    listCreatorApplications: vi.fn(async () => ({
+      applications: [],
+      hasMore: false,
+    })),
     createCreatorApplicationForUser: vi.fn(),
     ...overrides,
   };
@@ -269,6 +276,176 @@ describe('GET /v1/creator/applications/me', () => {
     expect(response.statusCode).toBe(200);
     expect(repository.getLatestCreatorApplicationByUserId).toHaveBeenCalledWith(validUser.id);
     expect(repository.getLatestCreatorApplicationByUserId).not.toHaveBeenCalledWith('other-user');
+
+    await app.close();
+  });
+});
+
+describe('GET /v1/admin/creator/applications', () => {
+  it('returns 401 without token', async () => {
+    const repository = createMockRepository();
+    const app = buildTestApp(createCreatorService(repository));
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/creator/applications',
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json().error.code).toBe('UNAUTHORIZED');
+    expect(repository.listCreatorApplications).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it('returns 403 for a normal user', async () => {
+    const repository = createMockRepository();
+    const app = buildTestApp(createCreatorService(repository));
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/creator/applications',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe('FORBIDDEN');
+    expect(repository.listCreatorApplications).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it('returns applications for admin users', async () => {
+    const repository = createMockRepository({
+      listCreatorApplications: vi.fn(async () => ({
+        applications: [
+          {
+            id: 'application-approved',
+            user_id: 'creator-2',
+            motivation: validPayload.motivation,
+            status: 'approved',
+            created_at: '2026-06-30T10:00:00.000Z',
+            updated_at: null,
+          },
+          {
+            id: 'application-pending',
+            user_id: 'creator-1',
+            motivation: validPayload.motivation,
+            status: 'pending',
+            created_at: '2026-06-30T09:00:00.000Z',
+            updated_at: null,
+          },
+        ],
+        hasMore: true,
+      })),
+    });
+    const adminVerifier: AuthTokenVerifier = async () => ({
+      ...validUser,
+      role: 'admin',
+    });
+    const app = buildTestApp(createCreatorService(repository), adminVerifier);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/creator/applications?status=pending&limit=25&page=1',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(repository.listCreatorApplications).toHaveBeenCalledWith({
+      status: 'pending',
+      limit: 25,
+      page: 1,
+    });
+    expect(response.json()).toEqual({
+      applications: [
+        {
+          id: 'application-pending',
+          user_id: 'creator-1',
+          motivation: validPayload.motivation,
+          experience: null,
+          content_focus: null,
+          social_links: null,
+          status: 'pending',
+          rejection_reason: null,
+          created_at: '2026-06-30T09:00:00.000Z',
+          updated_at: null,
+        },
+        {
+          id: 'application-approved',
+          user_id: 'creator-2',
+          motivation: validPayload.motivation,
+          experience: null,
+          content_focus: null,
+          social_links: null,
+          status: 'approved',
+          rejection_reason: null,
+          created_at: '2026-06-30T10:00:00.000Z',
+          updated_at: null,
+        },
+      ],
+      pagination: {
+        limit: 25,
+        page: 1,
+        has_more: true,
+      },
+    });
+
+    await app.close();
+  });
+
+  it('returns applications for ceo users', async () => {
+    const repository = createMockRepository();
+    const ceoVerifier: AuthTokenVerifier = async () => ({
+      ...validUser,
+      role: 'ceo',
+    });
+    const app = buildTestApp(createCreatorService(repository), ceoVerifier);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/creator/applications',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      applications: [],
+      pagination: {
+        limit: 50,
+        page: 0,
+        has_more: false,
+      },
+    });
+
+    await app.close();
+  });
+
+  it('returns 400 for invalid filters', async () => {
+    const repository = createMockRepository();
+    const adminVerifier: AuthTokenVerifier = async () => ({
+      ...validUser,
+      role: 'admin',
+    });
+    const app = buildTestApp(createCreatorService(repository), adminVerifier);
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/admin/creator/applications?status=unknown&limit=101',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+    expect(repository.listCreatorApplications).not.toHaveBeenCalled();
 
     await app.close();
   });
