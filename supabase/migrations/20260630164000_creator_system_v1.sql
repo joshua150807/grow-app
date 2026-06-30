@@ -11,7 +11,7 @@
 
 create extension if not exists pgcrypto;
 
-create or replace function public.jsonb_is_string_array(input jsonb)
+create or replace function public.creator_system_jsonb_is_string_array(input jsonb)
 returns boolean
 language sql
 immutable
@@ -83,7 +83,7 @@ create table if not exists public.creator_applications (
     check (
       social_links is null
       or (
-        public.jsonb_is_string_array(social_links)
+        public.creator_system_jsonb_is_string_array(social_links)
         and jsonb_array_length(social_links) <= 5
       )
     )
@@ -129,7 +129,7 @@ create table if not exists public.creators (
 create index if not exists creators_status_idx
   on public.creators (status);
 
-create or replace function public.set_updated_at()
+create or replace function public.set_creator_system_updated_at()
 returns trigger
 language plpgsql
 as $$
@@ -143,13 +143,13 @@ drop trigger if exists set_creator_applications_updated_at on public.creator_app
 create trigger set_creator_applications_updated_at
 before update on public.creator_applications
 for each row
-execute function public.set_updated_at();
+execute function public.set_creator_system_updated_at();
 
 drop trigger if exists set_creators_updated_at on public.creators;
 create trigger set_creators_updated_at
 before update on public.creators
 for each row
-execute function public.set_updated_at();
+execute function public.set_creator_system_updated_at();
 
 alter table public.creator_applications enable row level security;
 alter table public.creators enable row level security;
