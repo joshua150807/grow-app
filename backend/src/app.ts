@@ -7,9 +7,11 @@ import { createLoggerOptions } from './logger/logger.js';
 import { authPlugin } from './middleware/auth.js';
 import { v1Routes } from './routes/v1/index.js';
 import type { AuthTokenVerifier } from './auth/types.js';
+import type { ProfileService } from './modules/profiles/profileService.js';
 
 export type BuildAppOptions = {
   authTokenVerifier?: AuthTokenVerifier;
+  profileService?: ProfileService;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -24,7 +26,10 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   app.register(authPlugin, {
     verifyToken: options.authTokenVerifier,
   });
-  app.register(v1Routes, { prefix: '/v1' });
+  app.register(v1Routes, {
+    prefix: '/v1',
+    profileService: options.profileService,
+  });
 
   return app;
 }

@@ -53,11 +53,19 @@ http://127.0.0.1:4000/v1/health
 
 - `GET /v1/health` returns backend health information.
 - `GET /v1/me` verifies `Authorization: Bearer <supabase-access-token>` and returns basic auth user data. It does not load the `profiles` table yet.
+- `GET /v1/profile/me` verifies `Authorization: Bearer <supabase-access-token>` and returns the authenticated user's profile. It never accepts a user id from query/body. Missing profiles return `404 PROFILE_NOT_FOUND` so the client can show a defined setup/empty state without the read route creating data.
 
 Test `/v1/me` locally with a real Supabase access token from the mobile app session:
 
 ```bash
 curl http://127.0.0.1:4000/v1/me \
+  -H "Authorization: Bearer YOUR_SUPABASE_ACCESS_TOKEN"
+```
+
+Test `/v1/profile/me` locally:
+
+```bash
+curl http://127.0.0.1:4000/v1/profile/me \
   -H "Authorization: Bearer YOUR_SUPABASE_ACCESS_TOKEN"
 ```
 
@@ -72,6 +80,7 @@ src/
   integrations/
   logger/
   middleware/
+  modules/
   routes/
   validation/
 tests/

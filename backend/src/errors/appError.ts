@@ -3,6 +3,7 @@ export type AppErrorCode =
   | 'UNAUTHORIZED'
   | 'FORBIDDEN'
   | 'NOT_FOUND'
+  | 'PROFILE_NOT_FOUND'
   | 'VALIDATION_ERROR'
   | 'INTERNAL_ERROR';
 
