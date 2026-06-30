@@ -33,12 +33,14 @@ function buildTestApp(
 
 function createMockRepository(overrides: Partial<CreatorRepository> = {}): CreatorRepository {
   return {
+    getCreatorApplicationById: vi.fn(async () => null),
     getLatestCreatorApplicationByUserId: vi.fn(async () => null),
     listCreatorApplications: vi.fn(async () => ({
       applications: [],
       hasMore: false,
     })),
     createCreatorApplicationForUser: vi.fn(),
+    updateCreatorApplicationDecision: vi.fn(),
     ...overrides,
   };
 }
@@ -168,6 +170,248 @@ describe('POST /v1/creator/applications', () => {
     expect(response.statusCode).toBe(409);
     expect(response.json().error.code).toBe('CREATOR_APPLICATION_EXISTS');
     expect(repository.createCreatorApplicationForUser).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+});
+
+describe('PATCH /v1/admin/creator/applications/:id', () => {
+  it('returns 401 without token', async () => {
+    const repository = createMockRepository();
+    const app = buildTestApp(createCreatorService(repository));
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/creator/applications/application-123',
+      payload: {
+        decision: 'approved',
+      },
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json().error.code).toBe('UNAUTHORIZED');
+    expect(repository.updateCreatorApplicationDecision).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it('returns 403 for a normal user', async () => {
+    const repository = createMockRepository();
+    const app = buildTestApp(createCreatorService(repository));
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/creator/applications/application-123',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        decision: 'approved',
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json().error.code).toBe('FORBIDDEN');
+    expect(repository.updateCreatorApplicationDecision).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it('returns 400 for invalid body', async () => {
+    const repository = createMockRepository();
+    const adminVerifier: AuthTokenVerifier = async () => ({
+      ...validUser,
+      role: 'admin',
+    });
+    const app = buildTestApp(createCreatorService(repository), adminVerifier);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/creator/applications/application-123',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        decision: 'rejected',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+    expect(repository.updateCreatorApplicationDecision).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it('returns 404 when the application does not exist', async () => {
+    const repository = createMockRepository({
+      getCreatorApplicationById: vi.fn(async () => null),
+    });
+    const adminVerifier: AuthTokenVerifier = async () => ({
+      ...validUser,
+      role: 'admin',
+    });
+    const app = buildTestApp(createCreatorService(repository), adminVerifier);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/creator/applications/application-123',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        decision: 'approved',
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('CREATOR_APPLICATION_NOT_FOUND');
+    expect(repository.updateCreatorApplicationDecision).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it('returns 409 when the application is already reviewed', async () => {
+    const repository = createMockRepository({
+      getCreatorApplicationById: vi.fn(async () => ({
+        id: 'application-123',
+        user_id: validUser.id,
+        motivation: validPayload.motivation,
+        status: 'approved',
+      })),
+    });
+    const adminVerifier: AuthTokenVerifier = async () => ({
+      ...validUser,
+      role: 'admin',
+    });
+    const app = buildTestApp(createCreatorService(repository), adminVerifier);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/creator/applications/application-123',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        decision: 'rejected',
+        rejection_reason: 'Not a fit right now.',
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().error.code).toBe('CREATOR_APPLICATION_ALREADY_REVIEWED');
+    expect(repository.updateCreatorApplicationDecision).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it('approves an application for admin users', async () => {
+    const repository = createMockRepository({
+      getCreatorApplicationById: vi.fn(async () => ({
+        id: 'application-123',
+        user_id: validUser.id,
+        motivation: validPayload.motivation,
+        status: 'pending',
+      })),
+      updateCreatorApplicationDecision: vi.fn(async (applicationId, input) => ({
+        id: applicationId,
+        user_id: validUser.id,
+        motivation: validPayload.motivation,
+        status: input.decision,
+        rejection_reason: null,
+        created_at: '2026-06-30T12:00:00.000Z',
+        updated_at: '2026-06-30T13:00:00.000Z',
+      })),
+    });
+    const adminVerifier: AuthTokenVerifier = async () => ({
+      ...validUser,
+      role: 'admin',
+    });
+    const app = buildTestApp(createCreatorService(repository), adminVerifier);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/creator/applications/application-123',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        decision: 'approved',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(repository.updateCreatorApplicationDecision).toHaveBeenCalledWith(
+      'application-123',
+      {
+        decision: 'approved',
+      },
+    );
+    expect(response.json()).toEqual({
+      application: {
+        id: 'application-123',
+        user_id: validUser.id,
+        motivation: validPayload.motivation,
+        experience: null,
+        content_focus: null,
+        social_links: null,
+        status: 'approved',
+        rejection_reason: null,
+        created_at: '2026-06-30T12:00:00.000Z',
+        updated_at: '2026-06-30T13:00:00.000Z',
+      },
+    });
+
+    await app.close();
+  });
+
+  it('rejects an application for ceo users', async () => {
+    const repository = createMockRepository({
+      getCreatorApplicationById: vi.fn(async () => ({
+        id: 'application-123',
+        user_id: validUser.id,
+        motivation: validPayload.motivation,
+        status: 'requested',
+      })),
+      updateCreatorApplicationDecision: vi.fn(async (applicationId, input) => ({
+        id: applicationId,
+        user_id: validUser.id,
+        motivation: validPayload.motivation,
+        status: input.decision,
+        rejection_reason: input.rejection_reason ?? null,
+      })),
+    });
+    const ceoVerifier: AuthTokenVerifier = async () => ({
+      ...validUser,
+      role: 'ceo',
+    });
+    const app = buildTestApp(createCreatorService(repository), ceoVerifier);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/creator/applications/application-123',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        decision: 'rejected',
+        rejection_reason: 'Please add a clearer content focus.',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(repository.updateCreatorApplicationDecision).toHaveBeenCalledWith(
+      'application-123',
+      {
+        decision: 'rejected',
+        rejection_reason: 'Please add a clearer content focus.',
+      },
+    );
+    expect(response.json().application).toMatchObject({
+      id: 'application-123',
+      status: 'rejected',
+      rejection_reason: 'Please add a clearer content focus.',
+    });
 
     await app.close();
   });

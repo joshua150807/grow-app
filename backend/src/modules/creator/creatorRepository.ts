@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseAdminClient } from '../../integrations/supabase/adminClient.js';
 import type {
+  CreatorApplicationDecisionInput,
   CreatorApplicationInput,
   CreatorApplicationStatusInput,
 } from './creatorSchemas.js';
@@ -30,6 +31,7 @@ export type CreateCreatorApplicationInput = CreatorApplicationInput & {
 };
 
 export type CreatorRepository = {
+  getCreatorApplicationById(applicationId: string): Promise<CreatorApplicationRow | null>;
   getLatestCreatorApplicationByUserId(userId: string): Promise<CreatorApplicationRow | null>;
   listCreatorApplications(input: {
     status?: CreatorApplicationStatusInput;
@@ -43,6 +45,10 @@ export type CreatorRepository = {
     userId: string,
     input: CreateCreatorApplicationInput,
   ): Promise<CreatorApplicationRow>;
+  updateCreatorApplicationDecision(
+    applicationId: string,
+    input: CreatorApplicationDecisionInput,
+  ): Promise<CreatorApplicationRow>;
 };
 
 const creatorApplicationSelect =
@@ -52,6 +58,22 @@ export function createCreatorRepository(
   supabase: SupabaseClient = getSupabaseAdminClient(),
 ): CreatorRepository {
   return {
+    async getCreatorApplicationById(
+      applicationId: string,
+    ): Promise<CreatorApplicationRow | null> {
+      const { data, error } = await supabase
+        .from('creator_applications')
+        .select(creatorApplicationSelect)
+        .eq('id', applicationId)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    },
+
     async getLatestCreatorApplicationByUserId(
       userId: string,
     ): Promise<CreatorApplicationRow | null> {
@@ -115,6 +137,31 @@ export function createCreatorRepository(
           social_links: input.social_links ?? null,
           status: input.status,
         })
+        .select(creatorApplicationSelect)
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    },
+
+    async updateCreatorApplicationDecision(
+      applicationId: string,
+      input: CreatorApplicationDecisionInput,
+    ): Promise<CreatorApplicationRow> {
+      // TODO: When the DB schema has reviewed_by/reviewed_at and a creator/profile
+      // status field, update those in the same transaction/RPC.
+      const { data, error } = await supabase
+        .from('creator_applications')
+        .update({
+          status: input.decision,
+          rejection_reason: input.decision === 'rejected'
+            ? input.rejection_reason
+            : null,
+        })
+        .eq('id', applicationId)
         .select(creatorApplicationSelect)
         .single();
 

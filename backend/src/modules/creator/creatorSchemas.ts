@@ -49,6 +49,22 @@ export const listCreatorApplicationsQuerySchema = z
   })
   .strict();
 
+export const creatorApplicationDecisionRequestSchema = z
+  .object({
+    decision: z.enum(['approved', 'rejected']),
+    rejection_reason: z.string().trim().min(1).max(500).optional(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (value.decision === 'rejected' && !value.rejection_reason) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'rejection_reason is required when decision is rejected.',
+        path: ['rejection_reason'],
+      });
+    }
+  });
+
 export const myCreatorApplicationResponseSchema = z.object({
   status: z.string(),
   application: creatorApplicationResponseSchema.nullable(),
@@ -64,6 +80,7 @@ export const listCreatorApplicationsResponseSchema = z.object({
 });
 
 export type CreatorApplicationInput = z.infer<typeof creatorApplicationRequestSchema>;
+export type CreatorApplicationDecisionInput = z.infer<typeof creatorApplicationDecisionRequestSchema>;
 export type CreatorApplicationResponse = z.infer<typeof creatorApplicationResponseSchema>;
 export type CreatorApplicationStatusInput = z.infer<typeof creatorApplicationStatusSchema>;
 export type ListCreatorApplicationsQuery = z.infer<typeof listCreatorApplicationsQuerySchema>;

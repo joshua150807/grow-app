@@ -2,6 +2,7 @@ import type { AuthUser } from '../../auth/types.js';
 import { requireAdminOrCeo } from '../../auth/permissions.js';
 import { AppError } from '../../errors/appError.js';
 import {
+  creatorApplicationDecisionRequestSchema,
   creatorApplicationRequestSchema,
   creatorApplicationResponseSchema,
   listCreatorApplicationsQuerySchema,
@@ -19,6 +20,7 @@ import {
 } from './creatorRepository.js';
 
 const OPEN_CREATOR_APPLICATION_STATUSES = new Set(['pending', 'requested']);
+const REVIEWED_CREATOR_APPLICATION_STATUSES = new Set(['approved', 'rejected']);
 const INITIAL_CREATOR_APPLICATION_STATUS = 'pending';
 const APPLICATION_STATUS_PRIORITY = new Map([
   ['pending', 0],
@@ -31,6 +33,11 @@ export type CreatorService = {
     user: AuthUser,
     filters: unknown,
   ): Promise<ListCreatorApplicationsResponse>;
+  decideCreatorApplicationForAdmin(
+    user: AuthUser,
+    applicationId: string,
+    input: unknown,
+  ): Promise<CreatorApplicationResponse>;
   createCreatorApplication(
     user: AuthUser,
     input: unknown,
@@ -128,6 +135,22 @@ function throwCreatorApplicationExists(): never {
   );
 }
 
+function throwCreatorApplicationNotFound(): never {
+  throw new AppError(
+    404,
+    'CREATOR_APPLICATION_NOT_FOUND',
+    'Creator application was not found.',
+  );
+}
+
+function throwCreatorApplicationAlreadyReviewed(): never {
+  throw new AppError(
+    409,
+    'CREATOR_APPLICATION_ALREADY_REVIEWED',
+    'Creator application has already been reviewed.',
+  );
+}
+
 export function createCreatorService(
   creatorRepository: CreatorRepository = createCreatorRepository(),
 ): CreatorService {
@@ -158,6 +181,30 @@ export function createCreatorService(
           has_more: result.hasMore,
         },
       });
+    },
+
+    async decideCreatorApplicationForAdmin(
+      user: AuthUser,
+      applicationId: string,
+      input: unknown,
+    ): Promise<CreatorApplicationResponse> {
+      requireAdminOrCeo(user);
+
+      const decisionInput = creatorApplicationDecisionRequestSchema.parse(input);
+      const application = await creatorRepository.getCreatorApplicationById(applicationId);
+
+      if (!application) {
+        throwCreatorApplicationNotFound();
+      }
+
+      if (REVIEWED_CREATOR_APPLICATION_STATUSES.has(application.status)) {
+        throwCreatorApplicationAlreadyReviewed();
+      }
+
+      const updatedApplication =
+        await creatorRepository.updateCreatorApplicationDecision(applicationId, decisionInput);
+
+      return mapCreatorApplicationRow(updatedApplication);
     },
 
     async createCreatorApplication(
