@@ -1,11 +1,12 @@
 import fp from 'fastify-plugin';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { verifySupabaseAccessToken } from '../auth/supabaseAuth.js';
+import type { AuthTokenVerifier, AuthUser } from '../auth/types.js';
 import { AppError } from '../errors/appError.js';
 import { bearerTokenSchema } from '../validation/schemas.js';
 
-export type AuthUser = {
-  id: string;
-  role: 'user' | 'creator' | 'admin' | 'ceo';
+type AuthPluginOptions = {
+  verifyToken?: AuthTokenVerifier;
 };
 
 declare module 'fastify' {
@@ -38,7 +39,9 @@ async function decorateAuth(request: FastifyRequest) {
   };
 }
 
-export const authPlugin = fp(async (app) => {
+export const authPlugin = fp<AuthPluginOptions>(async (app, options) => {
+  const verifyToken = options.verifyToken ?? verifySupabaseAccessToken;
+
   app.addHook('onRequest', decorateAuth);
 
   app.decorate('requireAuth', async (request: FastifyRequest, _reply: FastifyReply) => {
@@ -46,8 +49,13 @@ export const authPlugin = fp(async (app) => {
       throw new AppError(401, 'UNAUTHORIZED', 'Authentication is required.');
     }
 
-    // Placeholder: later this will verify the Supabase JWT and load the auth user.
-    throw new AppError(501, 'INTERNAL_ERROR', 'Supabase JWT verification is not implemented yet.');
+    const user = await verifyToken(request.auth.token);
+
+    if (!user) {
+      throw new AppError(401, 'UNAUTHORIZED', 'Invalid or expired access token.');
+    }
+
+    request.auth.user = user;
   });
 });
 

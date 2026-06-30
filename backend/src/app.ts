@@ -6,8 +6,13 @@ import { notFoundHandler } from './errors/notFoundHandler.js';
 import { createLoggerOptions } from './logger/logger.js';
 import { authPlugin } from './middleware/auth.js';
 import { v1Routes } from './routes/v1/index.js';
+import type { AuthTokenVerifier } from './auth/types.js';
 
-export function buildApp(): FastifyInstance {
+export type BuildAppOptions = {
+  authTokenVerifier?: AuthTokenVerifier;
+};
+
+export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
   const app = Fastify({
     logger: createLoggerOptions(config),
     requestIdHeader: 'x-request-id',
@@ -16,7 +21,9 @@ export function buildApp(): FastifyInstance {
   app.setErrorHandler(errorHandler);
   app.setNotFoundHandler(notFoundHandler);
 
-  app.register(authPlugin);
+  app.register(authPlugin, {
+    verifyToken: options.authTokenVerifier,
+  });
   app.register(v1Routes, { prefix: '/v1' });
 
   return app;

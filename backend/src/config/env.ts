@@ -9,6 +9,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().max(65535).default(4000),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   SUPABASE_URL: z.string().url().optional().or(z.literal('')),
+  SUPABASE_ANON_KEY: z.string().min(1).optional().or(z.literal('')),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional().or(z.literal('')),
   SUPABASE_JWT_SECRET: z.string().min(1).optional().or(z.literal('')),
 });

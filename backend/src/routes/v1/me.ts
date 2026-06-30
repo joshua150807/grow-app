@@ -1,10 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify';
 
 export const meRoutes: FastifyPluginAsync = async (app) => {
-  app.get('/me', async (request) => ({
-    authenticated: Boolean(request.auth.token),
+  app.get('/me', {
+    preHandler: [app.requireAuth],
+  }, async (request) => ({
     user: request.auth.user,
-    profile: null,
-    message: 'Profile loading is not implemented yet.',
   }));
 };

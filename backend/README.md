@@ -12,6 +12,19 @@ cp .env.example .env
 
 Fill `.env` with server-only values when a route actually needs them. The Supabase service role key must never be exposed to the mobile app.
 
+Required for Supabase Auth token verification:
+
+```txt
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+```
+
+Reserved for later repository/admin access:
+
+```txt
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
 ## Scripts
 
 ```bash
@@ -39,7 +52,14 @@ http://127.0.0.1:4000/v1/health
 ## Current Routes
 
 - `GET /v1/health` returns backend health information.
-- `GET /v1/me` is a placeholder. It reads the optional Bearer token shape but does not verify Supabase JWTs or load a profile yet.
+- `GET /v1/me` verifies `Authorization: Bearer <supabase-access-token>` and returns basic auth user data. It does not load the `profiles` table yet.
+
+Test `/v1/me` locally with a real Supabase access token from the mobile app session:
+
+```bash
+curl http://127.0.0.1:4000/v1/me \
+  -H "Authorization: Bearer YOUR_SUPABASE_ACCESS_TOKEN"
+```
 
 ## Structure
 
@@ -60,5 +80,5 @@ tests/
 ## Notes
 
 - Supabase Admin Client is prepared in `src/integrations/supabase/adminClient.ts`, but no production route uses it yet.
-- Auth middleware is prepared in `src/middleware/auth.ts`. Real Supabase JWT verification is intentionally left for the next ticket.
+- Auth middleware verifies Supabase access tokens through Supabase Auth using the anon key. Service role is not used for `/v1/me`.
 - API routes are versioned under `/v1` to reduce EAS Updates compatibility risk.
