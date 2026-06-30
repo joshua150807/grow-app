@@ -5,6 +5,7 @@ export type AppErrorCode =
   | 'NOT_FOUND'
   | 'PROFILE_NOT_FOUND'
   | 'USERNAME_TAKEN'
+  | 'CREATOR_APPLICATION_EXISTS'
   | 'VALIDATION_ERROR'
   | 'INTERNAL_ERROR';
 
