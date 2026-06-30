@@ -47,7 +47,7 @@ export type CreatorRepository = {
   ): Promise<CreatorApplicationRow>;
   updateCreatorApplicationDecision(
     applicationId: string,
-    input: CreatorApplicationDecisionInput,
+    input: CreatorApplicationDecisionInput & { reviewerId: string },
   ): Promise<CreatorApplicationRow>;
 };
 
@@ -149,21 +149,14 @@ export function createCreatorRepository(
 
     async updateCreatorApplicationDecision(
       applicationId: string,
-      input: CreatorApplicationDecisionInput,
+      input: CreatorApplicationDecisionInput & { reviewerId: string },
     ): Promise<CreatorApplicationRow> {
-      // TODO: When the DB schema has reviewed_by/reviewed_at and a creator/profile
-      // status field, update those in the same transaction/RPC.
-      const { data, error } = await supabase
-        .from('creator_applications')
-        .update({
-          status: input.decision,
-          rejection_reason: input.decision === 'rejected'
-            ? input.rejection_reason
-            : null,
-        })
-        .eq('id', applicationId)
-        .select(creatorApplicationSelect)
-        .single();
+      const { data, error } = await supabase.rpc('review_creator_application', {
+        input_application_id: applicationId,
+        input_decision: input.decision,
+        input_rejection_reason: input.rejection_reason ?? null,
+        input_reviewer_id: input.reviewerId,
+      });
 
       if (error) {
         throw error;

@@ -127,6 +127,51 @@ function isCreatorApplicationConflictError(error: unknown): boolean {
   return candidate.code === '23505' && text.includes('creator');
 }
 
+function getErrorCode(error: unknown): unknown {
+  if (!error || typeof error !== 'object') return null;
+
+  return (error as { code?: unknown }).code;
+}
+
+function getErrorText(error: unknown): string {
+  if (!error || typeof error !== 'object') return '';
+
+  const candidate = error as {
+    message?: unknown;
+    details?: unknown;
+    hint?: unknown;
+  };
+
+  return [
+    candidate.message,
+    candidate.details,
+    candidate.hint,
+  ]
+    .filter((value): value is string => typeof value === 'string')
+    .join(' ')
+    .toLowerCase();
+}
+
+function isCreatorApplicationNotFoundError(error: unknown): boolean {
+  return getErrorCode(error) === 'P0002'
+    || getErrorText(error).includes('creator application not found');
+}
+
+function isCreatorApplicationAlreadyReviewedError(error: unknown): boolean {
+  return getErrorCode(error) === '23505'
+    || getErrorText(error).includes('already been reviewed');
+}
+
+function isInvalidCreatorApplicationDecisionError(error: unknown): boolean {
+  return getErrorCode(error) === '22023'
+    || getErrorText(error).includes('invalid creator application decision')
+    || getErrorText(error).includes('rejection_reason is required');
+}
+
+function isForbiddenCreatorApplicationDecisionError(error: unknown): boolean {
+  return getErrorCode(error) === '42501';
+}
+
 function throwCreatorApplicationExists(): never {
   throw new AppError(
     409,
@@ -201,10 +246,33 @@ export function createCreatorService(
         throwCreatorApplicationAlreadyReviewed();
       }
 
-      const updatedApplication =
-        await creatorRepository.updateCreatorApplicationDecision(applicationId, decisionInput);
+      try {
+        const updatedApplication =
+          await creatorRepository.updateCreatorApplicationDecision(applicationId, {
+            ...decisionInput,
+            reviewerId: user.id,
+          });
 
-      return mapCreatorApplicationRow(updatedApplication);
+        return mapCreatorApplicationRow(updatedApplication);
+      } catch (error) {
+        if (isCreatorApplicationNotFoundError(error)) {
+          throwCreatorApplicationNotFound();
+        }
+
+        if (isCreatorApplicationAlreadyReviewedError(error)) {
+          throwCreatorApplicationAlreadyReviewed();
+        }
+
+        if (isInvalidCreatorApplicationDecisionError(error)) {
+          throw new AppError(400, 'VALIDATION_ERROR', 'Invalid creator application decision.');
+        }
+
+        if (isForbiddenCreatorApplicationDecisionError(error)) {
+          throw new AppError(403, 'FORBIDDEN', 'Admin or CEO access is required.');
+        }
+
+        throw error;
+      }
     },
 
     async createCreatorApplication(

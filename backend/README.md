@@ -58,7 +58,7 @@ http://127.0.0.1:4000/v1/health
 - `GET /v1/creator/applications/me` verifies `Authorization: Bearer <supabase-access-token>` and returns the authenticated user's latest creator application status. If no application exists, it returns `{ "status": "none", "application": null }`.
 - `POST /v1/creator/applications` verifies `Authorization: Bearer <supabase-access-token>`, validates the creator application, creates it for the authenticated user only, and returns `201`. Open existing applications return `409 CREATOR_APPLICATION_EXISTS`.
 - `GET /v1/admin/creator/applications` verifies `Authorization: Bearer <supabase-access-token>`, requires an authenticated `admin` or `ceo` role server-side, and lists creator applications with optional `status`, `limit`, and `page` query filters.
-- `PATCH /v1/admin/creator/applications/:id` verifies `Authorization: Bearer <supabase-access-token>`, requires an authenticated `admin` or `ceo` role server-side, and approves or rejects a pending/requested creator application.
+- `PATCH /v1/admin/creator/applications/:id` verifies `Authorization: Bearer <supabase-access-token>`, requires an authenticated `admin` or `ceo` role server-side, and approves or rejects a pending/requested creator application atomically through `public.review_creator_application`.
 
 Test `/v1/me` locally with a real Supabase access token from the mobile app session:
 
@@ -146,4 +146,4 @@ tests/
 - Supabase Admin Client is prepared in `src/integrations/supabase/adminClient.ts`, but no production route uses it yet.
 - Auth middleware verifies Supabase access tokens through Supabase Auth using the anon key. Service role is not used for `/v1/me`.
 - API routes are versioned under `/v1` to reduce EAS Updates compatibility risk.
-- Creator application approval currently updates only `creator_applications.status` and `rejection_reason`. TODO: once the schema is confirmed, move admin review writes into a DB transaction/RPC that also records `reviewed_by`, `reviewed_at`, and updates creator/profile status.
+- Creator application approval uses the `public.review_creator_application` RPC from `supabase/migrations/20260630164000_creator_system_v1.sql`. The backend must keep calling `requireAdminOrCeo` before invoking this RPC because the RPC receives `input_reviewer_id` from the backend and is intended for service-role use only.

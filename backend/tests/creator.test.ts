@@ -345,6 +345,7 @@ describe('PATCH /v1/admin/creator/applications/:id', () => {
       'application-123',
       {
         decision: 'approved',
+        reviewerId: validUser.id,
       },
     );
     expect(response.json()).toEqual({
@@ -405,6 +406,7 @@ describe('PATCH /v1/admin/creator/applications/:id', () => {
       {
         decision: 'rejected',
         rejection_reason: 'Please add a clearer content focus.',
+        reviewerId: validUser.id,
       },
     );
     expect(response.json().application).toMatchObject({
@@ -412,6 +414,120 @@ describe('PATCH /v1/admin/creator/applications/:id', () => {
       status: 'rejected',
       rejection_reason: 'Please add a clearer content focus.',
     });
+
+    await app.close();
+  });
+
+  it('maps RPC not found errors to 404', async () => {
+    const repository = createMockRepository({
+      getCreatorApplicationById: vi.fn(async () => ({
+        id: 'application-123',
+        user_id: validUser.id,
+        motivation: validPayload.motivation,
+        status: 'pending',
+      })),
+      updateCreatorApplicationDecision: vi.fn(async () => {
+        throw {
+          code: 'P0002',
+          message: 'Creator application not found.',
+        };
+      }),
+    });
+    const adminVerifier: AuthTokenVerifier = async () => ({
+      ...validUser,
+      role: 'admin',
+    });
+    const app = buildTestApp(createCreatorService(repository), adminVerifier);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/creator/applications/application-123',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        decision: 'approved',
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('CREATOR_APPLICATION_NOT_FOUND');
+
+    await app.close();
+  });
+
+  it('maps RPC already reviewed errors to 409', async () => {
+    const repository = createMockRepository({
+      getCreatorApplicationById: vi.fn(async () => ({
+        id: 'application-123',
+        user_id: validUser.id,
+        motivation: validPayload.motivation,
+        status: 'pending',
+      })),
+      updateCreatorApplicationDecision: vi.fn(async () => {
+        throw {
+          code: '23505',
+          message: 'Creator application has already been reviewed.',
+        };
+      }),
+    });
+    const adminVerifier: AuthTokenVerifier = async () => ({
+      ...validUser,
+      role: 'admin',
+    });
+    const app = buildTestApp(createCreatorService(repository), adminVerifier);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/creator/applications/application-123',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        decision: 'approved',
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().error.code).toBe('CREATOR_APPLICATION_ALREADY_REVIEWED');
+
+    await app.close();
+  });
+
+  it('maps RPC invalid decision errors to 400', async () => {
+    const repository = createMockRepository({
+      getCreatorApplicationById: vi.fn(async () => ({
+        id: 'application-123',
+        user_id: validUser.id,
+        motivation: validPayload.motivation,
+        status: 'pending',
+      })),
+      updateCreatorApplicationDecision: vi.fn(async () => {
+        throw {
+          code: '22023',
+          message: 'Invalid creator application decision.',
+        };
+      }),
+    });
+    const adminVerifier: AuthTokenVerifier = async () => ({
+      ...validUser,
+      role: 'admin',
+    });
+    const app = buildTestApp(createCreatorService(repository), adminVerifier);
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/admin/creator/applications/application-123',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        decision: 'approved',
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
 
     await app.close();
   });
