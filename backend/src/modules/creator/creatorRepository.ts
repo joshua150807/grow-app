@@ -17,6 +17,7 @@ export type CreatorApplicationRow = {
   content_focus?: string | null;
   social_links?: string[] | null;
   status: CreatorApplicationStatus | string;
+  rejection_reason?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
 };
@@ -34,7 +35,7 @@ export type CreatorRepository = {
 };
 
 const creatorApplicationSelect =
-  'id, user_id, motivation, experience, content_focus, social_links, status, created_at, updated_at';
+  'id, user_id, motivation, experience, content_focus, social_links, status, rejection_reason, created_at, updated_at';
 
 export function createCreatorRepository(
   supabase: SupabaseClient = getSupabaseAdminClient(),

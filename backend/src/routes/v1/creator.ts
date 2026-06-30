@@ -12,6 +12,13 @@ export const creatorRoutes: FastifyPluginAsync<CreatorRoutesOptions> = async (
   app,
   options,
 ) => {
+  app.get('/creator/applications/me', {
+    preHandler: [app.requireAuth],
+  }, async (request) => (
+    await (options.creatorService ?? createCreatorService())
+      .getMyCreatorApplication(request.auth.user!)
+  ));
+
   app.post('/creator/applications', {
     preHandler: [app.requireAuth],
   }, async (request, reply) => {

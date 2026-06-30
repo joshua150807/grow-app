@@ -28,9 +28,16 @@ export const creatorApplicationResponseSchema = z.object({
   content_focus: z.string().nullable(),
   social_links: z.array(z.string()).nullable(),
   status: z.string(),
+  rejection_reason: z.string().nullable(),
   created_at: z.string().nullable(),
   updated_at: z.string().nullable(),
 });
 
+export const myCreatorApplicationResponseSchema = z.object({
+  status: z.string(),
+  application: creatorApplicationResponseSchema.nullable(),
+});
+
 export type CreatorApplicationInput = z.infer<typeof creatorApplicationRequestSchema>;
 export type CreatorApplicationResponse = z.infer<typeof creatorApplicationResponseSchema>;
+export type MyCreatorApplicationResponse = z.infer<typeof myCreatorApplicationResponseSchema>;

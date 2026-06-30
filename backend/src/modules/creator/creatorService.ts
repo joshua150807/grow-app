@@ -3,8 +3,10 @@ import { AppError } from '../../errors/appError.js';
 import {
   creatorApplicationRequestSchema,
   creatorApplicationResponseSchema,
+  myCreatorApplicationResponseSchema,
   type CreatorApplicationInput,
   type CreatorApplicationResponse,
+  type MyCreatorApplicationResponse,
 } from './creatorSchemas.js';
 import {
   createCreatorRepository,
@@ -16,6 +18,7 @@ const OPEN_CREATOR_APPLICATION_STATUSES = new Set(['pending', 'requested']);
 const INITIAL_CREATOR_APPLICATION_STATUS = 'pending';
 
 export type CreatorService = {
+  getMyCreatorApplication(user: AuthUser): Promise<MyCreatorApplicationResponse>;
   createCreatorApplication(
     user: AuthUser,
     input: unknown,
@@ -44,8 +47,27 @@ function mapCreatorApplicationRow(
     content_focus: nullableString(row.content_focus),
     social_links: nullableStringArray(row.social_links),
     status: row.status,
+    rejection_reason: nullableString(row.rejection_reason),
     created_at: nullableString(row.created_at),
     updated_at: nullableString(row.updated_at),
+  });
+}
+
+function mapMyCreatorApplicationResponse(
+  application: CreatorApplicationRow | null,
+): MyCreatorApplicationResponse {
+  if (!application) {
+    return myCreatorApplicationResponseSchema.parse({
+      status: 'none',
+      application: null,
+    });
+  }
+
+  const mappedApplication = mapCreatorApplicationRow(application);
+
+  return myCreatorApplicationResponseSchema.parse({
+    status: mappedApplication.status,
+    application: mappedApplication,
   });
 }
 
@@ -83,6 +105,13 @@ export function createCreatorService(
   creatorRepository: CreatorRepository = createCreatorRepository(),
 ): CreatorService {
   return {
+    async getMyCreatorApplication(user: AuthUser): Promise<MyCreatorApplicationResponse> {
+      const latestApplication =
+        await creatorRepository.getLatestCreatorApplicationByUserId(user.id);
+
+      return mapMyCreatorApplicationResponse(latestApplication);
+    },
+
     async createCreatorApplication(
       user: AuthUser,
       input: unknown,
