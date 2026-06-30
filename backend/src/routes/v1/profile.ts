@@ -18,4 +18,11 @@ export const profileRoutes: FastifyPluginAsync<ProfileRoutesOptions> = async (
     profile: await (options.profileService ?? createProfileService())
       .getCurrentUserProfile(request.auth.user!),
   }));
+
+  app.patch('/profile/me', {
+    preHandler: [app.requireAuth],
+  }, async (request) => ({
+    profile: await (options.profileService ?? createProfileService())
+      .updateCurrentUserProfile(request.auth.user!, request.body),
+  }));
 };

@@ -4,6 +4,7 @@ export type AppErrorCode =
   | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'PROFILE_NOT_FOUND'
+  | 'USERNAME_TAKEN'
   | 'VALIDATION_ERROR'
   | 'INTERNAL_ERROR';
 
