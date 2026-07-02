@@ -32,6 +32,7 @@ export function AddHabitModal({
   addError,
   canAdd,
   adding,
+  isEditing = false,
   onAdd,
 }) {
   return (
@@ -49,7 +50,9 @@ export function AddHabitModal({
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.formContent}
             >
-              <Text style={styles.sheetTitle}>Neue Gewohnheit</Text>
+              <Text style={styles.sheetTitle}>
+                {isEditing ? 'Gewohnheit bearbeiten' : 'Neue Gewohnheit'}
+              </Text>
 
               <TextInput
                 style={styles.input}
@@ -152,7 +155,9 @@ export function AddHabitModal({
                   {adding ? (
                     <ActivityIndicator color={COLORS.black} />
                   ) : (
-                    <Text style={styles.confirmBtnText}>Hinzufügen</Text>
+                    <Text style={styles.confirmBtnText}>
+                      {isEditing ? 'Speichern' : 'Hinzufügen'}
+                    </Text>
                   )}
                 </Pressable>
               </View>
