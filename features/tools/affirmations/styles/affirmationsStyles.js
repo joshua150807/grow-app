@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 import { COLORS } from '../../../../constants/colors';
 import { s, sv, sf, SCREEN } from '../../../../constants/layout';
@@ -319,14 +319,36 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.46)',
     justifyContent: 'flex-end',
   },
+  modalScroll: {
+    flex: 1,
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    paddingTop: sv(24),
+  },
+  keyboardDismissSpacer: {
+    flex: 1,
+    minHeight: sv(24),
+  },
   modalCard: {
-    backgroundColor: 'rgba(5, 5, 8, 0.72)',
+    backgroundColor: 'rgba(5, 5, 8, 0.96)',
     borderTopLeftRadius: s(30),
     borderTopRightRadius: s(30),
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.toolsCardBorderActive ?? COLORS.borderMid,
-    padding: s(20),
-    paddingBottom: sv(30),
+    maxHeight: SCREEN.height * 0.84,
+    paddingTop: s(20),
+    paddingHorizontal: s(20),
+    paddingBottom: Platform.OS === 'ios' ? sv(30) : sv(24),
+  },
+  modalCardKeyboard: {
+    maxHeight: SCREEN.height * 0.58,
+  },
+  modalInnerScroll: {
+    maxHeight: '100%',
+  },
+  modalInnerScrollContent: {
+    paddingBottom: sv(4),
   },
   modalHeaderRow: {
     flexDirection: 'row',
@@ -346,13 +368,14 @@ export const styles = StyleSheet.create({
     marginBottom: sv(8),
   },
   input: {
-    minHeight: sv(108),
-    borderRadius: s(20),
-    backgroundColor: COLORS.toolsCardSoft ?? COLORS.darkCard2,
+    minHeight: sv(52),
+    maxHeight: sv(92),
+    borderRadius: s(15),
+    backgroundColor: 'rgba(5, 5, 8, 0.95)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: COLORS.toolsCardBorder ?? COLORS.borderDeep,
-    paddingHorizontal: s(15),
-    paddingVertical: sv(13),
+    paddingHorizontal: s(14),
+    paddingVertical: sv(12),
     color: COLORS.toolsText ?? COLORS.textPrimary,
     fontSize: sf(15),
     fontWeight: '700',
@@ -360,26 +383,42 @@ export const styles = StyleSheet.create({
     textAlignVertical: 'top',
     marginBottom: sv(17),
   },
+  suggestionsScroll: {
+    maxHeight: sv(128),
+    marginBottom: sv(2),
+  },
+  suggestionsScrollKeyboard: {
+    maxHeight: sv(112),
+  },
   suggestionsRow: {
     gap: s(10),
     paddingRight: s(20),
+    paddingTop: sv(2),
     paddingBottom: sv(16),
   },
+  suggestionsRowKeyboard: {
+    paddingBottom: sv(12),
+  },
   suggestionChip: {
-    width: s(225),
-    minHeight: sv(88),
+    width: s(258),
+    minHeight: sv(112),
     borderRadius: s(18),
     backgroundColor: 'rgba(231,201,138,0.08)',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(231,201,138,0.22)',
-    paddingHorizontal: s(13),
+    paddingHorizontal: s(14),
     paddingVertical: sv(12),
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  suggestionChipKeyboard: {
+    minHeight: sv(98),
   },
   suggestionCategory: {
     color: COLORS.toolsGold ?? COLORS.gold,
     fontSize: sf(11),
     fontWeight: '900',
+    textAlign: 'center',
     marginBottom: sv(7),
   },
   suggestionText: {
@@ -387,6 +426,7 @@ export const styles = StyleSheet.create({
     fontSize: sf(13),
     lineHeight: sf(18),
     fontWeight: '800',
+    textAlign: 'center',
   },
   categoryWrap: {
     flexDirection: 'row',

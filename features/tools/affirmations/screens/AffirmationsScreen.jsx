@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   ImageBackground,
@@ -43,6 +44,21 @@ export default function AffirmationsScreen() {
   const [editingAffirmation, setEditingAffirmation] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener('keyboardDidShow', () => {
+      setKeyboardVisible(true);
+    });
+    const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const {
     affirmations,
@@ -100,10 +116,21 @@ export default function AffirmationsScreen() {
 
   const closeModal = useCallback(() => {
     if (saving) return;
+    Keyboard.dismiss();
+    setKeyboardVisible(false);
     setModalVisible(false);
     setEditingAffirmation(null);
     setForm(emptyForm);
   }, [saving]);
+
+  const handleModalTopPress = useCallback(() => {
+    if (keyboardVisible) {
+      Keyboard.dismiss();
+      return;
+    }
+
+    closeModal();
+  }, [keyboardVisible, closeModal]);
 
   const handleSave = useCallback(async () => {
     const cleanText = normalizeAffirmationText(form.text);
@@ -327,80 +354,108 @@ export default function AffirmationsScreen() {
 
       <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={closeModal}>
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
           style={styles.modalBackdrop}
         >
-          <View style={styles.modalCard}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>
-                {editingAffirmation ? 'Affirmation bearbeiten' : 'Neue Affirmation'}
-              </Text>
+          <Pressable
+            style={styles.keyboardDismissSpacer}
+            onPress={handleModalTopPress}
+            accessibilityRole="button"
+            accessibilityLabel={keyboardVisible ? 'Tastatur schließen' : 'Eingabe schließen'}
+          />
 
-              <Pressable onPress={closeModal} hitSlop={8}>
-                <Ionicons name="close" size={s(24)} color={COLORS.toolsText ?? COLORS.textPrimary} />
-              </Pressable>
-            </View>
-
-            <Text style={styles.inputLabel}>Dein Glaubenssatz</Text>
-            <TextInput
-              value={form.text}
-              onChangeText={(text) => setForm((current) => ({ ...current, text }))}
-              placeholder="z. B. Ich handle auch ohne Motivation."
-              placeholderTextColor={COLORS.toolsTextDim ?? COLORS.textFaint}
-              style={styles.input}
-              multiline
-              maxLength={160}
-            />
-
-            {!editingAffirmation ? (
-              <>
-                <Text style={styles.inputLabel}>Vorschläge</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.suggestionsRow}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {AFFIRMATION_SUGGESTIONS.map((suggestion) => (
-                    <Pressable
-                      key={suggestion.text}
-                      onPress={() => applySuggestion(suggestion)}
-                      style={styles.suggestionChip}
-                    >
-                      <Text style={styles.suggestionCategory}>{suggestion.category}</Text>
-                      <Text style={styles.suggestionText}>{suggestion.text}</Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </>
-            ) : null}
-
-            <Text style={styles.inputLabel}>Kategorie</Text>
-            <View style={styles.categoryWrap}>
-              {AFFIRMATION_CATEGORIES.map((category) => {
-                const active = form.category === category;
-
-                return (
-                  <Pressable
-                    key={category}
-                    onPress={() => setForm((current) => ({ ...current, category }))}
-                    style={[styles.categoryPill, active && styles.categoryPillActive]}
-                  >
-                    <Text style={[styles.categoryPillText, active && styles.categoryPillTextActive]}>
-                      {category}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <PressableScale
-              onPress={handleSave}
-              disabled={!canSave}
-              style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
+          <View style={[styles.modalCard, keyboardVisible && styles.modalCardKeyboard]}>
+            <ScrollView
+              style={styles.modalInnerScroll}
+              contentContainerStyle={styles.modalInnerScrollContent}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+              showsVerticalScrollIndicator={false}
             >
-              <Text style={styles.saveButtonText}>{saving ? 'Speichert ...' : 'Speichern'}</Text>
-            </PressableScale>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>
+                  {editingAffirmation ? 'Affirmation bearbeiten' : 'Neue Affirmation'}
+                </Text>
+
+                <Pressable onPress={closeModal} hitSlop={8}>
+                  <Ionicons name="close" size={s(24)} color={COLORS.toolsText ?? COLORS.textPrimary} />
+                </Pressable>
+              </View>
+
+              <Text style={styles.inputLabel}>Dein Glaubenssatz</Text>
+              <TextInput
+                value={form.text}
+                onChangeText={(text) => setForm((current) => ({ ...current, text }))}
+                placeholder="z. B. Ich handle auch ohne Motivation."
+                placeholderTextColor={COLORS.toolsTextDim ?? COLORS.textFaint}
+                style={styles.input}
+                multiline
+                maxLength={160}
+                scrollEnabled
+                textAlignVertical="top"
+              />
+
+              {!editingAffirmation ? (
+                <>
+                  <Text style={styles.inputLabel}>Vorschläge</Text>
+                  <ScrollView
+                    horizontal
+                    style={[styles.suggestionsScroll, keyboardVisible && styles.suggestionsScrollKeyboard]}
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={[
+                      styles.suggestionsRow,
+                      keyboardVisible && styles.suggestionsRowKeyboard,
+                    ]}
+                    keyboardShouldPersistTaps="handled"
+                  >
+                    {AFFIRMATION_SUGGESTIONS.map((suggestion) => (
+                      <Pressable
+                        key={suggestion.text}
+                        onPress={() => applySuggestion(suggestion)}
+                        style={[styles.suggestionChip, keyboardVisible && styles.suggestionChipKeyboard]}
+                      >
+                        <Text style={styles.suggestionCategory}>{suggestion.category}</Text>
+                        <Text
+                          style={styles.suggestionText}
+                          numberOfLines={keyboardVisible ? 3 : 4}
+                          ellipsizeMode="tail"
+                        >
+                          {suggestion.text}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </ScrollView>
+                </>
+              ) : null}
+
+              <Text style={styles.inputLabel}>Kategorie</Text>
+              <View style={styles.categoryWrap}>
+                {AFFIRMATION_CATEGORIES.map((category) => {
+                  const active = form.category === category;
+
+                  return (
+                    <Pressable
+                      key={category}
+                      onPress={() => setForm((current) => ({ ...current, category }))}
+                      style={[styles.categoryPill, active && styles.categoryPillActive]}
+                    >
+                      <Text style={[styles.categoryPillText, active && styles.categoryPillTextActive]}>
+                        {category}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <PressableScale
+                onPress={handleSave}
+                disabled={!canSave}
+                style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
+              >
+                <Text style={styles.saveButtonText}>{saving ? 'Speichert ...' : 'Speichern'}</Text>
+              </PressableScale>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>

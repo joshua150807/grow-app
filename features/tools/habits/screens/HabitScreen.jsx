@@ -27,6 +27,16 @@ import { useDelayedLoading } from '../../../../hooks/useDelayedLoading';
 import { HABITS_PAGE_BG } from '../../../../constants/toolAssets';
 import { tools } from '../../../../data/tools';
 
+function getLinkedToolFromHabit(habit) {
+  return habit?.linked_tool_id && habit?.linked_tool_title && habit?.linked_tool_route
+    ? {
+        id: habit.linked_tool_id,
+        title: habit.linked_tool_title,
+        route: habit.linked_tool_route,
+      }
+    : null;
+}
+
 export default function HabitsScreen() {
   const [selectedDay, setSelectedDay] = useState(getTodayIndex());
   const {
@@ -43,15 +53,16 @@ export default function HabitsScreen() {
     toggle,
     remove,
     add,
+    update,
   } = useHabits(selectedDay);
 
-  // Modal
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingHabit, setEditingHabit] = useState(null);
   const [inputName, setInputName] = useState('');
   const [modalDays, setModalDays] = useState(new Set());
   const [allDays, setAllDays] = useState(false);
   const [linkedTool, setLinkedTool] = useState(null);
-  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [addError, setAddError] = useState(null);
   const showLoading = useDelayedLoading(loading);
 
@@ -60,35 +71,69 @@ export default function HabitsScreen() {
     []
   );
 
-  const handleAdd = useCallback(async () => {
-    if (!inputName.trim()) return;
-
-    const days = allDays ? getAllDayIndexes() : Array.from(modalDays);
-    if (days.length === 0) return;
-
-    setAddError(null);
-    setAdding(true);
-
-    try {
-      await add(inputName.trim(), days, linkedTool);
-      closeModal();
-    } catch (e) {
-      setAddError('Gewohnheit konnte nicht gespeichert werden. Bitte versuche es erneut.');
-    } finally {
-      setAdding(false);
-    }
-  }, [inputName, modalDays, allDays, linkedTool, add]);
-
-  const closeModal = () => {
-    setModalVisible(false);
+  const resetModalState = useCallback(() => {
+    setEditingHabit(null);
     setInputName('');
     setModalDays(new Set());
     setAllDays(false);
     setLinkedTool(null);
     setAddError(null);
-  };
+  }, []);
 
-  const toggleModalDay = (dayIndex) => {
+  const closeModal = useCallback(() => {
+    setModalVisible(false);
+    resetModalState();
+  }, [resetModalState]);
+
+  const openAddModal = useCallback(() => {
+    resetModalState();
+    setModalVisible(true);
+  }, [resetModalState]);
+
+  const openEditModal = useCallback((habit) => {
+    if (!habit?.id) return;
+
+    const days = Array.isArray(habit.days) ? habit.days : [];
+
+    setEditingHabit(habit);
+    setInputName(habit.name ?? '');
+    setModalDays(new Set(days));
+    setAllDays(days.length === 7);
+    setLinkedTool(getLinkedToolFromHabit(habit));
+    setAddError(null);
+    setModalVisible(true);
+  }, []);
+
+  const handleSaveHabit = useCallback(async () => {
+    const safeName = inputName.trim();
+    if (!safeName) return;
+
+    const days = allDays ? getAllDayIndexes() : Array.from(modalDays);
+    if (days.length === 0) return;
+
+    setAddError(null);
+    setSaving(true);
+
+    try {
+      if (editingHabit) {
+        await update(editingHabit.id, safeName, days, linkedTool);
+      } else {
+        await add(safeName, days, linkedTool);
+      }
+
+      closeModal();
+    } catch (e) {
+      setAddError(
+        editingHabit
+          ? 'Gewohnheit konnte nicht aktualisiert werden. Bitte versuche es erneut.'
+          : 'Gewohnheit konnte nicht gespeichert werden. Bitte versuche es erneut.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  }, [inputName, modalDays, allDays, linkedTool, editingHabit, add, update, closeModal]);
+
+  const toggleModalDay = useCallback((dayIndex) => {
     setModalDays(prev => {
       const next = new Set(prev);
       if (next.has(dayIndex)) next.delete(dayIndex);
@@ -96,20 +141,20 @@ export default function HabitsScreen() {
       setAllDays(next.size === 7);
       return next;
     });
-  };
+  }, []);
 
-  const toggleAllDays = () => {
+  const toggleAllDays = useCallback(() => {
     const next = !allDays;
     setAllDays(next);
     setModalDays(next ? new Set(getAllDayIndexes()) : new Set());
-  };
+  }, [allDays]);
 
   const handleOpenLinkedTool = useCallback((habit) => {
     if (!habit?.linked_tool_route) return;
     router.push(habit.linked_tool_route);
   }, []);
 
-  const canAdd = inputName.trim().length > 0 && (allDays || modalDays.size > 0);
+  const canSave = inputName.trim().length > 0 && (allDays || modalDays.size > 0);
 
   return (
     <ImageBackground
@@ -128,14 +173,11 @@ export default function HabitsScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>GEWOHNHEITEN</Text>
           <Text style={styles.subtitle}>Build life-changing habits</Text>
         </View>
 
-        {/* Ladefehler */}
         {loadError && (
           <View style={styles.errorCard}>
             <Ionicons name="alert-circle-outline" size={s(20)} color={styles.errorIcon.color} />
@@ -146,7 +188,6 @@ export default function HabitsScreen() {
           </View>
         )}
 
-        {/* Aktionsfehler (Abhaken, Löschen) */}
         {actionError && (
           <View style={styles.errorBanner}>
             <Ionicons name="alert-circle-outline" size={s(16)} color={styles.errorIcon.color} />
@@ -157,7 +198,6 @@ export default function HabitsScreen() {
           </View>
         )}
 
-        {/* Tages-Auswahl */}
         <View style={styles.dayRow}>
           {DAYS.map((day, index) => (
             <Pressable
@@ -172,7 +212,6 @@ export default function HabitsScreen() {
           ))}
         </View>
 
-        {/* Fortschritt */}
         <View style={styles.progressRow}>
           <Text style={styles.sectionTitle}>HEUTE</Text>
           <Text style={styles.counter}>{completedCount}/{total} erledigt</Text>
@@ -183,7 +222,6 @@ export default function HabitsScreen() {
           </View>
         </View>
 
-        {/* Liste */}
         {showLoading ? (
           <ToolStateCard loading title="Gewohnheiten werden geladen" subtitle="Dein heutiger Fortschritt wird vorbereitet." />
         ) : !loading && total === 0 ? (
@@ -202,21 +240,19 @@ export default function HabitsScreen() {
                 done={completedIds.has(habit.id)}
                 onToggle={toggle}
                 onDelete={remove}
+                onEdit={openEditModal}
                 onOpenLinkedTool={handleOpenLinkedTool}
               />
             ))}
           </View>
         ) : null}
 
-        {/* Hinzufügen */}
-        <Pressable style={styles.addButton} onPress={() => setModalVisible(true)}>
+        <Pressable style={styles.addButton} onPress={openAddModal}>
           <Ionicons name="add-circle-outline" size={s(22)} color={COLORS.gold} />
           <Text style={styles.addText}>Neue Gewohnheit hinzufügen</Text>
         </Pressable>
-
       </ScrollView>
 
-      {/* ── Add-Modal ─────────────────────────────────────────────────────── */}
       <AddHabitModal
         visible={modalVisible}
         onClose={closeModal}
@@ -231,9 +267,10 @@ export default function HabitsScreen() {
         onSelectLinkedTool={setLinkedTool}
         onClearLinkedTool={() => setLinkedTool(null)}
         addError={addError}
-        canAdd={canAdd}
-        adding={adding}
-        onAdd={handleAdd}
+        canAdd={canSave}
+        adding={saving}
+        isEditing={Boolean(editingHabit)}
+        onAdd={handleSaveHabit}
       />
     </ImageBackground>
   );
