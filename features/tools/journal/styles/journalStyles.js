@@ -93,9 +93,16 @@ export const styles = StyleSheet.create({
   gestureArea: {
     flex: 1,
   },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: s(20),
     paddingBottom: sv(36),
+  },
+  questionDetailContent: {
+    flexGrow: 1,
+    paddingBottom: sv(72),
   },
   header: {
     alignItems: 'center',

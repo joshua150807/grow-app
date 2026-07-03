@@ -6,6 +6,7 @@ import {
   toggleCompletion,
   deleteHabit,
   addHabit,
+  updateHabit,
 } from '../../../tools/habits/services/habits';
 
 import { getDateForDayIndex } from '../utils/habitUtils';
@@ -41,6 +42,56 @@ function normalizeHabits(habits) {
 function normalizeIds(ids) {
   if (!Array.isArray(ids)) return [];
   return Array.from(new Set(ids.filter(Boolean)));
+}
+
+function normalizeLinkedTool(linkedTool = null) {
+  return linkedTool?.id && linkedTool?.title && linkedTool?.route
+    ? {
+        id: linkedTool.id,
+        title: linkedTool.title,
+        route: linkedTool.route,
+      }
+    : null;
+}
+
+function getPendingCacheKey(completionsCacheKey) {
+  return `${completionsCacheKey}:pending`;
+}
+
+function getPendingCompletionMutations(completionsCacheKey) {
+  return getPreloadedToolData(getPendingCacheKey(completionsCacheKey)) ?? {};
+}
+
+function setPendingCompletionMutation(completionsCacheKey, habitId, isDone) {
+  if (!habitId) return;
+
+  setPreloadedToolData(getPendingCacheKey(completionsCacheKey), {
+    ...getPendingCompletionMutations(completionsCacheKey),
+    [habitId]: Boolean(isDone),
+  });
+}
+
+function clearPendingCompletionMutation(completionsCacheKey, habitId) {
+  if (!habitId) return;
+
+  const current = { ...getPendingCompletionMutations(completionsCacheKey) };
+  delete current[habitId];
+  setPreloadedToolData(getPendingCacheKey(completionsCacheKey), current);
+}
+
+function applyPendingCompletionMutations(ids, completionsCacheKey) {
+  const next = new Set(normalizeIds(ids));
+  const pending = getPendingCompletionMutations(completionsCacheKey);
+
+  Object.entries(pending).forEach(([habitId, isDone]) => {
+    if (isDone) {
+      next.add(habitId);
+    } else {
+      next.delete(habitId);
+    }
+  });
+
+  return Array.from(next);
 }
 
 export function useHabits(selectedDay) {
@@ -99,7 +150,10 @@ export function useHabits(selectedDay) {
     completionsRequestRef.current = requestId;
 
     try {
-      const ids = normalizeIds(await getCompletionsForDate(selectedDate));
+      const ids = applyPendingCompletionMutations(
+        await getCompletionsForDate(selectedDate),
+        completionsCacheKey
+      );
       if (!mountedRef.current || requestId !== completionsRequestRef.current) return;
       setCompletedIds(new Set(ids));
       setPreloadedToolData(completionsCacheKey, ids);
@@ -130,9 +184,9 @@ export function useHabits(selectedDay) {
     const cached = getPreloadedToolData(completionsCacheKey);
 
     if (cached) {
-      setCompletedIds(new Set(normalizeIds(cached)));
+      setCompletedIds(new Set(applyPendingCompletionMutations(cached, completionsCacheKey)));
     } else {
-      setCompletedIds(new Set());
+      setCompletedIds(new Set(applyPendingCompletionMutations([], completionsCacheKey)));
     }
 
     loadCompletions();
@@ -158,37 +212,38 @@ export function useHabits(selectedDay) {
     if (pendingActionsRef.current.has(actionKey)) return;
     pendingActionsRef.current.add(actionKey);
 
-    let nextIsDone = false;
+    const nextIsDone = !completedIds.has(id);
 
-    // Verhindert, dass ein noch laufender Server-Reload den gerade gesetzten Haken
-    // mit veralteten Daten wieder überschreibt.
+    // Verhindert, dass ein noch laufender Server-Reload oder ein schneller Re-Open
+    // den gerade optimistisch gesetzten Haken mit alten Daten überschreibt.
     invalidatePendingCompletionsLoad();
+    setPendingCompletionMutation(completionsCacheKey, id, nextIsDone);
 
     setCompletedIds(prev => {
-      const isDone = prev.has(id);
-      nextIsDone = !isDone;
       const next = new Set(prev);
-      isDone ? next.delete(id) : next.add(id);
+      nextIsDone ? next.add(id) : next.delete(id);
       setPreloadedToolData(completionsCacheKey, Array.from(next));
       return next;
     });
 
     try {
       await toggleCompletion(id, selectedDate, nextIsDone);
+      clearPendingCompletionMutation(completionsCacheKey, id);
     } catch (e) {
+      clearPendingCompletionMutation(completionsCacheKey, id);
+
+      const cached = new Set(normalizeIds(getPreloadedToolData(completionsCacheKey) ?? []));
+      nextIsDone ? cached.delete(id) : cached.add(id);
+      setPreloadedToolData(completionsCacheKey, Array.from(cached));
+
       if (mountedRef.current) {
         setActionError('Änderung konnte nicht gespeichert werden.');
-        setCompletedIds(prev => {
-          const next = new Set(prev);
-          nextIsDone ? next.delete(id) : next.add(id);
-          setPreloadedToolData(completionsCacheKey, Array.from(next));
-          return next;
-        });
+        setCompletedIds(cached);
       }
     } finally {
       pendingActionsRef.current.delete(actionKey);
     }
-  }, [selectedDate, completionsCacheKey, invalidatePendingCompletionsLoad]);
+  }, [selectedDate, completionsCacheKey, completedIds, invalidatePendingCompletionsLoad]);
 
   const remove = useCallback(async (id) => {
     if (!id) return;
@@ -230,14 +285,7 @@ export function useHabits(selectedDay) {
     const safeDays = normalizeDays(days);
     if (!safeName || safeDays.length === 0) return null;
 
-    const safeLinkedTool = linkedTool?.id && linkedTool?.title && linkedTool?.route
-      ? {
-          id: linkedTool.id,
-          title: linkedTool.title,
-          route: linkedTool.route,
-        }
-      : null;
-
+    const safeLinkedTool = normalizeLinkedTool(linkedTool);
     const actionKey = `add:${safeName}:${safeDays.join(',')}:${safeLinkedTool?.id ?? 'none'}`;
     if (pendingActionsRef.current.has(actionKey)) return null;
     pendingActionsRef.current.add(actionKey);
@@ -260,6 +308,36 @@ export function useHabits(selectedDay) {
     }
   }, []);
 
+  const update = useCallback(async (id, name, days, linkedTool = null) => {
+    const safeName = typeof name === 'string' ? name.trim() : '';
+    const safeDays = normalizeDays(days);
+    if (!id || !safeName || safeDays.length === 0) return null;
+
+    const safeLinkedTool = normalizeLinkedTool(linkedTool);
+    const actionKey = `update:${id}`;
+    if (pendingActionsRef.current.has(actionKey)) return null;
+    pendingActionsRef.current.add(actionKey);
+
+    try {
+      const updatedHabit = normalizeHabit(await updateHabit(id, safeName, safeDays, safeLinkedTool));
+      if (!updatedHabit) return null;
+
+      if (mountedRef.current) {
+        setHabits(prev => {
+          const nextHabits = prev.map(habit => (
+            habit.id === id ? updatedHabit : habit
+          ));
+          setPreloadedToolData('habits', nextHabits);
+          return nextHabits;
+        });
+      }
+
+      return updatedHabit;
+    } finally {
+      pendingActionsRef.current.delete(actionKey);
+    }
+  }, []);
+
   return {
     habits,
     visibleHabits,
@@ -276,5 +354,6 @@ export function useHabits(selectedDay) {
     toggle,
     remove,
     add,
+    update,
   };
 }

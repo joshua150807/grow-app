@@ -4,6 +4,7 @@ import {
   Text,
   ScrollView,
   ImageBackground,
+  KeyboardAvoidingView,
   Alert,
   Animated,
   Easing,
@@ -470,69 +471,75 @@ export default function JournalScreen() {
             </PressableScale>
           </View>
 
-          <GestureDetector gesture={journalSwipeGesture}>
-            <View style={styles.gestureArea}>
-              <ScrollView
-                contentContainerStyle={styles.content}
-                showsVerticalScrollIndicator={false}
-                scrollEnabled={scrollEnabled}
-                directionalLockEnabled
-                keyboardShouldPersistTaps="handled"
-              >
-                <View style={styles.header}>
-                  <Text style={styles.title}>JOURNAL</Text>
-                  <Text style={styles.subtitle}>Dein persönliches Buch. Jeden Tag eine Seite.</Text>
-                </View>
-
-                {loadError && (
-                  <View style={styles.errorCard}>
-                    <Text style={styles.errorText}>{loadError}</Text>
-                    <PressableScale onPress={loadEntries} style={styles.retryBtn}>
-                      <Text style={styles.retryText}>Erneut versuchen</Text>
-                    </PressableScale>
+          <KeyboardAvoidingView
+            style={styles.keyboardAvoidingView}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <GestureDetector gesture={journalSwipeGesture}>
+              <View style={styles.gestureArea}>
+                <ScrollView
+                  contentContainerStyle={[styles.content, styles.questionDetailContent]}
+                  showsVerticalScrollIndicator={false}
+                  scrollEnabled={scrollEnabled}
+                  directionalLockEnabled
+                  keyboardShouldPersistTaps="handled"
+                  keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                >
+                  <View style={styles.header}>
+                    <Text style={styles.title}>JOURNAL</Text>
+                    <Text style={styles.subtitle}>Dein persönliches Buch. Jeden Tag eine Seite.</Text>
                   </View>
-                )}
 
-                {actionError && (
-                  <View style={styles.errorBanner}>
-                    <Ionicons name="alert-circle-outline" size={s(16)} color={COLORS.errorLight} />
-                    <Text style={styles.errorText}>{actionError}</Text>
-                    <PressableScale onPress={() => setActionError(null)} hitSlop={s(8)} activeScale={0.94}>
-                      <Ionicons name="close" size={s(16)} color={COLORS.textDim} />
-                    </PressableScale>
-                  </View>
-                )}
+                  {loadError && (
+                    <View style={styles.errorCard}>
+                      <Text style={styles.errorText}>{loadError}</Text>
+                      <PressableScale onPress={loadEntries} style={styles.retryBtn}>
+                        <Text style={styles.retryText}>Erneut versuchen</Text>
+                      </PressableScale>
+                    </View>
+                  )}
 
-                <JournalPageNavigation
-                  isStarterPage={false}
-                  selectedDate={selectedDate}
-                  onPreviousPage={handlePreviousPage}
-                  onNextPage={handleNextPage}
-                  onOpenCalendar={handleOpenCalendar}
-                />
+                  {actionError && (
+                    <View style={styles.errorBanner}>
+                      <Ionicons name="alert-circle-outline" size={s(16)} color={COLORS.errorLight} />
+                      <Text style={styles.errorText}>{actionError}</Text>
+                      <PressableScale onPress={() => setActionError(null)} hitSlop={s(8)} activeScale={0.94}>
+                        <Ionicons name="close" size={s(16)} color={COLORS.textDim} />
+                      </PressableScale>
+                    </View>
+                  )}
 
-                <Animated.View style={[styles.pageTurnWrap, pageAnimatedStyle]}>
-                  <Animated.View pointerEvents="none" style={[styles.pageTurnShadow, pageShadowStyle]} />
-                  <Animated.View pointerEvents="none" style={[styles.pageTurnFold, pageFoldStyle]} />
-                  <JournalDayPage
+                  <JournalPageNavigation
+                    isStarterPage={false}
                     selectedDate={selectedDate}
-                    isFutureDay={isFutureDay}
-                    currentDayEntry={currentDayEntry}
-                    showLoading={showLoading}
-                    form={form}
-                    onUpdateForm={updateForm}
-                    onToggleHabits={handleToggleHabits}
-                    inputGestureProps={inputGestureProps}
-                    onTextInputTouchEnd={handleTextInputTouchEnd}
-                    formError={formError}
-                    canSave={canSave}
-                    saving={saving}
-                    onSave={handleSave}
+                    onPreviousPage={handlePreviousPage}
+                    onNextPage={handleNextPage}
+                    onOpenCalendar={handleOpenCalendar}
                   />
-                </Animated.View>
-              </ScrollView>
-            </View>
-          </GestureDetector>
+
+                  <Animated.View style={[styles.pageTurnWrap, pageAnimatedStyle]}>
+                    <Animated.View pointerEvents="none" style={[styles.pageTurnShadow, pageShadowStyle]} />
+                    <Animated.View pointerEvents="none" style={[styles.pageTurnFold, pageFoldStyle]} />
+                    <JournalDayPage
+                      selectedDate={selectedDate}
+                      isFutureDay={isFutureDay}
+                      currentDayEntry={currentDayEntry}
+                      showLoading={showLoading}
+                      form={form}
+                      onUpdateForm={updateForm}
+                      onToggleHabits={handleToggleHabits}
+                      inputGestureProps={inputGestureProps}
+                      onTextInputTouchEnd={handleTextInputTouchEnd}
+                      formError={formError}
+                      canSave={canSave}
+                      saving={saving}
+                      onSave={handleSave}
+                    />
+                  </Animated.View>
+                </ScrollView>
+              </View>
+            </GestureDetector>
+          </KeyboardAvoidingView>
         </View>
       </ImageBackground>
 

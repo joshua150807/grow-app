@@ -10,6 +10,30 @@ function normalizeDays(days) {
   )).sort((a, b) => a - b);
 }
 
+function normalizeLinkedToolPayload(linkedTool = null, { includeEmptyValues = false } = {}) {
+  if (linkedTool?.id && linkedTool?.title && linkedTool?.route) {
+    return {
+      linked_tool_id: linkedTool.id,
+      linked_tool_title: linkedTool.title,
+      linked_tool_route: linkedTool.route,
+    };
+  }
+
+  return includeEmptyValues
+    ? {
+        linked_tool_id: null,
+        linked_tool_title: null,
+        linked_tool_route: null,
+      }
+    : {};
+}
+
+function isMissingLinkedToolColumnError(error) {
+  const message = `${error?.message ?? ''} ${error?.details ?? ''}`;
+
+  return error?.code === 'PGRST204' || message.includes('linked_tool_');
+}
+
 export async function getHabits() {
   const userId = await getCurrentUserId();
   if (!userId) return [];
@@ -33,31 +57,64 @@ export async function addHabit(name, days, linkedTool = null) {
   if (!safeName) throw new Error('Name fehlt.');
   if (safeDays.length === 0) throw new Error('Keine Tage ausgewählt.');
 
-  const linkedToolPayload = linkedTool?.id && linkedTool?.title && linkedTool?.route
-    ? {
-        linked_tool_id: linkedTool.id,
-        linked_tool_title: linkedTool.title,
-        linked_tool_route: linkedTool.route,
-      }
-    : {
-        linked_tool_id: null,
-        linked_tool_title: null,
-        linked_tool_route: null,
-      };
+  const insertPayload = {
+    user_id: userId,
+    name: safeName,
+    days: safeDays,
+    ...normalizeLinkedToolPayload(linkedTool),
+  };
 
   const { data, error } = await supabase
     .from('habits')
-    .insert({
-      user_id: userId,
-      name: safeName,
-      days: safeDays,
-      ...linkedToolPayload,
-    })
+    .insert(insertPayload)
     .select()
     .single();
 
   if (error) throw error;
   if (!data) throw new Error('Gewohnheit konnte nicht gespeichert werden.');
+  return data;
+}
+
+
+export async function updateHabit(id, name, days, linkedTool = null) {
+  if (!id) throw new Error('Ungültige Gewohnheit.');
+
+  const userId = await getCurrentUserId();
+  if (!userId) throw new Error('Nicht eingeloggt');
+
+  const safeName = typeof name === 'string' ? name.trim() : '';
+  const safeDays = normalizeDays(days);
+  if (!safeName) throw new Error('Name fehlt.');
+  if (safeDays.length === 0) throw new Error('Keine Tage ausgewählt.');
+
+  const updatePayload = {
+    name: safeName,
+    days: safeDays,
+    ...normalizeLinkedToolPayload(linkedTool, { includeEmptyValues: true }),
+  };
+
+  const runUpdate = (payload) => supabase
+    .from('habits')
+    .update(payload)
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select()
+    .single();
+
+  let { data, error } = await runUpdate(updatePayload);
+
+  // Falls die bestehende Supabase-Tabelle noch keine linked_tool_* Spalten hat,
+  // darf das reine Bearbeiten von Name/Tagen trotzdem nicht scheitern.
+  // Sobald die Spalten existieren, wird der volle Payload inkl. Tool-Link gespeichert.
+  if (error && isMissingLinkedToolColumnError(error)) {
+    ({ data, error } = await runUpdate({
+      name: safeName,
+      days: safeDays,
+    }));
+  }
+
+  if (error) throw error;
+  if (!data) throw new Error('Gewohnheit konnte nicht aktualisiert werden.');
   return data;
 }
 

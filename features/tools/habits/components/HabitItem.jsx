@@ -3,6 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
 import { s, sv, sf } from '../../../../constants/layout';
+import PressableScale from '../../../../components/ui/PressableScale';
+import { triggerHaptic } from '../../../../lib/haptics';
 
 export function HabitItem({
   habit,
@@ -10,18 +12,23 @@ export function HabitItem({
   done,
   onToggle,
   onDelete,
+  onEdit,
   onOpenLinkedTool,
 }) {
   const hasLinkedTool = Boolean(habit.linked_tool_route && habit.linked_tool_title);
 
+  const handleToggle = () => {
+    void triggerHaptic(done ? 'selection' : 'light');
+    onToggle(habit.id);
+  };
+
   return (
-    <Pressable
+    <View
       style={[
         styles.habitCard,
         hasLinkedTool ? styles.habitCardWithLinkedTool : styles.habitCardWithoutLinkedTool,
         done && styles.habitCardDone,
       ]}
-      onPress={() => onToggle(habit.id)}
     >
       <View
         style={[
@@ -35,19 +42,38 @@ export function HabitItem({
             hasLinkedTool ? styles.habitLeftWithLinkedTool : styles.habitLeftWithoutLinkedTool,
           ]}
         >
-          <View style={[styles.checkbox, done && styles.checkboxDone]}>
-            {done && (
-              <Ionicons name="checkmark" size={s(13)} color={COLORS.black} />
-            )}
-          </View>
+          <PressableScale
+            style={styles.checkboxTapArea}
+            activeScale={0.92}
+            activeOpacity={0.86}
+            onPressIn={handleToggle}
+            hitSlop={{ top: s(8), bottom: s(8), left: s(8), right: s(8) }}
+            pressRetentionOffset={{ top: s(24), bottom: s(24), left: s(24), right: s(24) }}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: !!done }}
+          >
+            <View pointerEvents="none" style={[styles.checkbox, done && styles.checkboxDone]}>
+              {done && (
+                <Ionicons name="checkmark" size={s(13)} color={COLORS.black} />
+              )}
+            </View>
+          </PressableScale>
 
           <View style={styles.habitTextWrap}>
-            <Text
-              style={[styles.habitTitle, done && styles.habitTitleDone]}
-              numberOfLines={2}
+            <Pressable
+              style={({ pressed }) => [
+                styles.habitTitlePressable,
+                pressed && styles.habitTitlePressed,
+              ]}
+              onPress={handleToggle}
             >
-              {habit.name}
-            </Text>
+              <Text
+                style={[styles.habitTitle, done && styles.habitTitleDone]}
+                numberOfLines={2}
+              >
+                {habit.name}
+              </Text>
+            </Pressable>
 
             {hasLinkedTool && (
               <Pressable
@@ -80,21 +106,35 @@ export function HabitItem({
             ))}
           </View>
 
-          {done && (
-            <Pressable
-              style={styles.trashBtn}
-              onPress={(event) => {
-                event.stopPropagation();
-                onDelete(habit.id);
-              }}
+          <View style={styles.actionRow}>
+            <PressableScale
+              style={styles.actionBtn}
+              activeScale={0.92}
+              activeOpacity={0.84}
+              onPress={() => onEdit?.(habit)}
               hitSlop={s(8)}
             >
-              <Ionicons name="trash-outline" size={s(16)} color={COLORS.white} />
-            </Pressable>
-          )}
+              <Ionicons name="create-outline" size={s(17)} color={COLORS.gold} />
+            </PressableScale>
+
+            {done && (
+              <PressableScale
+                style={styles.trashBtn}
+                activeScale={0.92}
+                activeOpacity={0.82}
+                onPress={() => {
+                  void triggerHaptic('medium');
+                  onDelete(habit.id);
+                }}
+                hitSlop={s(8)}
+              >
+                <Ionicons name="trash-outline" size={s(16)} color={COLORS.white} />
+              </PressableScale>
+            )}
+          </View>
         </View>
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -141,6 +181,15 @@ const styles = StyleSheet.create({
   habitLeftWithLinkedTool: {
     alignItems: 'flex-start',
   },
+  checkboxTapArea: {
+    width: s(44),
+    height: s(44),
+    marginVertical: sv(-10),
+    marginRight: s(-7),
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
   checkbox: {
     width: s(24),
     height: s(24),
@@ -156,6 +205,13 @@ const styles = StyleSheet.create({
   },
   habitTextWrap: {
     flex: 1,
+  },
+  habitTitlePressable: {
+    borderRadius: s(10),
+    paddingVertical: sv(3),
+  },
+  habitTitlePressed: {
+    opacity: 0.72,
   },
   habitTitle: {
     color: COLORS.white,
@@ -202,6 +258,19 @@ const styles = StyleSheet.create({
   },
   dayDotActive: {
     backgroundColor: COLORS.gold,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: s(6),
+  },
+  actionBtn: {
+    width: s(28),
+    height: s(28),
+    borderRadius: s(14),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(212,175,55,0.10)',
   },
   trashBtn: {
     width: s(28),
