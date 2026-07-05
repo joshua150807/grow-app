@@ -71,9 +71,7 @@ export default function AdminDashboardScreen() {
   useFocusEffect(
     useCallback(() => {
       isFocusedRef.current = true;
-      if (!hasLoadedOnceRef.current) {
-        checkAccessAndLoadStats();
-      }
+      checkAccessAndLoadStats();
 
       return () => {
         isFocusedRef.current = false;

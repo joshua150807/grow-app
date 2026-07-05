@@ -37,7 +37,7 @@ export default function AdminToolAnalyticsDetailScreen() {
   const activeRequestRef = useRef(0);
   const isFocusedRef = useRef(false);
 
-  const loadUsers = useCallback(async ({ refreshing = false, force = false } = {}) => {
+  const loadUsers = useCallback(async ({ refreshing = false, force = false, silent = false } = {}) => {
     if (!toolId) {
       setIsLoading(false);
       setErrorText('Kein Tool ausgewählt.');
@@ -55,7 +55,7 @@ export default function AdminToolAnalyticsDetailScreen() {
     try {
       if (refreshing) {
         setIsRefreshing(true);
-      } else {
+      } else if (!silent) {
         setIsLoading(true);
       }
 
@@ -88,7 +88,7 @@ export default function AdminToolAnalyticsDetailScreen() {
   useFocusEffect(
     useCallback(() => {
       isFocusedRef.current = true;
-      loadUsers();
+      loadUsers({ force: true, silent: hasLoadedOnceRef.current });
 
       return () => {
         isFocusedRef.current = false;
