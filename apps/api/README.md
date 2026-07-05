@@ -1,16 +1,36 @@
 # Grow Backend
 
-Fastify backend skeleton for the Grow production release. This service is the future boundary for validation, authorization, business logic, logging, Supabase access, creator uploads, video moderation, and the KI Mentor.
+Fastify backend for the Grow production release. This service is the backend boundary for validation, authorization, business logic, logging, Supabase access, creator flows, video moderation, and the KI Mentor.
 
 ## Setup
 
+From the monorepo root:
+
 ```bash
-cd backend
 npm install
-cp .env.example .env
 ```
 
-Fill `.env` with server-only values when a route actually needs them. The Supabase service role key must never be exposed to the mobile app.
+Run API commands through the npm workspace:
+
+```bash
+npm run dev:api
+npm run build:api
+npm run test:api
+npm run typecheck:api
+```
+
+Or from the API package directly:
+
+```bash
+cd apps/api
+npm run dev
+npm run build
+npm test
+npm run test:watch
+npm run typecheck
+```
+
+Fill `apps/api/.env` with server-only values when a route actually needs them. Never commit real secrets. The Supabase service role key and PostgreSQL credentials must never be exposed to the mobile app.
 
 Required for Supabase Auth token verification:
 
@@ -19,42 +39,26 @@ SUPABASE_URL=
 SUPABASE_ANON_KEY=
 ```
 
-Reserved for later repository/admin access:
+Required for the real runtime `GET /v1/profile/me` Drizzle read path:
+
+```txt
+DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
+```
+
+Reserved for Supabase admin/repository access used by existing Supabase-backed routes:
 
 ```txt
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
-## Scripts
-
-```bash
-npm run dev
-npm run build
-npm start
-npm test
-npm run test:watch
-npm run typecheck
-```
-
-## Local Development
-
-```bash
-cd backend
-npm run dev
-```
-
-The default local URL is:
-
-```txt
-http://127.0.0.1:4000/v1/health
-```
+`npm run build:api`, `npm run typecheck:api`, and `npm run test:api` do not require `DATABASE_URL` because the PostgreSQL client is lazy. A real runtime `GET /v1/profile/me` request does require server-side `DATABASE_URL`.
 
 ## Current Routes
 
 - `GET /v1/health` returns backend health information.
 - `GET /v1/me` verifies `Authorization: Bearer <supabase-access-token>` and returns basic auth user data. It does not load the `profiles` table yet.
-- `GET /v1/profile/me` verifies `Authorization: Bearer <supabase-access-token>` and returns the authenticated user's profile. It never accepts a user id from query/body. Missing profiles return `404 PROFILE_NOT_FOUND` so the client can show a defined setup/empty state without the read route creating data.
-- `PATCH /v1/profile/me` verifies `Authorization: Bearer <supabase-access-token>`, validates profile fields, updates only the authenticated user's profile, and returns the updated profile.
+- `GET /v1/profile/me` verifies `Authorization: Bearer <supabase-access-token>`, uses the authenticated `user.id` as the only profile id, and reads the profile through Drizzle/PostgreSQL in the real runtime. Missing profiles return `404 PROFILE_NOT_FOUND`.
+- `PATCH /v1/profile/me` verifies `Authorization: Bearer <supabase-access-token>`, validates profile fields, stays on the existing Supabase-backed path, updates only the authenticated user's profile, and returns the updated profile.
 - `GET /v1/creator/applications/me` verifies `Authorization: Bearer <supabase-access-token>` and returns the authenticated user's latest creator application status. If no application exists, it returns `{ "status": "none", "application": null }`.
 - `POST /v1/creator/applications` verifies `Authorization: Bearer <supabase-access-token>`, validates the creator application, creates it for the authenticated user only, and returns `201`. Open existing applications return `409 CREATOR_APPLICATION_EXISTS`.
 - `GET /v1/admin/creator/applications` verifies `Authorization: Bearer <supabase-access-token>`, requires an authenticated `admin` or `ceo` role server-side, and lists creator applications with optional `status`, `limit`, and `page` query filters.
@@ -139,26 +143,68 @@ curl -X PATCH http://127.0.0.1:4000/v1/admin/creator/applications/APPLICATION_ID
   -d "{\"decision\":\"rejected\",\"rejection_reason\":\"Please add a clearer content focus.\"}"
 ```
 
+## PostgreSQL Integration Test
+
+The profile Drizzle read repository has a real local PostgreSQL integration test backed by `docker-compose.test.yml`. It uses a dedicated local database named `grow_api_integration_test` on `127.0.0.1:55432`.
+
+Start the isolated test database:
+
+```powershell
+docker compose -f docker-compose.test.yml up -d
+```
+
+Check health/status:
+
+```powershell
+docker compose -f docker-compose.test.yml ps
+```
+
+Run the integration test with process-local test environment values only:
+
+```powershell
+$env:TEST_DATABASE_URL="postgresql://grow_test:grow_test_password@127.0.0.1:55432/grow_api_integration_test"
+$env:ALLOW_INTEGRATION_DB_RESET="true"
+npm --workspace @grow/api run test:integration
+```
+
+Always remove the test database afterwards:
+
+```powershell
+docker compose -f docker-compose.test.yml down -v
+```
+
+Safety notes:
+
+- The integration test is guarded to accept only `TEST_DATABASE_URL`.
+- It never falls back to `DATABASE_URL`.
+- The database name must be exactly `grow_api_integration_test`.
+- `ALLOW_INTEGRATION_DB_RESET=true` is required before destructive test setup runs.
+- Never point the integration test at Live Supabase or any production database.
+
 ## Structure
 
 ```txt
-src/
-  app.ts
-  server.ts
-  config/
-  errors/
-  integrations/
-  logger/
-  middleware/
-  modules/
-  routes/
-  validation/
-tests/
+apps/api/
+  src/
+    app.ts
+    server.ts
+    config/
+    db/
+    errors/
+    integrations/
+    logger/
+    middleware/
+    modules/
+    routes/
+    validation/
+  tests/
 ```
 
 ## Notes
 
-- Supabase Admin Client is prepared in `src/integrations/supabase/adminClient.ts`, but no production route uses it yet.
-- Auth middleware verifies Supabase access tokens through Supabase Auth using the anon key. Service role is not used for `/v1/me`.
+- Supabase Auth remains responsible for access-token verification.
+- `GET /v1/profile/me` uses Drizzle/PostgreSQL for the runtime read path.
+- `PATCH /v1/profile/me` and Creator routes remain on existing Supabase-backed repositories.
+- Service role usage stays server-side only and must never be exposed to the mobile app.
 - API routes are versioned under `/v1` to reduce EAS Updates compatibility risk.
 - Creator application approval uses the `public.review_creator_application` RPC from `supabase/migrations/20260630164000_creator_system_v1.sql`. The backend must keep calling `requireAdminOrCeo` before invoking this RPC because the RPC receives `input_reviewer_id` from the backend and is intended for service-role use only.
