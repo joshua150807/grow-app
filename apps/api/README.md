@@ -74,6 +74,21 @@ curl http://127.0.0.1:4000/v1/profile/me \
   -H "Authorization: Bearer YOUR_SUPABASE_ACCESS_TOKEN"
 ```
 
+`GET /v1/profile/me` returns:
+
+```json
+{
+  "profile": {
+    "id": "USER_ID",
+    "username": "grower_01",
+    "grow_points": 0,
+    "role": "user",
+    "created_at": "2026-07-05T10:00:00.000Z",
+    "updated_at": "2026-07-05T11:00:00.000Z"
+  }
+}
+```
+
 Update `/v1/profile/me` locally:
 
 ```bash

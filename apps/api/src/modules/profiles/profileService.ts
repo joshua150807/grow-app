@@ -1,6 +1,9 @@
 import { AppError } from '../../errors/appError.js';
 import type { AuthUser } from '../../auth/types.js';
 import {
+  type ProfileReadDto,
+} from './mappers/profileMapper.js';
+import {
   profileResponseSchema,
   profileUpdateRequestSchema,
   type ProfileUpdateInput,
@@ -8,12 +11,15 @@ import {
 } from './profileSchemas.js';
 import {
   createProfilesRepository,
+  createSupabaseProfilesReadRepository,
   type ProfileRow,
   type ProfilesRepository,
 } from './profilesRepository.js';
+import type { ProfilesReadRepository } from './repositories/profilesReadRepository.js';
+import { ProfileReadService } from './services/profileReadService.js';
 
 export type ProfileService = {
-  getCurrentUserProfile(user: AuthUser): Promise<ProfileResponse>;
+  getCurrentUserProfile(user: AuthUser): Promise<ProfileReadDto>;
   updateCurrentUserProfile(user: AuthUser, input: unknown): Promise<ProfileResponse>;
 };
 
@@ -77,12 +83,31 @@ async function getExistingProfileOrThrow(
 
 export function createProfileService(
   profilesRepository: ProfilesRepository = createProfilesRepository(),
+  profilesReadRepository?: ProfilesReadRepository,
 ): ProfileService {
-  return {
-    async getCurrentUserProfile(user: AuthUser): Promise<ProfileResponse> {
-      const profile = await getExistingProfileOrThrow(profilesRepository, user.id);
+  let profileReadService = profilesReadRepository
+    ? new ProfileReadService(profilesReadRepository)
+    : null;
 
-      return mapProfileRow(profile);
+  function getProfileReadService(): ProfileReadService {
+    profileReadService ??= new ProfileReadService(createSupabaseProfilesReadRepository());
+
+    return profileReadService;
+  }
+
+  return {
+    async getCurrentUserProfile(user: AuthUser): Promise<ProfileReadDto> {
+      const profile = await getProfileReadService().getByUserId(user.id);
+
+      if (!profile) {
+        throw new AppError(
+          404,
+          'PROFILE_NOT_FOUND',
+          'Profile for authenticated user was not found.',
+        );
+      }
+
+      return profile;
     },
 
     async updateCurrentUserProfile(

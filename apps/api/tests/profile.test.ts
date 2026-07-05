@@ -6,7 +6,9 @@ import {
   createProfileService,
   type ProfileService,
 } from '../src/modules/profiles/profileService.js';
+import type { Profile } from '../src/modules/profiles/domain/profile.js';
 import type { ProfilesRepository } from '../src/modules/profiles/profilesRepository.js';
+import type { ProfilesReadRepository } from '../src/modules/profiles/repositories/profilesReadRepository.js';
 
 const validUser = {
   id: 'user-123',
@@ -27,6 +29,12 @@ function buildTestApp(profileService: ProfileService) {
     authTokenVerifier,
     profileService,
   });
+}
+
+function createReadRepository(profile: Profile | null): ProfilesReadRepository {
+  return {
+    findByUserId: vi.fn(async () => profile),
+  };
 }
 
 describe('GET /v1/profile/me', () => {
@@ -58,7 +66,15 @@ describe('GET /v1/profile/me', () => {
       })),
       updateProfileByUserId: vi.fn(),
     };
-    const app = buildTestApp(createProfileService(repository));
+    const readRepository = createReadRepository({
+      id: validUser.id,
+      username: 'grower',
+      growPoints: 12,
+      role: 'user',
+      createdAt: '2026-07-05T10:00:00.000Z',
+      updatedAt: '2026-07-05T11:00:00.000Z',
+    });
+    const app = buildTestApp(createProfileService(repository, readRepository));
 
     const response = await app.inject({
       method: 'GET',
@@ -69,19 +85,15 @@ describe('GET /v1/profile/me', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(repository.getProfileByUserId).toHaveBeenCalledWith(validUser.id);
+    expect(readRepository.findByUserId).toHaveBeenCalledWith(validUser.id);
     expect(response.json()).toEqual({
       profile: {
         id: validUser.id,
-        user_id: validUser.id,
         username: 'grower',
-        display_name: null,
-        name: null,
-        avatar_url: null,
-        bio: null,
+        grow_points: 12,
         role: 'user',
-        created_at: null,
-        updated_at: null,
+        created_at: '2026-07-05T10:00:00.000Z',
+        updated_at: '2026-07-05T11:00:00.000Z',
       },
     });
 
@@ -90,10 +102,11 @@ describe('GET /v1/profile/me', () => {
 
   it('returns a defined 404 when profile is missing', async () => {
     const repository: ProfilesRepository = {
-      getProfileByUserId: vi.fn(async () => null),
+      getProfileByUserId: vi.fn(),
       updateProfileByUserId: vi.fn(),
     };
-    const app = buildTestApp(createProfileService(repository));
+    const readRepository = createReadRepository(null);
+    const app = buildTestApp(createProfileService(repository, readRepository));
 
     const response = await app.inject({
       method: 'GET',
@@ -105,7 +118,7 @@ describe('GET /v1/profile/me', () => {
 
     expect(response.statusCode).toBe(404);
     expect(response.json().error.code).toBe('PROFILE_NOT_FOUND');
-    expect(repository.getProfileByUserId).toHaveBeenCalledWith(validUser.id);
+    expect(readRepository.findByUserId).toHaveBeenCalledWith(validUser.id);
 
     await app.close();
   });
@@ -118,7 +131,15 @@ describe('GET /v1/profile/me', () => {
       })),
       updateProfileByUserId: vi.fn(),
     };
-    const app = buildTestApp(createProfileService(repository));
+    const readRepository = createReadRepository({
+      id: validUser.id,
+      username: 'grower',
+      growPoints: null,
+      role: null,
+      createdAt: null,
+      updatedAt: null,
+    });
+    const app = buildTestApp(createProfileService(repository, readRepository));
 
     const response = await app.inject({
       method: 'GET',
@@ -129,8 +150,13 @@ describe('GET /v1/profile/me', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(repository.getProfileByUserId).toHaveBeenCalledWith(validUser.id);
-    expect(repository.getProfileByUserId).not.toHaveBeenCalledWith('other-user');
+    expect(readRepository.findByUserId).toHaveBeenCalledWith(validUser.id);
+    expect(readRepository.findByUserId).not.toHaveBeenCalledWith('other-user');
+    expect(response.json().profile).not.toHaveProperty('user_id');
+    expect(response.json().profile).not.toHaveProperty('display_name');
+    expect(response.json().profile).not.toHaveProperty('name');
+    expect(response.json().profile).not.toHaveProperty('avatar_url');
+    expect(response.json().profile).not.toHaveProperty('bio');
 
     await app.close();
   });
