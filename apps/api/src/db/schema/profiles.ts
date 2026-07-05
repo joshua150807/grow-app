@@ -1,15 +1,19 @@
-import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { integer, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const profiles = pgTable('profiles', {
   id: uuid('id').primaryKey(),
-  username: text('username'),
-  displayName: text('display_name'),
-  name: text('name'),
-  avatarUrl: text('avatar_url'),
-  bio: text('bio'),
-  role: text('role'),
-  createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }),
-  updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }),
+  username: text('username').notNull().unique(),
+  growPoints: integer('grow_points').default(0),
+  createdAt: timestamp('created_at', {
+    withTimezone: true,
+    mode: 'string',
+  }).defaultNow(),
+  updatedAt: timestamp('updated_at', {
+    withTimezone: true,
+    mode: 'string',
+  }).defaultNow(),
+  role: text('role').default('user'),
+  recoveryEmail: text('recovery_email'),
 });
 
 export type ProfileRow = typeof profiles.$inferSelect;
