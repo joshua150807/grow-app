@@ -22,17 +22,21 @@ export async function loadAdminOverviewStats() {
       ? toolAnalyticsResult.value.data ?? []
       : [];
 
-  const toolTotals = toolRows.reduce(
+  const aggregatedToolTotals = toolRows.reduce(
     (acc, item) => {
       acc.opens += Number(item.opens_count ?? 0);
       acc.seconds += Number(item.total_seconds ?? 0);
       return acc;
     },
-    {
-      opens: Number(stats?.total_tool_opens ?? 0),
-      seconds: Number(stats?.total_tool_seconds ?? 0),
-    }
+    { opens: 0, seconds: 0 }
   );
+
+  const toolTotals = toolRows.length > 0
+    ? aggregatedToolTotals
+    : {
+        opens: Number(stats?.total_tool_opens ?? 0),
+        seconds: Number(stats?.total_tool_seconds ?? 0),
+      };
 
   return {
     totalUsers: Number(stats?.total_users ?? 0),

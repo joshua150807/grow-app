@@ -1,13 +1,21 @@
 import { logger } from '../../lib/logger';
 import { Tabs, router, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, View } from 'react-native';
+import { Platform, Pressable, View } from 'react-native';
  
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { COLORS } from '../../constants/colors';
 import { s, sv } from '../../constants/layout';
 
 import { getSavedDeepWorkSession } from '../../features/tools/deep-work/services/deepWorkStore';
 import { triggerHaptic } from '../../lib/haptics';
+
+
+const SAMSUNG_LARGE_NAV_INSET_THRESHOLD = 32;
+const IS_SAMSUNG_ANDROID =
+  Platform.OS === 'android' &&
+  String(Platform.constants?.Manufacturer ?? '').toLowerCase() === 'samsung';
 
 function TabIcon({ name, color, size, focused }) {
   return (
@@ -86,6 +94,15 @@ function CustomTabButton(props) {
  
 export default function TabsLayout() {
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
+
+  // Preserve the already-tested Pixel layout exactly. Only Samsung devices
+  // with a large bottom system-navigation inset (e.g. 3-button navigation)
+  // lift the custom tab bar above that system area.
+  const tabBarBottom =
+    IS_SAMSUNG_ANDROID && insets.bottom > SAMSUNG_LARGE_NAV_INSET_THRESHOLD
+      ? insets.bottom
+      : 1;
 
   return (
     <Tabs
@@ -100,7 +117,7 @@ export default function TabsLayout() {
           position: 'absolute',
           left: s(16),
           right: s(16),
-          bottom: 1,
+          bottom: tabBarBottom,
           height: sv(68),
           backgroundColor: COLORS.darkTabBar,
           borderTopWidth: 0,
