@@ -33,7 +33,7 @@ export default function AdminToolAnalyticsScreen() {
   const activeRequestRef = useRef(0);
   const isFocusedRef = useRef(false);
 
-  const loadTools = useCallback(async ({ refreshing = false, force = false } = {}) => {
+  const loadTools = useCallback(async ({ refreshing = false, force = false, silent = false } = {}) => {
     if (!force && !refreshing && hasLoadedOnceRef.current) {
       setIsLoading(false);
       return;
@@ -45,7 +45,7 @@ export default function AdminToolAnalyticsScreen() {
     try {
       if (refreshing) {
         setIsRefreshing(true);
-      } else {
+      } else if (!silent) {
         setIsLoading(true);
       }
 
@@ -78,7 +78,7 @@ export default function AdminToolAnalyticsScreen() {
   useFocusEffect(
     useCallback(() => {
       isFocusedRef.current = true;
-      loadTools();
+      loadTools({ force: true, silent: hasLoadedOnceRef.current });
 
       return () => {
         isFocusedRef.current = false;

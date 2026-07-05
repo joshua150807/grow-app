@@ -7,7 +7,15 @@ export const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: COLORS.toolsBg ?? COLORS.background,
-  
+  },
+  background: {
+    flex: 1,
+  },
+  backgroundImage: {
+    opacity: 1,
+  },
+  backgroundOverlay: {
+    flex: 1,
   },
   topBar: {
     paddingTop: sv(52),

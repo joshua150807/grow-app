@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { AppState, Dimensions, Platform } from 'react-native';
 import { Stack, usePathname } from 'expo-router';
 
@@ -10,62 +10,106 @@ import {
 } from '../../../features/tools/analytics/services/toolUsageAnalytics';
 
 const SWIPE_BACK_GESTURE_DISTANCE = Math.round(Dimensions.get('window').width / 3);
+const TOOL_USAGE_CHECKPOINT_MS = 60 * 1000;
 
 export default function ToolsLayout() {
   const pathname = usePathname();
   const activeSessionRef = useRef(null);
+  const appStateRef = useRef(AppState.currentState ?? 'active');
+
+  const flushActiveSession = useCallback(({ continueTracking = false } = {}) => {
+    const activeSession = activeSessionRef.current;
+
+    if (!activeSession?.tool?.id || !Number.isFinite(activeSession.startedAt)) {
+      return;
+    }
+
+    const now = Date.now();
+    const durationSeconds = (now - activeSession.startedAt) / 1000;
+
+    activeSessionRef.current = {
+      ...activeSession,
+      startedAt: continueTracking ? now : null,
+    };
+
+    void trackToolDuration(activeSession.tool, durationSeconds);
+  }, []);
 
   useEffect(() => {
     const nextTool = getTrackedToolForPath(pathname);
     const previousSession = activeSessionRef.current;
+    const isAppActive = appStateRef.current === 'active';
+    const isSameTool =
+      previousSession?.tool?.id && nextTool?.id === previousSession.tool.id;
+
+    // Unterseiten desselben Tools bleiben eine zusammenhängende Tool-Session.
+    if (isSameTool) {
+      if (isAppActive && !Number.isFinite(previousSession.startedAt)) {
+        activeSessionRef.current = {
+          ...previousSession,
+          startedAt: Date.now(),
+        };
+      }
+      return;
+    }
 
     if (previousSession?.tool?.id) {
-      const durationSeconds = (Date.now() - previousSession.startedAt) / 1000;
-      void trackToolDuration(previousSession.tool, durationSeconds);
+      flushActiveSession();
     }
 
     if (nextTool?.id) {
       activeSessionRef.current = {
         tool: nextTool,
-        startedAt: Date.now(),
+        startedAt: isAppActive ? Date.now() : null,
       };
 
-      void trackToolOpen(nextTool);
+      if (isAppActive) {
+        void trackToolOpen(nextTool);
+      }
     } else {
       activeSessionRef.current = null;
     }
-  }, [pathname]);
+  }, [flushActiveSession, pathname]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
-      const activeSession = activeSessionRef.current;
+      const previousState = appStateRef.current;
+      appStateRef.current = nextState;
 
+      const activeSession = activeSessionRef.current;
       if (!activeSession?.tool?.id) return;
 
       if (nextState !== 'active') {
-        const durationSeconds = (Date.now() - activeSession.startedAt) / 1000;
-        void trackToolDuration(activeSession.tool, durationSeconds);
-        activeSessionRef.current = null;
+        flushActiveSession();
         return;
       }
 
-      activeSessionRef.current = {
-        ...activeSession,
-        startedAt: Date.now(),
-      };
+      // Nach Background/Lockscreen dieselbe Tool-Session weitertracken.
+      if (previousState !== 'active' && !Number.isFinite(activeSession.startedAt)) {
+        activeSessionRef.current = {
+          ...activeSession,
+          startedAt: Date.now(),
+        };
+      }
     });
 
-    return () => {
+    const checkpointInterval = setInterval(() => {
+      if (appStateRef.current !== 'active') return;
+
       const activeSession = activeSessionRef.current;
+      if (!activeSession?.tool?.id || !Number.isFinite(activeSession.startedAt)) return;
 
-      if (activeSession?.tool?.id) {
-        const durationSeconds = (Date.now() - activeSession.startedAt) / 1000;
-        void trackToolDuration(activeSession.tool, durationSeconds);
-      }
+      // Lange Sessions regelmäßig sichern, damit bei App-Kill nicht alles verloren geht.
+      flushActiveSession({ continueTracking: true });
+    }, TOOL_USAGE_CHECKPOINT_MS);
 
+    return () => {
+      flushActiveSession();
+      activeSessionRef.current = null;
+      clearInterval(checkpointInterval);
       subscription.remove();
     };
-  }, []);
+  }, [flushActiveSession]);
 
   return (
     <Stack
