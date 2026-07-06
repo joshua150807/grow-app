@@ -171,6 +171,14 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="person-circle-outline" color={color} size={s(26)} focused={focused} />
+          ),
+        }}
+      />
       <Tabs.Screen name="saved-feed" options={{ href: null }} />
     </Tabs>
   );
