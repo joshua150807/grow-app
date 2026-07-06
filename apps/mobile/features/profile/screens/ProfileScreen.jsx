@@ -24,6 +24,7 @@ import {
   GROW_POINTS_ICON,
 } from '../../../constants/toolAssets';
 import { useProfile } from '../hooks/useProfile';
+import { getMyProfileV1, isProfileApiV1Enabled } from '../services/profiles';
 import { useToolsTrackerData } from '../../tools/overview/hooks/useToolsTrackerData';
 
 const PROFILE_MOTTO = 'Bereit für den nächsten klaren Schritt.';
@@ -217,6 +218,7 @@ export default function ProfileScreen() {
   const { username, growPoints } = useProfile();
   const { streak, todoProgress, deepWorkTime } = useToolsTrackerData();
   const [editVisible, setEditVisible] = useState(false);
+  const [profileV1, setProfileV1] = useState(null);
 
   const tabBarBottom =
     IS_SAMSUNG_ANDROID && insets.bottom > SAMSUNG_LARGE_NAV_INSET_THRESHOLD
@@ -241,6 +243,37 @@ export default function ProfileScreen() {
   const statTileHeight = veryCompact ? sv(76) : compact ? sv(86) : sv(104);
   const statIconSize = veryCompact ? s(17) : compact ? s(19) : s(21);
   const settingsIconSize = veryCompact ? s(32) : compact ? s(35) : s(40);
+  const displayUsername = profileV1?.username ?? username;
+  const displayGrowPoints = profileV1?.growPoints ?? growPoints;
+
+  useEffect(() => {
+    if (!isProfileApiV1Enabled()) {
+      setProfileV1(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    async function loadProfileV1() {
+      try {
+        const nextProfile = await getMyProfileV1();
+
+        if (!cancelled) {
+          setProfileV1(nextProfile);
+        }
+      } catch {
+        if (!cancelled) {
+          setProfileV1(null);
+        }
+      }
+    }
+
+    loadProfileV1();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const statItems = useMemo(() => [
     {
@@ -367,7 +400,7 @@ export default function ProfileScreen() {
               numberOfLines={1}
               adjustsFontSizeToFit
             >
-              {username}
+              {displayUsername}
             </Text>
             <Text
               style={[
@@ -418,7 +451,7 @@ export default function ProfileScreen() {
                     { fontSize: veryCompact ? sf(18) : compact ? sf(20) : sf(24) },
                   ]}
                 >
-                  {formatNumber(growPoints)}
+                  {formatNumber(displayGrowPoints)}
                 </Text>
                 <Text
                   style={[
@@ -660,7 +693,7 @@ export default function ProfileScreen() {
 
       <ProfileEditModal
         visible={editVisible}
-        username={username}
+        username={displayUsername}
         onClose={() => setEditVisible(false)}
       />
     </View>
