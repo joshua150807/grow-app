@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Image,
   ImageBackground,
@@ -24,7 +24,11 @@ import {
   GROW_POINTS_ICON,
 } from '../../../constants/toolAssets';
 import { useProfile } from '../hooks/useProfile';
-import { getMyProfileV1, isProfileApiV1Enabled } from '../services/profiles';
+import {
+  getMyProfileV1,
+  isProfileApiV1Enabled,
+  updateMyProfileV1,
+} from '../services/profiles';
 import { useToolsTrackerData } from '../../tools/overview/hooks/useToolsTrackerData';
 
 const PROFILE_MOTTO = 'Bereit für den nächsten klaren Schritt.';
@@ -44,6 +48,23 @@ const SAMSUNG_LARGE_NAV_INSET_THRESHOLD = 32;
 const IS_SAMSUNG_ANDROID =
   Platform.OS === 'android' &&
   String(Platform.constants?.Manufacturer ?? '').toLowerCase() === 'samsung';
+
+function getProfileSaveErrorMessage(error) {
+  switch (error?.code) {
+    case 'USERNAME_TAKEN':
+      return 'Dieser Benutzername ist bereits vergeben.';
+    case 'PROFILE_NOT_FOUND':
+      return 'Dein Profil konnte nicht gefunden werden.';
+    case 'UNAUTHORIZED':
+    case 'PROFILE_API_SESSION_ERROR':
+    case 'PROFILE_API_SESSION_MISSING':
+      return 'Deine Sitzung ist nicht mehr gültig. Bitte melde dich erneut an.';
+    case 'PROFILE_API_NETWORK_ERROR':
+      return 'Verbindung zum Server fehlgeschlagen.';
+    default:
+      return 'Profil konnte nicht aktualisiert werden.';
+  }
+}
 
 function formatNumber(value) {
   const safeNumber = Math.max(0, Number(value ?? 0) || 0);
@@ -113,18 +134,37 @@ function StatTile({
   );
 }
 
-function ProfileEditModal({ visible, username, onClose }) {
+function ProfileEditModal({
+  visible,
+  username,
+  isSaving,
+  saveError,
+  isV1Enabled,
+  onClose,
+  onDraftChange,
+  onSave,
+}) {
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState(username);
+  const wasVisibleRef = useRef(false);
   const normalized = draft.trim().toLowerCase();
   const error = validateUsername(draft);
   const isUnchanged = normalized === username.trim().toLowerCase();
+  const canSave = isV1Enabled && !error && !isUnchanged && !isSaving;
+  const message = error || saveError || `Zielwert: ${normalized}`;
 
   useEffect(() => {
-    if (visible) {
+    if (visible && !wasVisibleRef.current) {
       setDraft(username);
     }
+
+    wasVisibleRef.current = visible;
   }, [username, visible]);
+
+  function handleDraftChange(value) {
+    setDraft(value);
+    onDraftChange?.();
+  }
 
   return (
     <Modal
@@ -162,7 +202,7 @@ function ProfileEditModal({ visible, username, onClose }) {
             <Text style={styles.inputLabel}>Username</Text>
             <TextInput
               value={draft}
-              onChangeText={setDraft}
+              onChangeText={handleDraftChange}
               autoCapitalize="none"
               autoCorrect={false}
               maxLength={30}
@@ -176,8 +216,8 @@ function ProfileEditModal({ visible, username, onClose }) {
             />
 
             <View style={styles.editMetaRow}>
-              <Text style={[styles.editHint, Boolean(error) && styles.editError]}>
-                {error || `Zielwert: ${normalized}`}
+              <Text style={[styles.editHint, Boolean(error || saveError) && styles.editError]}>
+                {message}
               </Text>
               <Text style={styles.charCount}>{normalized.length}/30</Text>
             </View>
@@ -194,15 +234,18 @@ function ProfileEditModal({ visible, username, onClose }) {
               </Pressable>
 
               <Pressable
-                disabled
-                accessibilityState={{ disabled: true }}
+                disabled={!canSave}
+                onPress={() => onSave(normalized)}
+                accessibilityState={{ disabled: !canSave }}
                 style={[
                   styles.saveButton,
-                  styles.saveButtonDisabled,
-                  (!error && !isUnchanged) && styles.saveButtonPrepared,
+                  !canSave && styles.saveButtonDisabled,
+                  canSave && styles.saveButtonPrepared,
                 ]}
               >
-                <Text style={styles.saveButtonText}>Speichern</Text>
+                <Text style={styles.saveButtonText}>
+                  {isSaving ? 'Speichern...' : 'Speichern'}
+                </Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -219,6 +262,11 @@ export default function ProfileScreen() {
   const { streak, todoProgress, deepWorkTime } = useToolsTrackerData();
   const [editVisible, setEditVisible] = useState(false);
   const [profileV1, setProfileV1] = useState(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState('');
+  const isMountedRef = useRef(true);
+  const profileWriteGenerationRef = useRef(0);
+  const profileApiV1Enabled = isProfileApiV1Enabled();
 
   const tabBarBottom =
     IS_SAMSUNG_ANDROID && insets.bottom > SAMSUNG_LARGE_NAV_INSET_THRESHOLD
@@ -247,22 +295,35 @@ export default function ProfileScreen() {
   const displayGrowPoints = profileV1?.growPoints ?? growPoints;
 
   useEffect(() => {
-    if (!isProfileApiV1Enabled()) {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!profileApiV1Enabled) {
       setProfileV1(null);
       return undefined;
     }
 
     let cancelled = false;
+    const startedAtGeneration = profileWriteGenerationRef.current;
 
     async function loadProfileV1() {
       try {
         const nextProfile = await getMyProfileV1();
 
-        if (!cancelled) {
+        if (
+          !cancelled &&
+          profileWriteGenerationRef.current === startedAtGeneration
+        ) {
           setProfileV1(nextProfile);
         }
       } catch {
-        if (!cancelled) {
+        if (
+          !cancelled &&
+          profileWriteGenerationRef.current === startedAtGeneration
+        ) {
           setProfileV1(null);
         }
       }
@@ -273,7 +334,44 @@ export default function ProfileScreen() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [profileApiV1Enabled]);
+
+  async function handleProfileSave(normalizedUsername) {
+    if (!profileApiV1Enabled || isSavingProfile) {
+      return;
+    }
+
+    setProfileSaveError('');
+    setIsSavingProfile(true);
+
+    try {
+      const nextProfile = await updateMyProfileV1({ username: normalizedUsername });
+
+      if (!isMountedRef.current) return;
+
+      profileWriteGenerationRef.current += 1;
+      setProfileV1(nextProfile);
+      setProfileSaveError('');
+      setEditVisible(false);
+    } catch (error) {
+      if (isMountedRef.current) {
+        setProfileSaveError(getProfileSaveErrorMessage(error));
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsSavingProfile(false);
+      }
+    }
+  }
+
+  function handleEditClose() {
+    if (isSavingProfile) {
+      return;
+    }
+
+    setProfileSaveError('');
+    setEditVisible(false);
+  }
 
   const statItems = useMemo(() => [
     {
@@ -571,7 +669,10 @@ export default function ProfileScreen() {
             ]}
           >
             <Pressable
-              onPress={() => setEditVisible(true)}
+              onPress={() => {
+                setProfileSaveError('');
+                setEditVisible(true);
+              }}
               style={({ pressed }) => [
                 styles.settingsRow,
                 {
@@ -694,7 +795,16 @@ export default function ProfileScreen() {
       <ProfileEditModal
         visible={editVisible}
         username={displayUsername}
-        onClose={() => setEditVisible(false)}
+        isSaving={isSavingProfile}
+        saveError={profileSaveError}
+        isV1Enabled={profileApiV1Enabled}
+        onClose={handleEditClose}
+        onDraftChange={() => {
+          if (profileSaveError) {
+            setProfileSaveError('');
+          }
+        }}
+        onSave={handleProfileSave}
       />
     </View>
   );

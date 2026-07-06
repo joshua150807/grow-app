@@ -88,11 +88,7 @@ function normalizeV1Profile(payload) {
   };
 }
 
-export function isProfileApiV1Enabled() {
-  return PROFILE_API_V1_ENABLED;
-}
-
-export async function getMyProfileV1() {
+async function requestProfileV1(path, options = {}) {
   const baseUrl = getProfileApiBaseUrl();
   const {
     data: { session } = {},
@@ -116,10 +112,11 @@ export async function getMyProfileV1() {
   let response;
 
   try {
-    response = await fetch(`${baseUrl}/v1/profile/me`, {
-      method: 'GET',
+    response = await fetch(`${baseUrl}${path}`, {
+      ...options,
       headers: {
         Authorization: `Bearer ${accessToken}`,
+        ...options.headers,
       },
     });
   } catch {
@@ -138,6 +135,26 @@ export async function getMyProfileV1() {
   }
 
   return normalizeV1Profile(payload);
+}
+
+export function isProfileApiV1Enabled() {
+  return PROFILE_API_V1_ENABLED;
+}
+
+export async function getMyProfileV1() {
+  return requestProfileV1('/v1/profile/me', {
+    method: 'GET',
+  });
+}
+
+export async function updateMyProfileV1({ username }) {
+  return requestProfileV1('/v1/profile/me', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ username }),
+  });
 }
 
 async function fetchProfile(userId) {
