@@ -27,15 +27,15 @@ function nullableString(value: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+function nullableInteger(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) ? value : null;
+}
+
 function mapProfileRow(row: ProfileRow): ProfileResponse {
   return profileResponseSchema.parse({
     id: row.id,
-    user_id: row.id,
-    username: nullableString(row.username),
-    display_name: nullableString(row.display_name),
-    name: nullableString(row.name),
-    avatar_url: nullableString(row.avatar_url),
-    bio: nullableString(row.bio),
+    username: row.username,
+    grow_points: nullableInteger(row.grow_points),
     role: nullableString(row.role),
     created_at: nullableString(row.created_at),
     updated_at: nullableString(row.updated_at),

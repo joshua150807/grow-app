@@ -233,6 +233,59 @@ describe('PATCH /v1/profile/me', () => {
     await app.close();
   });
 
+  it('returns 400 for an empty body', async () => {
+    const repository: ProfilesRepository = {
+      getProfileByUserId: vi.fn(),
+      updateProfileByUserId: vi.fn(),
+    };
+    const app = buildTestApp(createProfileService(repository));
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/profile/me',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+    expect(repository.updateProfileByUserId).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it.each([
+    ['display_name', 'Grower'],
+    ['name', 'Grower'],
+    ['avatar_url', 'https://example.com/avatar.png'],
+    ['bio', 'Short bio.'],
+  ])('returns 400 when %s is provided', async (field, value) => {
+    const repository: ProfilesRepository = {
+      getProfileByUserId: vi.fn(),
+      updateProfileByUserId: vi.fn(),
+    };
+    const app = buildTestApp(createProfileService(repository));
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/profile/me',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        [field]: value,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+    expect(repository.updateProfileByUserId).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
   it('updates the authenticated users profile', async () => {
     const repository: ProfilesRepository = {
       getProfileByUserId: vi.fn(async () => ({
@@ -242,7 +295,10 @@ describe('PATCH /v1/profile/me', () => {
       updateProfileByUserId: vi.fn(async () => ({
         id: validUser.id,
         username: 'grower',
+        grow_points: 12,
         role: 'user',
+        created_at: '2026-07-05T10:00:00.000Z',
+        updated_at: '2026-07-05T11:00:00.000Z',
       })),
     };
     const app = buildTestApp(createProfileService(repository));
@@ -265,7 +321,22 @@ describe('PATCH /v1/profile/me', () => {
     expect(repository.updateProfileByUserId).not.toHaveBeenCalledWith('other-user', {
       username: 'grower',
     });
-    expect(response.json().profile.username).toBe('grower');
+    expect(response.json()).toEqual({
+      profile: {
+        id: validUser.id,
+        username: 'grower',
+        grow_points: 12,
+        role: 'user',
+        created_at: '2026-07-05T10:00:00.000Z',
+        updated_at: '2026-07-05T11:00:00.000Z',
+      },
+    });
+    expect(response.json().profile).not.toHaveProperty('user_id');
+    expect(response.json().profile).not.toHaveProperty('recovery_email');
+    expect(response.json().profile).not.toHaveProperty('display_name');
+    expect(response.json().profile).not.toHaveProperty('name');
+    expect(response.json().profile).not.toHaveProperty('avatar_url');
+    expect(response.json().profile).not.toHaveProperty('bio');
 
     await app.close();
   });

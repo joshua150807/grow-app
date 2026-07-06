@@ -16,10 +16,7 @@ export type ProfileReadRow = {
 export type ProfileRow = {
   id: string;
   username?: string | null;
-  display_name?: string | null;
-  name?: string | null;
-  avatar_url?: string | null;
-  bio?: string | null;
+  grow_points?: number | null;
   role?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
@@ -67,7 +64,7 @@ export function createProfilesRepository(
         .from('profiles')
         .update(input)
         .eq('id', userId)
-        .select('id, username, role')
+        .select('id, username, grow_points, role, created_at, updated_at')
         .maybeSingle();
 
       if (error) {

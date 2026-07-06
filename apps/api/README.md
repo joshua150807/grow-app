@@ -99,7 +99,7 @@ Update `/v1/profile/me` locally:
 curl -X PATCH http://127.0.0.1:4000/v1/profile/me \
   -H "Authorization: Bearer YOUR_SUPABASE_ACCESS_TOKEN" \
   -H "Content-Type: application/json" \
-  -d "{\"username\":\"grower_01\",\"display_name\":\"Grower\"}"
+  -d "{\"username\":\"grower_01\"}"
 ```
 
 Create a creator application locally:
