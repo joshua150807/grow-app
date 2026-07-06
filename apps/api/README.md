@@ -57,6 +57,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 - `GET /v1/health` returns backend health information.
 - `GET /v1/me` verifies `Authorization: Bearer <supabase-access-token>` and returns basic auth user data. It does not load the `profiles` table yet.
+- `POST /v1/auth/beta-registration/complete` is an additive backend-owned beta registration completion path. It verifies `Authorization: Bearer <supabase-access-token>`, uses only the authenticated `user.id` and auth email, validates `code` and `username`, completes the profile and consumes the beta code in one PostgreSQL transaction, and returns the completed profile. The existing mobile RPC flow remains unchanged and mobile is not migrated yet.
 - `GET /v1/profile/me` verifies `Authorization: Bearer <supabase-access-token>`, uses the authenticated `user.id` as the only profile id, and reads the profile through Drizzle/PostgreSQL in the real runtime. Missing profiles return `404 PROFILE_NOT_FOUND`.
 - `PATCH /v1/profile/me` verifies `Authorization: Bearer <supabase-access-token>`, validates profile fields, stays on the existing Supabase-backed path, updates only the authenticated user's profile, and returns the updated profile.
 - `GET /v1/creator/applications/me` verifies `Authorization: Bearer <supabase-access-token>` and returns the authenticated user's latest creator application status. If no application exists, it returns `{ "status": "none", "application": null }`.
@@ -92,6 +93,17 @@ curl http://127.0.0.1:4000/v1/profile/me \
   }
 }
 ```
+
+Complete beta registration through the additive backend path:
+
+```bash
+curl -X POST http://127.0.0.1:4000/v1/auth/beta-registration/complete \
+  -H "Authorization: Bearer YOUR_SUPABASE_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d "{\"code\":\"ABC123\",\"username\":\"grower_01\"}"
+```
+
+The response omits `recovery_email`; the backend derives it from the authenticated Supabase user email.
 
 Update `/v1/profile/me` locally:
 
@@ -205,6 +217,7 @@ apps/api/
 - Supabase Auth remains responsible for access-token verification.
 - `GET /v1/profile/me` uses Drizzle/PostgreSQL for the runtime read path.
 - `PATCH /v1/profile/me` and Creator routes remain on existing Supabase-backed repositories.
+- `POST /v1/auth/beta-registration/complete` is additive. It does not change `validate_beta_registration`, `complete_beta_registration`, or the current mobile fallback.
 - Service role usage stays server-side only and must never be exposed to the mobile app.
 - API routes are versioned under `/v1` to reduce EAS Updates compatibility risk.
 - Creator application approval uses the `public.review_creator_application` RPC from `supabase/migrations/20260630164000_creator_system_v1.sql`. The backend must keep calling `requireAdminOrCeo` before invoking this RPC because the RPC receives `input_reviewer_id` from the backend and is intended for service-role use only.
