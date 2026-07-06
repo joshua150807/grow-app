@@ -104,4 +104,3 @@ Pruefen:
 - Check Constraints fuer Rollen, Kategorien und Statuswerte
 - Pflichtfelder und Default-Werte
 - Transaktionen fuer zusammenhaengende Operationen, z. B. Training-Plan mit Tagen und Uebungen
-

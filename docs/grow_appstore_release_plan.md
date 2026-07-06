@@ -1,6 +1,6 @@
 # Grow App Store Release Plan
 
-Stand: 30.06.2026  
+Stand: 30.06.2026
 Ziel: Erster öffentlicher App Store Release von Grow, sodass jeder Mensch die App herunterladen kann.
 
 ---
@@ -565,7 +565,7 @@ Wenn diese Datei in einen neuen Chat geschickt wird, gilt:
 
 ## Merksatz
 
-Grow 1.0 soll nicht alles können, sondern öffentlich stabil, sicher und stark genug sein.  
-KI Mentor ist Pflicht.  
-Creator Upload kommt kontrolliert.  
+Grow 1.0 soll nicht alles können, sondern öffentlich stabil, sicher und stark genug sein.
+KI Mentor ist Pflicht.
+Creator Upload kommt kontrolliert.
 Community und Monetarisierung werden vorbereitet, aber notfalls nach Release größer gemacht.
