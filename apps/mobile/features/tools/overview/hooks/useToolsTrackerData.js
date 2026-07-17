@@ -2,7 +2,10 @@ import { logger } from '../../../../lib/logger';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 
-import { getHabitStreak } from '../../habits/services/habits';
+import {
+  getHabitStreak,
+  subscribeToHabitCompletionChanges,
+} from '../../habits/services/habits';
 import { getTodos } from '../../todo/services/todo';
 import { getTodayDeepWorkSeconds } from '../../deep-work/services/deepWorkStore';
 import { useSteps } from '../../../steps/hooks/useSteps';
@@ -60,31 +63,49 @@ export function useToolsTrackerData() {
     error: stepsError,
   } = useSteps();
 
-  useEffect(() => {
-    let mounted = true;
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      let midnightTimer;
 
-    async function loadHabitStreak() {
-      try {
-        const nextStreak = await getHabitStreak();
+      async function loadHabitStreak() {
+        try {
+          const nextStreak = await getHabitStreak();
 
-        if (!mounted) return;
+          if (!active) return;
 
-        setStreak(Math.max(0, Number(nextStreak) || 0));
-      } catch (error) {
-        logger.debug('[ToolsTracker] Failed to load habit streak:', error);
+          setStreak(Math.max(0, Number(nextStreak) || 0));
+        } catch (error) {
+          logger.debug('[ToolsTracker] Failed to load habit streak:', error);
 
-        if (!mounted) return;
+          if (!active) return;
 
-        setStreak(0);
+          setStreak(0);
+        }
       }
-    }
 
-    loadHabitStreak();
+      function scheduleMidnightRefresh() {
+        const now = new Date();
+        const nextDay = new Date(now);
+        nextDay.setHours(24, 0, 1, 0);
 
-    return () => {
-      mounted = false;
-    };
-  }, []);
+        midnightTimer = setTimeout(async () => {
+          await loadHabitStreak();
+          if (active) scheduleMidnightRefresh();
+        }, nextDay.getTime() - now.getTime());
+      }
+
+      loadHabitStreak();
+      scheduleMidnightRefresh();
+      const unsubscribe = subscribeToHabitCompletionChanges(loadHabitStreak);
+
+      return () => {
+        active = false;
+        clearTimeout(midnightTimer);
+        unsubscribe();
+      };
+    }, [])
+  );
 
   useFocusEffect(
     useCallback(() => {
