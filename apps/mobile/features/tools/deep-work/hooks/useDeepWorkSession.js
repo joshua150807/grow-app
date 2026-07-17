@@ -23,6 +23,8 @@ export function useDeepWorkSession() {
   const [category, setCategory] = useState('');
   const [totalMinutes, setTotalMinutes] = useState(60);
   const [remaining, setRemaining] = useState(0);
+  const [endTimestamp, setEndTimestamp] = useState(null);
+  const [appState, setAppState] = useState(AppState.currentState ?? 'active');
 
   const [setupVisible, setSetupVisible] = useState(false);
   const [inputTask, setInputTask] = useState('');
@@ -46,6 +48,7 @@ export function useDeepWorkSession() {
     totalMinutes: 60,
     taskName: '',
     category: '',
+    endTimestamp: null,
   });
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
@@ -76,6 +79,9 @@ export function useDeepWorkSession() {
       taskName: snapshot.taskName || 'Deep Work',
       category: snapshot.category || 'Fokus',
       updatedAt: Date.now(),
+      endTimestamp: snapshot.phase === 'running'
+        ? snapshot.endTimestamp
+        : null,
     });
   }, []);
 
@@ -102,6 +108,7 @@ export function useDeepWorkSession() {
         setTotalMinutes(Math.ceil((saved.totalSeconds || saved.remaining || 0) / 60));
         setTaskName(saved.taskName || 'Deep Work');
         setCategory(saved.category || 'Fokus');
+        setEndTimestamp(saved.phase === 'running' ? saved.endTimestamp : null);
       } catch (e) {
         logger.debug('Fehler beim Wiederherstellen der Deep-Work-Session:', e);
       }
@@ -122,8 +129,9 @@ export function useDeepWorkSession() {
       totalMinutes,
       taskName,
       category,
+      endTimestamp,
     };
-  }, [phase, remaining, totalMinutes, taskName, category]);
+  }, [phase, remaining, totalMinutes, taskName, category, endTimestamp]);
 
   useEffect(() => {
     if (phase === 'running') {
@@ -156,57 +164,77 @@ export function useDeepWorkSession() {
   }, [phase, pulseAnim]);
 
   useEffect(() => {
-    if (phase !== 'running') {
+    if (phase !== 'running' || appState !== 'active') {
       clearTicker();
       return;
     }
 
     clearTicker();
 
-    intervalRef.current = setInterval(() => {
-      setRemaining(prev => {
-        if (prev <= 1) {
-          clearTicker();
+    const updateRemaining = () => {
+      const left = Math.max(Math.ceil((endTimestamp - Date.now()) / 1000), 0);
 
-          if (!completedRef.current) {
-            completedRef.current = true;
-            const completedSeconds = totalMinutes * 60;
+      if (left <= 0) {
+        clearTicker();
 
-            playDoneSound();
+        if (!completedRef.current) {
+          completedRef.current = true;
+          const completedSeconds = totalMinutes * 60;
 
-            addCompletedDeepWorkSession(completedSeconds).catch((e) => {
-              logger.debug('Fehler beim Speichern der Deep-Work-Historie:', e);
-            });
+          playDoneSound();
 
-            clearDeepWorkSession().catch((e) => {
-              logger.debug('Fehler beim Löschen der Deep-Work-Session:', e);
-            });
-          }
+          addCompletedDeepWorkSession(completedSeconds).catch((e) => {
+            logger.debug('Fehler beim Speichern der Deep-Work-Historie:', e);
+          });
 
-          if (mountedRef.current) {
-            setPhase('idle');
-            setDoneVisible(true);
-          }
-
-          return 0;
+          clearDeepWorkSession().catch((e) => {
+            logger.debug('Fehler beim Löschen der Deep-Work-Session:', e);
+          });
         }
 
-        return prev - 1;
-      });
-    }, 1000);
+        if (mountedRef.current) {
+          setRemaining(0);
+          setEndTimestamp(null);
+          setPhase('idle');
+          setDoneVisible(true);
+        }
+        return;
+      }
+
+      setRemaining(left);
+    };
+
+    updateRemaining();
+    intervalRef.current = setInterval(updateRemaining, 1000);
 
     return clearTicker;
-  }, [phase, totalMinutes, playDoneSound, clearTicker]);
+  }, [phase, appState, endTimestamp, totalMinutes, playDoneSound, clearTicker]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
+      setAppState(nextState);
+
       if (nextState === 'inactive' || nextState === 'background') {
         const snapshot = latestSessionRef.current;
 
         if (snapshot.phase === 'running' || snapshot.phase === 'paused') {
-          persistCurrentSession().catch((e) => {
+          const nextRemaining = snapshot.phase === 'running'
+            ? Math.max(Math.ceil((snapshot.endTimestamp - Date.now()) / 1000), 0)
+            : snapshot.remaining;
+
+          persistCurrentSession({ remaining: nextRemaining }).catch((e) => {
             logger.debug('Fehler beim Zwischenspeichern der Deep-Work-Session:', e);
           });
+        }
+      } else if (nextState === 'active') {
+        const snapshot = latestSessionRef.current;
+
+        if (snapshot.phase === 'running') {
+          const nextRemaining = Math.max(
+            Math.ceil((snapshot.endTimestamp - Date.now()) / 1000),
+            0
+          );
+          setRemaining(nextRemaining);
         }
       }
     });
@@ -226,6 +254,7 @@ export function useDeepWorkSession() {
     const cat = customCategory.trim() || selCategory || 'Fokus';
     const seconds = mins * 60;
     const name = inputTask.trim() || 'Deep Work';
+    const sessionEndTimestamp = Date.now() + seconds * 1000;
 
     try {
       await saveDeepWorkSession({
@@ -235,6 +264,7 @@ export function useDeepWorkSession() {
         taskName: name,
         category: cat,
         updatedAt: Date.now(),
+        endTimestamp: sessionEndTimestamp,
       });
 
       completedRef.current = false;
@@ -245,6 +275,7 @@ export function useDeepWorkSession() {
       setCategory(cat);
       setTotalMinutes(mins);
       setRemaining(seconds);
+      setEndTimestamp(sessionEndTimestamp);
       setSetupVisible(false);
       setPhase('running');
     } catch (e) {
@@ -258,16 +289,27 @@ export function useDeepWorkSession() {
   }, [inputTask, selHours, selMinutes, selCategory, customCategory]);
 
   const togglePause = useCallback(() => {
-    setPhase(prev => {
-      if (prev !== 'running' && prev !== 'paused') return prev;
+    const snapshot = latestSessionRef.current;
+    if (snapshot.phase !== 'running' && snapshot.phase !== 'paused') return;
 
-      const nextPhase = prev === 'running' ? 'paused' : 'running';
+    const nextPhase = snapshot.phase === 'running' ? 'paused' : 'running';
+    const nextRemaining = snapshot.phase === 'running'
+      ? Math.max(Math.ceil((snapshot.endTimestamp - Date.now()) / 1000), 0)
+      : snapshot.remaining;
+    const nextEndTimestamp = nextPhase === 'running'
+      ? Date.now() + nextRemaining * 1000
+      : null;
 
-      persistCurrentSession({ phase: nextPhase }).catch((e) => {
-        logger.debug('Fehler beim Speichern des Deep-Work-Pausenstatus:', e);
-      });
+    setRemaining(nextRemaining);
+    setEndTimestamp(nextEndTimestamp);
+    setPhase(nextPhase);
 
-      return nextPhase;
+    persistCurrentSession({
+      phase: nextPhase,
+      remaining: nextRemaining,
+      endTimestamp: nextEndTimestamp,
+    }).catch((e) => {
+      logger.debug('Fehler beim Speichern des Deep-Work-Pausenstatus:', e);
     });
   }, [persistCurrentSession]);
 
@@ -280,7 +322,10 @@ export function useDeepWorkSession() {
 
     const snapshot = latestSessionRef.current;
     const totalSeconds = snapshot.totalMinutes * 60;
-    const completedSeconds = Math.max(totalSeconds - snapshot.remaining, 0);
+    const currentRemaining = snapshot.phase === 'running'
+      ? Math.max(Math.ceil((snapshot.endTimestamp - Date.now()) / 1000), 0)
+      : snapshot.remaining;
+    const completedSeconds = Math.max(totalSeconds - currentRemaining, 0);
 
     try {
       if (completedSeconds > 0) {
@@ -294,6 +339,7 @@ export function useDeepWorkSession() {
       completedRef.current = false;
       setPhase('idle');
       setRemaining(0);
+      setEndTimestamp(null);
     } catch (e) {
       logger.debug('Fehler beim Beenden der Deep-Work-Session:', e);
     } finally {

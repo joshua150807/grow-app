@@ -22,6 +22,9 @@ function normalizeSession(session) {
     remaining
   );
   const updatedAt = getSafeNumber(session.updatedAt, Date.now());
+  const endTimestamp = phase === 'running'
+    ? getSafeNumber(session.endTimestamp, updatedAt + remaining * 1000)
+    : null;
 
   if (remaining <= 0 && totalSeconds <= 0) return null;
 
@@ -36,6 +39,7 @@ function normalizeSession(session) {
       ? session.category
       : 'Fokus',
     updatedAt,
+    endTimestamp,
   };
 }
 
@@ -82,8 +86,10 @@ export async function getSavedDeepWorkSession() {
     }
 
     if (session.phase === 'running') {
-      const elapsed = Math.floor((Date.now() - session.updatedAt) / 1000);
-      const left = Math.max(session.remaining - elapsed, 0);
+      const left = Math.max(
+        Math.ceil((session.endTimestamp - Date.now()) / 1000),
+        0
+      );
 
       if (left <= 0) {
         await addCompletedDeepWorkSession(session.totalSeconds || session.remaining);
