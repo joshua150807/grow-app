@@ -1,6 +1,19 @@
 import { supabase } from '../../../../services/supabaseClient';
 import { getCurrentUserId } from '../../../../services/authUser';
 
+const habitCompletionListeners = new Set();
+
+export function subscribeToHabitCompletionChanges(listener) {
+  if (typeof listener !== 'function') return () => {};
+
+  habitCompletionListeners.add(listener);
+  return () => habitCompletionListeners.delete(listener);
+}
+
+function notifyHabitCompletionChange() {
+  habitCompletionListeners.forEach(listener => listener());
+}
+
 function normalizeDays(days) {
   if (!Array.isArray(days)) return [];
 
@@ -8,6 +21,61 @@ function normalizeDays(days) {
     .map(day => Number(day))
     .filter(day => Number.isInteger(day) && day >= 0 && day <= 6)
   )).sort((a, b) => a - b);
+}
+
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function calculateHabitStreak(habits, completions, today = new Date()) {
+  const activeHabits = (Array.isArray(habits) ? habits : []).filter(habit => (
+    habit?.id &&
+    !habit.archived_at &&
+    habit.is_active !== false &&
+    habit.disabled !== true
+  ));
+  const byDate = new Map();
+
+  for (const completion of Array.isArray(completions) ? completions : []) {
+    if (!completion?.completed_date || !completion?.habit_id) continue;
+
+    const done = byDate.get(completion.completed_date) ?? new Set();
+    done.add(completion.habit_id);
+    byDate.set(completion.completed_date, done);
+  }
+
+  const localToday = new Date(today);
+  localToday.setHours(12, 0, 0, 0);
+
+  let streak = 0;
+
+  for (let i = 0; i < 90; i++) {
+    const date = new Date(localToday);
+    date.setDate(localToday.getDate() - i);
+
+    const dateStr = formatLocalDate(date);
+    const dayOfWeek = date.getDay() === 0 ? 6 : date.getDay() - 1;
+    const scheduled = activeHabits.filter(habit => (
+      normalizeDays(habit.days).includes(dayOfWeek)
+    ));
+
+    if (scheduled.length === 0) continue;
+
+    const done = byDate.get(dateStr) ?? new Set();
+    const isComplete = scheduled.every(habit => done.has(habit.id));
+
+    // Ein noch laufender heutiger Tag beendet den bestehenden Streak nicht.
+    if (i === 0 && !isComplete) continue;
+
+    if (!isComplete) break;
+    streak += 1;
+  }
+
+  return streak;
 }
 
 function normalizeLinkedToolPayload(linkedTool = null, { includeEmptyValues = false } = {}) {
@@ -150,7 +218,7 @@ export async function getHabitStreak() {
 
   const { data: habits, error: hErr } = await supabase
     .from('habits')
-    .select('id, days')
+    .select('*')
     .eq('user_id', userId);
   if (hErr || !Array.isArray(habits) || habits.length === 0) return 0;
 
@@ -162,32 +230,10 @@ export async function getHabitStreak() {
     .from('habit_completions')
     .select('habit_id, completed_date')
     .eq('user_id', userId)
-    .gte('completed_date', since.toISOString().split('T')[0]);
+    .gte('completed_date', formatLocalDate(since));
   if (cErr) return 0;
 
-  const byDate = {};
-  for (const c of completions ?? []) {
-    if (!c?.completed_date || !c?.habit_id) continue;
-    if (!byDate[c.completed_date]) byDate[c.completed_date] = new Set();
-    byDate[c.completed_date].add(c.habit_id);
-  }
-
-  let streak = 0;
-  for (let i = 0; i < 90; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() - i);
-    const dateStr = d.toISOString().split('T')[0];
-    const dow = d.getDay() === 0 ? 6 : d.getDay() - 1;
-    const scheduled = habits.filter(h => normalizeDays(h.days).includes(dow));
-    if (scheduled.length === 0) continue;
-    const done = byDate[dateStr] ?? new Set();
-    if (scheduled.every(h => done.has(h.id))) {
-      streak++;
-    } else {
-      break;
-    }
-  }
-  return streak;
+  return calculateHabitStreak(habits, completions, today);
 }
 
 export async function getTodayHabitProgress() {
@@ -195,7 +241,7 @@ export async function getTodayHabitProgress() {
   if (!userId) return { completed: 0, total: 0 };
 
   const today = new Date();
-  const dateStr = today.toISOString().split('T')[0];
+  const dateStr = formatLocalDate(today);
   const dow = today.getDay() === 0 ? 6 : today.getDay() - 1;
 
   const { data: habits, error: hErr } = await supabase
@@ -241,4 +287,6 @@ export async function toggleCompletion(habitId, date, isCompleted) {
       .eq('completed_date', date);
     if (error) throw error;
   }
+
+  notifyHabitCompletionChange();
 }
