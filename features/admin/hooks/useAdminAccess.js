@@ -12,14 +12,16 @@ export default function useAdminAccess() {
   const [adminRole, setAdminRole] = useState(null);
   const [accessError, setAccessError] = useState(null);
   const activeRequestRef = useRef(0);
+  const hasCheckedOnceRef = useRef(false);
 
   const checkAdminAccess = useCallback(async () => {
     const requestId = activeRequestRef.current + 1;
     activeRequestRef.current = requestId;
 
     try {
-      setIsCheckingAccess(true);
-      setAccessError(null);
+      if (!hasCheckedOnceRef.current) {
+        setIsCheckingAccess(true);
+      }
 
       const userId = await getCurrentUserId();
 
@@ -28,6 +30,7 @@ export default function useAdminAccess() {
       if (!userId) {
         setHasAdminAccess(false);
         setAdminRole(null);
+        setAccessError(null);
         return;
       }
 
@@ -48,6 +51,7 @@ export default function useAdminAccess() {
 
       setAdminRole(role);
       setHasAdminAccess(allowed);
+      setAccessError(null);
     } catch (error) {
       if (requestId === activeRequestRef.current) {
         setHasAdminAccess(false);
@@ -56,6 +60,7 @@ export default function useAdminAccess() {
       }
     } finally {
       if (requestId === activeRequestRef.current) {
+        hasCheckedOnceRef.current = true;
         setIsCheckingAccess(false);
       }
     }
