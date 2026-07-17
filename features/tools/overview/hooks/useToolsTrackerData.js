@@ -10,10 +10,18 @@ import { getPreloadedToolData } from '../../../../lib/preloadedTools';
 
 function formatDeepWork(seconds) {
   const safeSeconds = Math.max(0, Number(seconds) || 0);
-  const m = Math.floor(safeSeconds / 60).toString().padStart(2, '0');
-  const sec = (safeSeconds % 60).toString().padStart(2, '0');
+  const totalSeconds = Math.floor(safeSeconds);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const remainingSeconds = totalSeconds % 60;
+  const paddedMinutes = String(minutes).padStart(2, '0');
+  const paddedSeconds = String(remainingSeconds).padStart(2, '0');
 
-  return `${m}:${sec}`;
+  if (hours > 0) {
+    return `${hours}:${paddedMinutes}:${paddedSeconds}`;
+  }
+
+  return `${paddedMinutes}:${paddedSeconds}`;
 }
 
 function formatSteps(count) {
