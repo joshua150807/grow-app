@@ -26,6 +26,17 @@
       },
       "channel": "beta"
     },
+    "internal-testflight": {
+      "autoIncrement": true,
+      "cache": {
+        "disabled": true
+      },
+      "channel": "internal-testflight",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://grow-api-production-4995.up.railway.app",
+        "EXPO_PUBLIC_PROFILE_API_V1_ENABLED": "true"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "cache": {
