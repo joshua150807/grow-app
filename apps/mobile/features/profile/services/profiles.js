@@ -90,6 +90,9 @@ function normalizeV1Profile(payload) {
     id: profile.id,
     username: profile.username,
     bio: typeof profile.bio === 'string' ? profile.bio : '',
+    avatarUrl: typeof profile.avatar_url === 'string' && profile.avatar_url.trim()
+      ? profile.avatar_url
+      : null,
     growPoints: normalizeGrowPoints(profile?.grow_points),
     role: typeof profile.role === 'string' ? profile.role : FALLBACK_ROLE,
     createdAt: profile.created_at ?? null,
@@ -97,7 +100,7 @@ function normalizeV1Profile(payload) {
   };
 }
 
-async function requestProfileV1(path, options = {}) {
+async function requestProfileV1(path, options = {}, normalizeResponse = normalizeV1Profile) {
   const baseUrl = getProfileApiBaseUrl();
   const {
     data: { session } = {},
@@ -143,7 +146,38 @@ async function requestProfileV1(path, options = {}) {
     });
   }
 
-  return normalizeV1Profile(payload);
+  return normalizeResponse(payload);
+}
+
+function assertProfileApiV1Enabled() {
+  if (!PROFILE_API_V1_ENABLED) {
+    throw new ProfileApiError('Profile API V1 is disabled.', {
+      code: 'PROFILE_API_V1_DISABLED',
+    });
+  }
+}
+
+function normalizeAvatarUpload(payload) {
+  const upload = payload?.upload;
+
+  if (
+    !upload ||
+    typeof upload.path !== 'string' ||
+    typeof upload.token !== 'string' ||
+    typeof upload.mime_type !== 'string' ||
+    typeof upload.expires_in !== 'number'
+  ) {
+    throw new ProfileApiError('Profile API returned an invalid avatar upload.', {
+      code: 'PROFILE_API_INVALID_RESPONSE',
+    });
+  }
+
+  return {
+    path: upload.path,
+    token: upload.token,
+    mimeType: upload.mime_type,
+    expiresIn: upload.expires_in,
+  };
 }
 
 export function isProfileApiV1Enabled() {
@@ -151,12 +185,14 @@ export function isProfileApiV1Enabled() {
 }
 
 export async function getMyProfileV1() {
+  assertProfileApiV1Enabled();
   return requestProfileV1('/v1/profile/me', {
     method: 'GET',
   });
 }
 
 export async function updateMyProfileV1({ username, bio } = {}) {
+  assertProfileApiV1Enabled();
   const body = {};
 
   if (username !== undefined) {
@@ -173,6 +209,38 @@ export async function updateMyProfileV1({ username, bio } = {}) {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify(body),
+  });
+}
+
+export async function createMyAvatarUploadV1(mimeType) {
+  assertProfileApiV1Enabled();
+
+  return requestProfileV1('/v1/profile/me/avatar/upload', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ mime_type: mimeType }),
+  }, normalizeAvatarUpload);
+}
+
+export async function confirmMyAvatarUploadV1(path) {
+  assertProfileApiV1Enabled();
+
+  return requestProfileV1('/v1/profile/me/avatar/confirm', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ path }),
+  });
+}
+
+export async function deleteMyAvatarV1() {
+  assertProfileApiV1Enabled();
+
+  return requestProfileV1('/v1/profile/me/avatar', {
+    method: 'DELETE',
   });
 }
 

@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   ImageBackground,
   KeyboardAvoidingView,
@@ -14,6 +15,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { COLORS } from '../../../constants/colors';
@@ -24,6 +26,7 @@ import {
   GROW_POINTS_ICON,
 } from '../../../constants/toolAssets';
 import { useProfile } from '../hooks/useProfile';
+import { useProfileAvatar } from '../hooks/useProfileAvatar';
 import {
   isProfileApiV1Enabled,
   updateMyProfileV1,
@@ -299,13 +302,29 @@ function ProfileEditModal({
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { username, bio, growPoints, reloadProfile } = useProfile();
+  const { username, bio, avatarUrl, growPoints, reloadProfile } = useProfile();
   const { streak, todoProgress, deepWorkTime } = useToolsTrackerData();
   const [editVisible, setEditVisible] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState('');
+  const [avatarImageFailed, setAvatarImageFailed] = useState(false);
   const isMountedRef = useRef(true);
+  const avatarReloadAttemptedRef = useRef(false);
+  const hasFocusedProfileRef = useRef(false);
   const profileApiV1Enabled = isProfileApiV1Enabled();
+  const {
+    hasConfirmedAvatarReset,
+    isAvatarEditingEnabled,
+    isResettingAvatar,
+    isUpdatingAvatar,
+    showAvatarActions,
+  } = useProfileAvatar({ avatarUrl, reloadProfile });
+  const hasRemoteAvatar = profileApiV1Enabled
+    && typeof avatarUrl === 'string'
+    && avatarUrl.trim().length > 0
+    && !avatarImageFailed
+    && !hasConfirmedAvatarReset
+    && !isResettingAvatar;
 
   const tabBarBottom =
     IS_SAMSUNG_ANDROID && insets.bottom > SAMSUNG_LARGE_NAV_INSET_THRESHOLD
@@ -337,6 +356,31 @@ export default function ProfileScreen() {
       isMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    setAvatarImageFailed(false);
+  }, [avatarUrl]);
+
+  useFocusEffect(useCallback(() => {
+    avatarReloadAttemptedRef.current = false;
+
+    if (!hasFocusedProfileRef.current) {
+      hasFocusedProfileRef.current = true;
+    } else if (profileApiV1Enabled) {
+      reloadProfile?.().catch(() => {});
+    }
+  }, [profileApiV1Enabled, reloadProfile]));
+
+  const handleAvatarImageError = useCallback(() => {
+    setAvatarImageFailed(true);
+
+    if (!profileApiV1Enabled || avatarReloadAttemptedRef.current) {
+      return;
+    }
+
+    avatarReloadAttemptedRef.current = true;
+    reloadProfile?.().catch(() => {});
+  }, [profileApiV1Enabled, reloadProfile]);
 
   async function handleProfileSave(changes) {
     if (!profileApiV1Enabled || isSavingProfile) {
@@ -458,14 +502,29 @@ export default function ProfileScreen() {
                 ]}
               >
                 <Image
-                  source={GROW_AVATAR}
-                  style={styles.avatarImage}
-                  resizeMode="contain"
+                  source={
+                    hasRemoteAvatar
+                      ? { uri: avatarUrl }
+                      : GROW_AVATAR
+                  }
+                  style={hasRemoteAvatar ? styles.remoteAvatarImage : styles.defaultAvatarImage}
+                  resizeMode={hasRemoteAvatar ? 'cover' : 'contain'}
+                  onError={
+                    hasRemoteAvatar
+                      ? handleAvatarImageError
+                      : undefined
+                  }
                 />
+                {isUpdatingAvatar ? (
+                  <View style={styles.avatarLoadingOverlay}>
+                    <ActivityIndicator color={COLORS.gold} />
+                  </View>
+                ) : null}
               </View>
 
               <Pressable
-                disabled
+                disabled={!isAvatarEditingEnabled || isUpdatingAvatar}
+                onPress={showAvatarActions}
                 style={({ pressed }) => [
                   styles.cameraButton,
                   {
@@ -478,7 +537,10 @@ export default function ProfileScreen() {
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel="Avatar ändern"
-                accessibilityState={{ disabled: true }}
+                accessibilityState={{
+                  disabled: !isAvatarEditingEnabled || isUpdatingAvatar,
+                  busy: isUpdatingAvatar,
+                }}
               >
                 <Ionicons
                   name="camera-outline"
@@ -853,9 +915,19 @@ const styles = StyleSheet.create({
     borderColor: COLORS.goldBorderLight,
     backgroundColor: 'rgba(13, 9, 19, 0.96)',
   },
-  avatarImage: {
+  defaultAvatarImage: {
     width: '92%',
     height: '92%',
+  },
+  remoteAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(5,5,8,0.58)',
   },
   cameraButton: {
     position: 'absolute',

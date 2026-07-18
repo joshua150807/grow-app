@@ -4,6 +4,7 @@ const FALLBACK_PROFILE = {
   id: null,
   username: 'Grower',
   bio: '',
+  avatarUrl: null,
   growPoints: 0,
   role: 'user',
   createdAt: null,
@@ -17,6 +18,9 @@ function normalizeProfile(profile) {
     id: profile?.id ?? FALLBACK_PROFILE.id,
     username: profile?.username || FALLBACK_PROFILE.username,
     bio: typeof profile?.bio === 'string' ? profile.bio : FALLBACK_PROFILE.bio,
+    avatarUrl: typeof profile?.avatarUrl === 'string' && profile.avatarUrl.trim()
+      ? profile.avatarUrl
+      : null,
     growPoints: Number.isFinite(growPoints) && growPoints >= 0 ? growPoints : 0,
     role: profile?.role || FALLBACK_PROFILE.role,
     createdAt: profile?.createdAt ?? FALLBACK_PROFILE.createdAt,
