@@ -5,6 +5,7 @@ export type AppErrorCode =
   | 'NOT_FOUND'
   | 'PROFILE_NOT_FOUND'
   | 'USERNAME_TAKEN'
+  | 'AVATAR_UPLOAD_NOT_FOUND'
   | 'EMAIL_TAKEN'
   | 'CODE_INVALID'
   | 'AUTH_EMAIL_MISSING'

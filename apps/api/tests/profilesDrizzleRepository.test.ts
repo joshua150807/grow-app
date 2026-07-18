@@ -67,6 +67,7 @@ describe('DrizzleProfilesRepository', () => {
       id: 'user-123',
       username: 'grower',
       bio: 'Keep growing.',
+      avatarPath: null,
       growPoints: 7,
       role: 'user',
       createdAt: '2026-07-05T10:00:00.000Z',
@@ -79,6 +80,7 @@ describe('DrizzleProfilesRepository', () => {
       id: 'user-123',
       username: 'grower',
       bio: 'Keep growing.',
+      avatarPath: null,
       growPoints: 7,
       role: 'user',
       createdAt: '2026-07-05T10:00:00.000Z',
@@ -114,6 +116,7 @@ describe('DrizzleProfilesRepository', () => {
     await repository.findByUserId('user-123');
 
     expect(Object.keys(calls.selection ?? {}).sort()).toEqual([
+      'avatarPath',
       'bio',
       'createdAt',
       'growPoints',
@@ -127,7 +130,7 @@ describe('DrizzleProfilesRepository', () => {
     expect(calls.selection).not.toHaveProperty('name');
     expect(calls.selection).not.toHaveProperty('avatarUrl');
     expect(calls.selection).toHaveProperty('bio', profiles.bio);
-    expect(calls.selection).not.toHaveProperty('avatarPath');
+    expect(calls.selection).toHaveProperty('avatarPath', profiles.avatarPath);
     expect(calls.table).toBe(profiles);
   });
 });

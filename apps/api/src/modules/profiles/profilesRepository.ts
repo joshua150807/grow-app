@@ -8,6 +8,7 @@ export type ProfileReadRow = {
   id: string;
   username: string;
   bio: string;
+  avatar_path: string | null;
   grow_points: number | null;
   role: string | null;
   created_at: string | null;
@@ -18,6 +19,7 @@ export type ProfileRow = {
   id: string;
   username?: string | null;
   bio?: string | null;
+  avatar_path?: string | null;
   grow_points?: number | null;
   role?: string | null;
   created_at?: string | null;
@@ -27,6 +29,7 @@ export type ProfileRow = {
 export type ProfilesRepository = {
   getProfileByUserId(userId: string): Promise<ProfileRow | null>;
   updateProfileByUserId(userId: string, input: ProfileUpdateInput): Promise<ProfileRow | null>;
+  updateAvatarPathByUserId?(userId: string, avatarPath: string | null): Promise<ProfileRow | null>;
 };
 
 function mapProfileReadRowToDomain(row: ProfileReadRow): Profile {
@@ -34,6 +37,7 @@ function mapProfileReadRowToDomain(row: ProfileReadRow): Profile {
     id: row.id,
     username: row.username,
     bio: row.bio,
+    avatarPath: row.avatar_path,
     growPoints: row.grow_points,
     role: row.role,
     createdAt: row.created_at,
@@ -48,7 +52,7 @@ export function createProfilesRepository(
     async getProfileByUserId(userId: string): Promise<ProfileRow | null> {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, role')
+        .select('id, username, grow_points, role, created_at, updated_at, bio, avatar_path')
         .eq('id', userId)
         .maybeSingle();
 
@@ -67,7 +71,25 @@ export function createProfilesRepository(
         .from('profiles')
         .update(input)
         .eq('id', userId)
-        .select('id, username, grow_points, role, created_at, updated_at, bio')
+        .select('id, username, grow_points, role, created_at, updated_at, bio, avatar_path')
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      return data;
+    },
+
+    async updateAvatarPathByUserId(
+      userId: string,
+      avatarPath: string | null,
+    ): Promise<ProfileRow | null> {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ avatar_path: avatarPath })
+        .eq('id', userId)
+        .select('id, username, grow_points, role, created_at, updated_at, bio, avatar_path')
         .maybeSingle();
 
       if (error) {
@@ -86,7 +108,7 @@ export function createSupabaseProfilesReadRepository(
     async findByUserId(userId: string): Promise<Profile | null> {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, grow_points, role, created_at, updated_at, bio')
+        .select('id, username, grow_points, role, created_at, updated_at, bio, avatar_path')
         .eq('id', userId)
         .maybeSingle();
 

@@ -17,7 +17,9 @@ export const profileRoutes: FastifyPluginAsync<ProfileRoutesOptions> = async (
       return options.profileService;
     }
 
-    runtimeProfileService ??= createRuntimeProfileService();
+    runtimeProfileService ??= createRuntimeProfileService((context, message) => {
+      app.log.warn(context, message);
+    });
 
     return runtimeProfileService;
   }
@@ -32,5 +34,23 @@ export const profileRoutes: FastifyPluginAsync<ProfileRoutesOptions> = async (
     preHandler: [app.requireAuth],
   }, async (request) => ({
     profile: await getProfileService().updateCurrentUserProfile(request.auth.user!, request.body),
+  }));
+
+  app.post('/profile/me/avatar/upload', {
+    preHandler: [app.requireAuth],
+  }, async (request) => ({
+    upload: await getProfileService().createAvatarUpload(request.auth.user!, request.body),
+  }));
+
+  app.post('/profile/me/avatar/confirm', {
+    preHandler: [app.requireAuth],
+  }, async (request) => ({
+    profile: await getProfileService().confirmAvatarUpload(request.auth.user!, request.body),
+  }));
+
+  app.delete('/profile/me/avatar', {
+    preHandler: [app.requireAuth],
+  }, async (request) => ({
+    profile: await getProfileService().deleteAvatar(request.auth.user!),
   }));
 };

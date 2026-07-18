@@ -15,6 +15,7 @@ describe('ProfileReadService', () => {
       id: 'user-123',
       username: 'grower',
       bio: 'Keep growing.',
+      avatarPath: null,
       growPoints: 12,
       role: 'user',
       createdAt: '2026-07-05T10:00:00.000Z',
@@ -26,6 +27,7 @@ describe('ProfileReadService', () => {
       id: 'user-123',
       username: 'grower',
       bio: 'Keep growing.',
+      avatar_url: null,
       grow_points: 12,
       role: 'user',
       created_at: '2026-07-05T10:00:00.000Z',
@@ -54,6 +56,7 @@ describe('ProfileReadService', () => {
       id: 'user-123',
       username: 'grower',
       bio: '',
+      avatarPath: null,
       growPoints: null,
       role: null,
       createdAt: null,
@@ -65,6 +68,7 @@ describe('ProfileReadService', () => {
       id: 'user-123',
       username: 'grower',
       bio: '',
+      avatar_url: null,
       grow_points: null,
       role: null,
       created_at: null,
@@ -77,6 +81,7 @@ describe('ProfileReadService', () => {
       id: 'user-123',
       username: 'grower',
       bio: '',
+      avatarPath: null,
       growPoints: 12,
       role: 'user',
       createdAt: null,
@@ -90,7 +95,7 @@ describe('ProfileReadService', () => {
     expect(dto).not.toHaveProperty('user_id');
     expect(dto).not.toHaveProperty('display_name');
     expect(dto).not.toHaveProperty('name');
-    expect(dto).not.toHaveProperty('avatar_url');
+    expect(dto).toHaveProperty('avatar_url', null);
     expect(dto).toHaveProperty('bio', '');
     expect(dto).not.toHaveProperty('avatarPath');
   });

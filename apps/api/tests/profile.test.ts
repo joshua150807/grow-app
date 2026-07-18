@@ -70,6 +70,7 @@ describe('GET /v1/profile/me', () => {
       id: validUser.id,
       username: 'grower',
       bio: 'Keep growing.',
+      avatarPath: null,
       growPoints: 12,
       role: 'user',
       createdAt: '2026-07-05T10:00:00.000Z',
@@ -92,6 +93,7 @@ describe('GET /v1/profile/me', () => {
         id: validUser.id,
         username: 'grower',
         bio: 'Keep growing.',
+        avatar_url: null,
         grow_points: 12,
         role: 'user',
         created_at: '2026-07-05T10:00:00.000Z',
@@ -134,6 +136,7 @@ describe('GET /v1/profile/me', () => {
       id: validUser.id,
       username: 'grower',
       bio: '',
+      avatarPath: null,
       growPoints: 0,
       role: 'user',
       createdAt: null,
@@ -167,6 +170,7 @@ describe('GET /v1/profile/me', () => {
       id: validUser.id,
       username: 'grower',
       bio: '',
+      avatarPath: null,
       growPoints: null,
       role: null,
       createdAt: null,
@@ -188,7 +192,7 @@ describe('GET /v1/profile/me', () => {
     expect(response.json().profile).not.toHaveProperty('user_id');
     expect(response.json().profile).not.toHaveProperty('display_name');
     expect(response.json().profile).not.toHaveProperty('name');
-    expect(response.json().profile).not.toHaveProperty('avatar_url');
+    expect(response.json().profile).toHaveProperty('avatar_url', null);
     expect(response.json().profile).toHaveProperty('bio', '');
     expect(response.json().profile).not.toHaveProperty('avatar_path');
 
@@ -201,6 +205,9 @@ describe('GET /v1/profile/me', () => {
         throw new AppError(404, 'PROFILE_NOT_FOUND', 'Profile missing.');
       }),
       updateCurrentUserProfile: vi.fn(),
+      createAvatarUpload: vi.fn(),
+      confirmAvatarUpload: vi.fn(),
+      deleteAvatar: vi.fn(),
     };
     const app = buildTestApp(profileService);
 
@@ -331,6 +338,7 @@ describe('PATCH /v1/profile/me', () => {
         id: validUser.id,
         username: 'grower',
         bio: '',
+        avatar_url: null,
         grow_points: 12,
         role: 'user',
         created_at: '2026-07-05T10:00:00.000Z',
@@ -362,6 +370,7 @@ describe('PATCH /v1/profile/me', () => {
         id: validUser.id,
         username: 'grower',
         bio: '',
+        avatar_url: null,
         grow_points: 12,
         role: 'user',
         created_at: '2026-07-05T10:00:00.000Z',
@@ -372,7 +381,7 @@ describe('PATCH /v1/profile/me', () => {
     expect(response.json().profile).not.toHaveProperty('recovery_email');
     expect(response.json().profile).not.toHaveProperty('display_name');
     expect(response.json().profile).not.toHaveProperty('name');
-    expect(response.json().profile).not.toHaveProperty('avatar_url');
+    expect(response.json().profile).toHaveProperty('avatar_url', null);
     expect(response.json().profile).toHaveProperty('bio', '');
     expect(response.json().profile).not.toHaveProperty('avatar_path');
 
@@ -389,6 +398,7 @@ describe('PATCH /v1/profile/me', () => {
         id: validUser.id,
         username: 'grower',
         bio: 'Meine Bio',
+        avatar_url: null,
         grow_points: 12,
         role: 'user',
         created_at: '2026-07-05T10:00:00.000Z',
@@ -421,10 +431,11 @@ describe('PATCH /v1/profile/me', () => {
         created_at: '2026-07-05T10:00:00.000Z',
         updated_at: '2026-07-05T11:00:00.000Z',
         bio: 'Meine Bio',
+        avatar_url: null,
       },
     });
     expect(response.json().profile).not.toHaveProperty('avatar_path');
-    expect(response.json().profile).not.toHaveProperty('avatar_url');
+    expect(response.json().profile).toHaveProperty('avatar_url', null);
 
     await app.close();
   });
