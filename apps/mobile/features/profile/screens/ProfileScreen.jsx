@@ -25,7 +25,6 @@ import {
 } from '../../../constants/toolAssets';
 import { useProfile } from '../hooks/useProfile';
 import {
-  getMyProfileV1,
   isProfileApiV1Enabled,
   updateMyProfileV1,
 } from '../services/profiles';
@@ -61,6 +60,8 @@ function getProfileSaveErrorMessage(error) {
       return 'Deine Sitzung ist nicht mehr gültig. Bitte melde dich erneut an.';
     case 'PROFILE_API_NETWORK_ERROR':
       return 'Verbindung zum Server fehlgeschlagen.';
+    case 'VALIDATION_ERROR':
+      return 'Bitte prüfe Benutzername und Bio.';
     default:
       return 'Profil konnte nicht aktualisiert werden.';
   }
@@ -137,6 +138,7 @@ function StatTile({
 function ProfileEditModal({
   visible,
   username,
+  bio,
   isSaving,
   saveError,
   isV1Enabled,
@@ -145,24 +147,35 @@ function ProfileEditModal({
   onSave,
 }) {
   const insets = useSafeAreaInsets();
-  const [draft, setDraft] = useState(username);
+  const [usernameDraft, setUsernameDraft] = useState(username);
+  const [bioDraft, setBioDraft] = useState(bio);
   const wasVisibleRef = useRef(false);
-  const normalized = draft.trim().toLowerCase();
-  const error = validateUsername(draft);
-  const isUnchanged = normalized === username.trim().toLowerCase();
-  const canSave = isV1Enabled && !error && !isUnchanged && !isSaving;
-  const message = error || saveError || `Zielwert: ${normalized}`;
+  const normalizedUsername = usernameDraft.trim().toLowerCase();
+  const normalizedBio = bioDraft.trim();
+  const usernameError = validateUsername(usernameDraft);
+  const usernameChanged = normalizedUsername !== username.trim().toLowerCase();
+  const bioChanged = normalizedBio !== bio;
+  const canSave =
+    isV1Enabled && !usernameError && (usernameChanged || bioChanged) && !isSaving;
+  const message =
+    usernameError || saveError || `Zielwert: ${normalizedUsername}`;
 
   useEffect(() => {
     if (visible && !wasVisibleRef.current) {
-      setDraft(username);
+      setUsernameDraft(username);
+      setBioDraft(bio);
     }
 
     wasVisibleRef.current = visible;
-  }, [username, visible]);
+  }, [bio, username, visible]);
 
   function handleDraftChange(value) {
-    setDraft(value);
+    setUsernameDraft(value);
+    onDraftChange?.();
+  }
+
+  function handleBioChange(value) {
+    setBioDraft(value);
     onDraftChange?.();
   }
 
@@ -196,12 +209,12 @@ function ProfileEditModal({
             <View style={styles.editHandle} />
             <Text style={styles.editTitle}>Profil bearbeiten</Text>
             <Text style={styles.editSubtitle}>
-              Passe deinen Benutzernamen an.
+              Passe deinen Benutzernamen und deine Bio an.
             </Text>
 
             <Text style={styles.inputLabel}>Username</Text>
             <TextInput
-              value={draft}
+              value={usernameDraft}
               onChangeText={handleDraftChange}
               autoCapitalize="none"
               autoCorrect={false}
@@ -211,15 +224,38 @@ function ProfileEditModal({
               placeholderTextColor={COLORS.textFaint}
               style={[
                 styles.usernameInput,
-                Boolean(error) && styles.usernameInputError,
+                Boolean(usernameError) && styles.usernameInputError,
               ]}
             />
 
             <View style={styles.editMetaRow}>
-              <Text style={[styles.editHint, Boolean(error || saveError) && styles.editError]}>
+              <Text
+                style={[
+                  styles.editHint,
+                  Boolean(usernameError || saveError) && styles.editError,
+                ]}
+              >
                 {message}
               </Text>
-              <Text style={styles.charCount}>{normalized.length}/30</Text>
+              <Text style={styles.charCount}>{normalizedUsername.length}/30</Text>
+            </View>
+
+            <Text style={styles.inputLabel}>Bio</Text>
+            <TextInput
+              value={bioDraft}
+              onChangeText={handleBioChange}
+              autoCapitalize="sentences"
+              autoCorrect
+              maxLength={100}
+              multiline
+              numberOfLines={3}
+              placeholder="Erzähle kurz etwas über dich"
+              placeholderTextColor={COLORS.textFaint}
+              style={[styles.usernameInput, styles.bioInput]}
+            />
+            <View style={styles.editMetaRow}>
+              <Text style={styles.editHint}>Maximal 100 Zeichen.</Text>
+              <Text style={styles.charCount}>{bioDraft.length}/100</Text>
             </View>
 
             <View style={styles.editActions}>
@@ -235,7 +271,12 @@ function ProfileEditModal({
 
               <Pressable
                 disabled={!canSave}
-                onPress={() => onSave(normalized)}
+                onPress={() =>
+                  onSave({
+                    ...(usernameChanged ? { username: normalizedUsername } : {}),
+                    ...(bioChanged ? { bio: normalizedBio } : {}),
+                  })
+                }
                 accessibilityState={{ disabled: !canSave }}
                 style={[
                   styles.saveButton,
@@ -258,14 +299,12 @@ function ProfileEditModal({
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const { username, growPoints } = useProfile();
+  const { username, bio, growPoints, reloadProfile } = useProfile();
   const { streak, todoProgress, deepWorkTime } = useToolsTrackerData();
   const [editVisible, setEditVisible] = useState(false);
-  const [profileV1, setProfileV1] = useState(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState('');
   const isMountedRef = useRef(true);
-  const profileWriteGenerationRef = useRef(0);
   const profileApiV1Enabled = isProfileApiV1Enabled();
 
   const tabBarBottom =
@@ -291,8 +330,7 @@ export default function ProfileScreen() {
   const statTileHeight = veryCompact ? sv(76) : compact ? sv(86) : sv(104);
   const statIconSize = veryCompact ? s(17) : compact ? s(19) : s(21);
   const settingsIconSize = veryCompact ? s(32) : compact ? s(35) : s(40);
-  const displayUsername = profileV1?.username ?? username;
-  const displayGrowPoints = profileV1?.growPoints ?? growPoints;
+  const displayBio = profileApiV1Enabled ? bio : PROFILE_MOTTO;
 
   useEffect(() => {
     return () => {
@@ -300,43 +338,7 @@ export default function ProfileScreen() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!profileApiV1Enabled) {
-      setProfileV1(null);
-      return undefined;
-    }
-
-    let cancelled = false;
-    const startedAtGeneration = profileWriteGenerationRef.current;
-
-    async function loadProfileV1() {
-      try {
-        const nextProfile = await getMyProfileV1();
-
-        if (
-          !cancelled &&
-          profileWriteGenerationRef.current === startedAtGeneration
-        ) {
-          setProfileV1(nextProfile);
-        }
-      } catch {
-        if (
-          !cancelled &&
-          profileWriteGenerationRef.current === startedAtGeneration
-        ) {
-          setProfileV1(null);
-        }
-      }
-    }
-
-    loadProfileV1();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [profileApiV1Enabled]);
-
-  async function handleProfileSave(normalizedUsername) {
+  async function handleProfileSave(changes) {
     if (!profileApiV1Enabled || isSavingProfile) {
       return;
     }
@@ -345,12 +347,11 @@ export default function ProfileScreen() {
     setIsSavingProfile(true);
 
     try {
-      const nextProfile = await updateMyProfileV1({ username: normalizedUsername });
+      await updateMyProfileV1(changes);
+      await reloadProfile?.();
 
       if (!isMountedRef.current) return;
 
-      profileWriteGenerationRef.current += 1;
-      setProfileV1(nextProfile);
       setProfileSaveError('');
       setEditVisible(false);
     } catch (error) {
@@ -498,7 +499,7 @@ export default function ProfileScreen() {
               numberOfLines={1}
               adjustsFontSizeToFit
             >
-              {displayUsername}
+              {username}
             </Text>
             <Text
               style={[
@@ -511,7 +512,7 @@ export default function ProfileScreen() {
               ]}
               numberOfLines={2}
             >
-              {PROFILE_MOTTO}
+              {displayBio}
             </Text>
           </View>
 
@@ -549,7 +550,7 @@ export default function ProfileScreen() {
                     { fontSize: veryCompact ? sf(18) : compact ? sf(20) : sf(24) },
                   ]}
                 >
-                  {formatNumber(displayGrowPoints)}
+                  {formatNumber(growPoints)}
                 </Text>
                 <Text
                   style={[
@@ -794,7 +795,8 @@ export default function ProfileScreen() {
 
       <ProfileEditModal
         visible={editVisible}
-        username={displayUsername}
+        username={username}
+        bio={bio}
         isSaving={isSavingProfile}
         saveError={profileSaveError}
         isV1Enabled={profileApiV1Enabled}
@@ -1058,6 +1060,12 @@ const styles = StyleSheet.create({
   },
   usernameInputError: {
     borderColor: 'rgba(255,122,122,0.60)',
+  },
+  bioInput: {
+    minHeight: sv(82),
+    paddingTop: sv(12),
+    paddingBottom: sv(12),
+    textAlignVertical: 'top',
   },
   editMetaRow: {
     marginTop: sv(7),

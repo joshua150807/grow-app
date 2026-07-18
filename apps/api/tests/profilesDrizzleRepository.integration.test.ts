@@ -63,6 +63,7 @@ describe('DrizzleProfilesRepository integration', () => {
       CREATE TABLE public.profiles (
         id uuid PRIMARY KEY,
         username text NOT NULL UNIQUE,
+        bio text NOT NULL DEFAULT '',
         grow_points integer DEFAULT 0,
         created_at timestamptz DEFAULT now(),
         updated_at timestamptz DEFAULT now(),
@@ -96,16 +97,18 @@ describe('DrizzleProfilesRepository integration', () => {
         INSERT INTO public.profiles (
           id,
           username,
+          bio,
           grow_points,
           role,
           created_at,
           updated_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
       `,
       [
         id,
         'integration_grower',
+        'Keep growing.',
         42,
         'admin',
         '2026-07-05T10:00:00.000Z',
@@ -118,6 +121,7 @@ describe('DrizzleProfilesRepository integration', () => {
     expect(profile).toEqual({
       id,
       username: 'integration_grower',
+      bio: 'Keep growing.',
       growPoints: 42,
       role: 'admin',
       createdAt: expect.any(String),
@@ -152,6 +156,7 @@ describe('DrizzleProfilesRepository integration', () => {
     await expect(repository.findByUserId(id)).resolves.toEqual({
       id,
       username: 'nullable_grower',
+      bio: '',
       growPoints: null,
       role: null,
       createdAt: null,

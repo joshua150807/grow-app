@@ -14,6 +14,8 @@ export const profiles = pgTable('profiles', {
   }).defaultNow(),
   role: text('role').default('user'),
   recoveryEmail: text('recovery_email'),
+  bio: text('bio').notNull().default(''),
+  avatarPath: text('avatar_path'),
 });
 
 export type ProfileRow = typeof profiles.$inferSelect;

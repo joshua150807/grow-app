@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { profileResponseSchema } from '../profiles/profileSchemas.js';
+import { baseProfileResponseSchema } from '../profiles/profileSchemas.js';
 
 export const betaRegistrationCompletionRequestSchema = z
   .object({
@@ -20,7 +20,7 @@ export const betaRegistrationCompletionRequestSchema = z
 
 export const betaRegistrationCompletionResponseSchema = z.object({
   status: z.literal('completed'),
-  profile: profileResponseSchema,
+  profile: baseProfileResponseSchema,
 });
 
 export type BetaRegistrationCompletionInput =

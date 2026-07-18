@@ -7,6 +7,7 @@ import type { ProfilesReadRepository } from './repositories/profilesReadReposito
 export type ProfileReadRow = {
   id: string;
   username: string;
+  bio: string;
   grow_points: number | null;
   role: string | null;
   created_at: string | null;
@@ -16,6 +17,7 @@ export type ProfileReadRow = {
 export type ProfileRow = {
   id: string;
   username?: string | null;
+  bio?: string | null;
   grow_points?: number | null;
   role?: string | null;
   created_at?: string | null;
@@ -31,6 +33,7 @@ function mapProfileReadRowToDomain(row: ProfileReadRow): Profile {
   return {
     id: row.id,
     username: row.username,
+    bio: row.bio,
     growPoints: row.grow_points,
     role: row.role,
     createdAt: row.created_at,
@@ -64,7 +67,7 @@ export function createProfilesRepository(
         .from('profiles')
         .update(input)
         .eq('id', userId)
-        .select('id, username, grow_points, role, created_at, updated_at')
+        .select('id, username, grow_points, role, created_at, updated_at, bio')
         .maybeSingle();
 
       if (error) {
@@ -83,7 +86,7 @@ export function createSupabaseProfilesReadRepository(
     async findByUserId(userId: string): Promise<Profile | null> {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, grow_points, role, created_at, updated_at')
+        .select('id, username, grow_points, role, created_at, updated_at, bio')
         .eq('id', userId)
         .maybeSingle();
 

@@ -21,9 +21,13 @@ function normalizeProfile(row, userId) {
   const fallbackUsername = userId ? `user_${userId.slice(0, 6)}` : 'Grower';
 
   return {
+    id: row?.id ?? userId ?? null,
     username: row?.username || fallbackUsername,
+    bio: typeof row?.bio === 'string' ? row.bio : '',
     growPoints: normalizeGrowPoints(row?.grow_points),
     role: row?.role || FALLBACK_ROLE,
+    createdAt: row?.created_at ?? null,
+    updatedAt: row?.updated_at ?? null,
   };
 }
 
@@ -83,8 +87,13 @@ function normalizeV1Profile(payload) {
   }
 
   return {
+    id: profile.id,
     username: profile.username,
+    bio: typeof profile.bio === 'string' ? profile.bio : '',
     growPoints: normalizeGrowPoints(profile?.grow_points),
+    role: typeof profile.role === 'string' ? profile.role : FALLBACK_ROLE,
+    createdAt: profile.created_at ?? null,
+    updatedAt: profile.updated_at ?? null,
   };
 }
 
@@ -147,20 +156,30 @@ export async function getMyProfileV1() {
   });
 }
 
-export async function updateMyProfileV1({ username }) {
+export async function updateMyProfileV1({ username, bio } = {}) {
+  const body = {};
+
+  if (username !== undefined) {
+    body.username = username;
+  }
+
+  if (bio !== undefined) {
+    body.bio = bio;
+  }
+
   return requestProfileV1('/v1/profile/me', {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ username }),
+    body: JSON.stringify(body),
   });
 }
 
 async function fetchProfile(userId) {
   const { data, error } = await supabase
     .from('profiles')
-    .select('username, grow_points, role')
+    .select('id, username, grow_points, role')
     .eq('id', userId)
     .maybeSingle();
 
@@ -170,6 +189,10 @@ async function fetchProfile(userId) {
 }
 
 export async function loadProfileData(userId) {
+  if (PROFILE_API_V1_ENABLED) {
+    return getMyProfileV1();
+  }
+
   if (!userId) {
     return normalizeProfile(null, null);
   }
@@ -190,7 +213,7 @@ export async function loadProfileData(userId) {
       grow_points: 0,
       role: FALLBACK_ROLE,
     })
-    .select('username, grow_points, role')
+    .select('id, username, grow_points, role')
     .single();
 
   if (insertError) {

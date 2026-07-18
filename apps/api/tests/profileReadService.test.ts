@@ -14,6 +14,7 @@ describe('ProfileReadService', () => {
     const repository = createRepository({
       id: 'user-123',
       username: 'grower',
+      bio: 'Keep growing.',
       growPoints: 12,
       role: 'user',
       createdAt: '2026-07-05T10:00:00.000Z',
@@ -24,6 +25,7 @@ describe('ProfileReadService', () => {
     await expect(service.getByUserId('user-123')).resolves.toEqual({
       id: 'user-123',
       username: 'grower',
+      bio: 'Keep growing.',
       grow_points: 12,
       role: 'user',
       created_at: '2026-07-05T10:00:00.000Z',
@@ -51,6 +53,7 @@ describe('ProfileReadService', () => {
     const repository = createRepository({
       id: 'user-123',
       username: 'grower',
+      bio: '',
       growPoints: null,
       role: null,
       createdAt: null,
@@ -61,6 +64,7 @@ describe('ProfileReadService', () => {
     await expect(service.getByUserId('user-123')).resolves.toEqual({
       id: 'user-123',
       username: 'grower',
+      bio: '',
       grow_points: null,
       role: null,
       created_at: null,
@@ -72,6 +76,7 @@ describe('ProfileReadService', () => {
     const repository = createRepository({
       id: 'user-123',
       username: 'grower',
+      bio: '',
       growPoints: 12,
       role: 'user',
       createdAt: null,
@@ -86,6 +91,7 @@ describe('ProfileReadService', () => {
     expect(dto).not.toHaveProperty('display_name');
     expect(dto).not.toHaveProperty('name');
     expect(dto).not.toHaveProperty('avatar_url');
-    expect(dto).not.toHaveProperty('bio');
+    expect(dto).toHaveProperty('bio', '');
+    expect(dto).not.toHaveProperty('avatarPath');
   });
 });

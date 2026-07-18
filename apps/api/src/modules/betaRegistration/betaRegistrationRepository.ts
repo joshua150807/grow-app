@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { AppError } from '../../errors/appError.js';
 import { getDb, type ApiDatabase } from '../../db/client.js';
-import type { ProfileResponse } from '../profiles/profileSchemas.js';
+import type { BaseProfileResponse } from '../profiles/profileSchemas.js';
 
 type TimestampValue = string | Date | null;
 
@@ -31,7 +31,7 @@ export type CompleteBetaRegistrationDbInput = {
 };
 
 export type BetaRegistrationCompletionRepository = {
-  complete(input: CompleteBetaRegistrationDbInput): Promise<ProfileResponse>;
+  complete(input: CompleteBetaRegistrationDbInput): Promise<BaseProfileResponse>;
 };
 
 type QueryResult<T> = {
@@ -60,7 +60,7 @@ function normalizeTimestamp(value: TimestampValue): string | null {
   return value;
 }
 
-function toProfileResponse(row: ProfilePersistenceRow): ProfileResponse {
+function toProfileResponse(row: ProfilePersistenceRow): BaseProfileResponse {
   return {
     id: row.id,
     username: row.username,
@@ -150,7 +150,7 @@ export function createBetaRegistrationCompletionRepository(
   db: ApiDatabase = getDb(),
 ): BetaRegistrationCompletionRepository {
   return {
-    async complete(input): Promise<ProfileResponse> {
+    async complete(input): Promise<BaseProfileResponse> {
       try {
         return await db.transaction(async (tx) => {
           const codeRows = getRows<CodeRow>(await tx.execute(sql`

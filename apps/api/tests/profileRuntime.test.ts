@@ -21,6 +21,7 @@ describe('profile runtime composition', () => {
       getProfileByUserId: vi.fn(async (userId: string) => ({
         id: userId,
         username: 'grower',
+        bio: '',
       })),
       updateProfileByUserId: vi.fn(async (userId: string) => ({
         id: userId,
@@ -50,6 +51,7 @@ describe('profile runtime composition', () => {
       findByUserId: vi.fn(async (userId: string) => ({
         id: userId,
         username: 'grower',
+        bio: '',
         growPoints: 1,
         role: 'user',
         createdAt: null,

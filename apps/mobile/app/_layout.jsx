@@ -75,6 +75,8 @@ export function useAuth() {
 export default function RootLayout() {
   const [session, setSession] = useState(undefined);
   const [startupProfile, setStartupProfile] = useState(null);
+  const [startupProfileLoading, setStartupProfileLoading] = useState(false);
+  const [startupProfileError, setStartupProfileError] = useState(null);
 
   useEffect(() => {
     let handledInitialUrl = false;
@@ -216,8 +218,12 @@ export default function RootLayout() {
   const reloadStartupProfile = useCallback(async () => {
     if (!session?.user?.id) {
       setStartupProfile(null);
+      setStartupProfileError(null);
       return null;
     }
+
+    setStartupProfileLoading(true);
+    setStartupProfileError(null);
 
     try {
       const profile = await loadProfileData(session.user.id);
@@ -225,8 +231,11 @@ export default function RootLayout() {
 
       return profile;
     } catch (err) {
-      logger.debug('Profil konnte nicht neu geladen werden:', err);
-      return null;
+      logger.error('Profil konnte nicht neu geladen werden:', err);
+      setStartupProfileError(err);
+      throw err;
+    } finally {
+      setStartupProfileLoading(false);
     }
   }, [session?.user?.id]);
 
@@ -237,16 +246,26 @@ export default function RootLayout() {
       try {
         if (!session?.user?.id) {
           setStartupProfile(null);
+          setStartupProfileError(null);
           return;
         }
 
+        setStartupProfileLoading(true);
+        setStartupProfileError(null);
         const profile = await loadProfileData(session.user.id);
 
         if (!cancelled) {
           setStartupProfile(profile);
         }
       } catch (err) {
-        logger.debug('Profil konnte im Hintergrund nicht geladen werden:', err);
+        logger.error('Profil konnte im Hintergrund nicht geladen werden:', err);
+        if (!cancelled) {
+          setStartupProfileError(err);
+        }
+      } finally {
+        if (!cancelled) {
+          setStartupProfileLoading(false);
+        }
       }
     }
 
@@ -262,9 +281,11 @@ export default function RootLayout() {
   const startupProfileValue = useMemo(
     () => ({
       profile: startupProfile,
+      loading: startupProfileLoading,
+      error: startupProfileError,
       reloadProfile: reloadStartupProfile,
     }),
-    [startupProfile, reloadStartupProfile]
+    [startupProfile, startupProfileLoading, startupProfileError, reloadStartupProfile]
   );
 
 

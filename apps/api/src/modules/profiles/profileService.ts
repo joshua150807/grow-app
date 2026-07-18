@@ -35,6 +35,7 @@ function mapProfileRow(row: ProfileRow): ProfileResponse {
   return profileResponseSchema.parse({
     id: row.id,
     username: row.username,
+    bio: nullableString(row.bio) ?? '',
     grow_points: nullableInteger(row.grow_points),
     role: nullableString(row.role),
     created_at: nullableString(row.created_at),

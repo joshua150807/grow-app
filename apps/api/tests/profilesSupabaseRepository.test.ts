@@ -43,6 +43,7 @@ describe('createProfilesRepository', () => {
     const { calls, supabase } = createSupabaseUpdateMock({
       id: 'user-123',
       username: 'grower',
+      bio: 'Keep growing.',
       grow_points: 7,
       role: 'user',
       created_at: '2026-07-05T10:00:00.000Z',
@@ -55,6 +56,7 @@ describe('createProfilesRepository', () => {
     })).resolves.toEqual({
       id: 'user-123',
       username: 'grower',
+      bio: 'Keep growing.',
       grow_points: 7,
       role: 'user',
       created_at: '2026-07-05T10:00:00.000Z',
@@ -64,6 +66,6 @@ describe('createProfilesRepository', () => {
     expect(calls.table).toBe('profiles');
     expect(calls.input).toEqual({ username: 'grower' });
     expect(calls.eq).toEqual(['id', 'user-123']);
-    expect(calls.select).toBe('id, username, grow_points, role, created_at, updated_at');
+    expect(calls.select).toBe('id, username, grow_points, role, created_at, updated_at, bio');
   });
 });
