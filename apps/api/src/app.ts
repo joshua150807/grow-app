@@ -12,12 +12,16 @@ import type {
 } from './modules/betaRegistration/betaRegistrationService.js';
 import type { CreatorService } from './modules/creator/creatorService.js';
 import type { ProfileService } from './modules/profiles/profileService.js';
+import type { ProfileStatsService } from './modules/profileStats/profileStatsService.js';
+import type { DeepWorkSessionService } from './modules/profileStats/deepWorkSessionService.js';
 
 export type BuildAppOptions = {
   authTokenVerifier?: AuthTokenVerifier;
   betaRegistrationCompletionService?: BetaRegistrationCompletionService;
   creatorService?: CreatorService;
   profileService?: ProfileService;
+  profileStatsService?: ProfileStatsService;
+  deepWorkSessionService?: DeepWorkSessionService;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -37,6 +41,8 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     betaRegistrationCompletionService: options.betaRegistrationCompletionService,
     creatorService: options.creatorService,
     profileService: options.profileService,
+    profileStatsService: options.profileStatsService,
+    deepWorkSessionService: options.deepWorkSessionService,
   });
 
   return app;
