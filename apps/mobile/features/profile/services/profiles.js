@@ -100,7 +100,7 @@ function normalizeV1Profile(payload) {
   };
 }
 
-async function requestProfileV1(path, options = {}, normalizeResponse = normalizeV1Profile) {
+export async function requestProfileV1(path, options = {}, normalizeResponse = normalizeV1Profile) {
   const baseUrl = getProfileApiBaseUrl();
   const {
     data: { session } = {},

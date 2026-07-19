@@ -27,6 +27,7 @@ import {
 } from '../../../constants/toolAssets';
 import { useProfile } from '../hooks/useProfile';
 import { useProfileAvatar } from '../hooks/useProfileAvatar';
+import { useProfileStats } from '../hooks/useProfileStats';
 import {
   isProfileApiV1Enabled,
   updateMyProfileV1,
@@ -304,6 +305,14 @@ export default function ProfileScreen() {
   const { width, height } = useWindowDimensions();
   const { username, bio, avatarUrl, growPoints, reloadProfile } = useProfile();
   const { streak, todoProgress, deepWorkTime } = useToolsTrackerData();
+  const profileStats = useProfileStats({
+    habitStreak: streak,
+    todosToday: todoProgress,
+    deepWorkSecondsAllTime: deepWorkTime,
+    trainingSessions: Number(PROFILE_STATS_MOCKS.trainings),
+    goals: Number(PROFILE_STATS_MOCKS.goals),
+    plannedDaysCurrentWeek: Number(PROFILE_STATS_MOCKS.plannedDays),
+  });
   const [editVisible, setEditVisible] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState('');
@@ -418,38 +427,41 @@ export default function ProfileScreen() {
     setEditVisible(false);
   }
 
+  const todoStatsValue = Number.isInteger(profileStats.todosCompletedAllTime)
+    ? String(profileStats.todosCompletedAllTime)
+    : `${profileStats.todosToday.completed}/${profileStats.todosToday.total}`;
   const statItems = useMemo(() => [
     {
       icon: 'fire',
-      value: String(streak),
+      value: String(profileStats.habitStreak),
       label: 'Streak',
     },
     {
       icon: 'check-circle-outline',
-      value: `${todoProgress.completed}/${todoProgress.total}`,
+      value: todoStatsValue,
       label: 'To-dos abgeschlossen',
     },
     {
       icon: 'brain',
-      value: formatDeepWork(deepWorkTime),
+      value: formatDeepWork(profileStats.deepWorkSecondsAllTime),
       label: 'Deep Work',
     },
     {
       icon: 'dumbbell',
-      value: PROFILE_STATS_MOCKS.trainings,
+      value: String(profileStats.trainingSessions),
       label: 'Trainings',
     },
     {
       icon: 'flag-outline',
-      value: PROFILE_STATS_MOCKS.goals,
+      value: String(profileStats.goals),
       label: 'Ziele definiert',
     },
     {
       icon: 'calendar-month-outline',
-      value: PROFILE_STATS_MOCKS.plannedDays,
+      value: String(profileStats.plannedDaysCurrentWeek),
       label: 'Tage geplant',
     },
-  ], [deepWorkTime, streak, todoProgress.completed, todoProgress.total]);
+  ], [profileStats, todoStatsValue]);
 
   return (
     <View style={styles.screen}>

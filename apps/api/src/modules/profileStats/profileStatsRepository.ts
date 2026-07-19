@@ -10,6 +10,7 @@ export type StatsSourceData = {
   completions: CompletionRow[];
   todosCompleted: number;
   todosTotal: number;
+  todosCompletedAllTime: number;
   deepWorkSeconds: number;
   trainingSessions: number;
   goals: number;
@@ -33,7 +34,7 @@ function integer(value: unknown): number {
 export function createProfileStatsRepository(db: Queryable = getPgPool()): ProfileStatsRepository {
   return {
     async load(userId, bounds) {
-      const [habits, completions, todos, deepWork, training, goals, planner] = await Promise.all([
+      const [habits, completions, todos, todosAllTime, deepWork, training, goals, planner] = await Promise.all([
         db.query<HabitRow>(
           `select id, days,
              to_jsonb(habits)->>'archived_at' as archived_at,
@@ -51,6 +52,11 @@ export function createProfileStatsRepository(db: Queryable = getPgPool()): Profi
           `select count(*) filter (where completed = true)::text as completed, count(*)::text as total
            from public.todos where user_id = $1 and due_at >= $2 and due_at < $3`,
           [userId, bounds.todayStartUtc, bounds.tomorrowStartUtc],
+        ),
+        db.query<{ total: string }>(
+          `select count(*)::text as total from public.todo_completion_events
+           where user_id = $1`,
+          [userId],
         ),
         db.query<{ total: string }>(
           `select coalesce(sum(duration_seconds), 0)::text as total
@@ -74,6 +80,7 @@ export function createProfileStatsRepository(db: Queryable = getPgPool()): Profi
         completions: completions.rows,
         todosCompleted: integer(todos.rows[0]?.completed),
         todosTotal: integer(todos.rows[0]?.total),
+        todosCompletedAllTime: integer(todosAllTime.rows[0]?.total),
         deepWorkSeconds: integer(deepWork.rows[0]?.total),
         trainingSessions: integer(training.rows[0]?.total),
         goals: integer(goals.rows[0]?.total),

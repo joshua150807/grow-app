@@ -50,8 +50,9 @@ describe('profile stats and deep-work PostgreSQL integration', () => {
   beforeAll(async () => {
     pool = new Pool({ connectionString: guardedUrl() });
     await pool.query(`
-      drop table if exists public.deep_work_sessions, public.habit_completions, public.habits,
+      drop table if exists public.todo_completion_events, public.deep_work_sessions, public.habit_completions, public.habits,
         public.todos, public.training_sessions, public.goals, public.daily_planner_events cascade;
+      drop function if exists public.record_todo_first_completion();
       drop table if exists auth.users cascade;
       create schema if not exists auth;
       do $$ begin create role authenticated nologin; exception when duplicate_object then null; end $$;
@@ -79,12 +80,18 @@ describe('profile stats and deep-work PostgreSQL integration', () => {
       'utf8',
     );
     await pool.query(migration);
+    const todoCompletionMigration = await readFile(
+      new URL('../../../supabase/migrations/20260719222502_todo_completion_events.sql', import.meta.url),
+      'utf8',
+    );
+    await pool.query(todoCompletionMigration);
     await pool.query(`grant select, insert, update, delete on public.deep_work_sessions to authenticated`);
+    await pool.query(`grant select, insert, update, delete on public.todos, public.todo_completion_events to authenticated`);
   });
 
   beforeEach(async () => {
     await pool.query(`
-      truncate public.deep_work_sessions, public.habit_completions, public.habits, public.todos,
+      truncate public.todo_completion_events, public.deep_work_sessions, public.habit_completions, public.habits, public.todos,
         public.training_sessions, public.goals, public.daily_planner_events, auth.users cascade
     `);
     await pool.query('insert into auth.users (id) values ($1), ($2)', [userA, userB]);
@@ -94,8 +101,9 @@ describe('profile stats and deep-work PostgreSQL integration', () => {
     if (!pool) return;
     try {
       await pool.query(`
-        drop table if exists public.deep_work_sessions, public.habit_completions, public.habits,
+        drop table if exists public.todo_completion_events, public.deep_work_sessions, public.habit_completions, public.habits,
           public.todos, public.training_sessions, public.goals, public.daily_planner_events cascade;
+        drop function if exists public.record_todo_first_completion();
         drop table if exists auth.users cascade;
         drop function if exists auth.uid();
       `);
@@ -190,6 +198,93 @@ describe('profile stats and deep-work PostgreSQL integration', () => {
     expect(count.rows[0].count).toBe(1);
   });
 
+  it('applies the todo history migration with UUID types, safe constraints, index, RLS and trigger metadata', async () => {
+    const columns = await pool.query(`
+      select column_name, data_type, is_nullable, column_default from information_schema.columns
+      where table_schema='public' and table_name='todo_completion_events' order by ordinal_position
+    `);
+    expect(columns.rows.map((row) => [row.column_name, row.data_type, row.is_nullable])).toEqual([
+      ['id', 'uuid', 'NO'], ['user_id', 'uuid', 'NO'], ['todo_id', 'uuid', 'NO'],
+      ['completed_at', 'timestamp with time zone', 'NO'], ['created_at', 'timestamp with time zone', 'NO'],
+    ]);
+    expect(columns.rows[0].column_default).toContain('gen_random_uuid');
+    expect(columns.rows[4].column_default).toContain('now()');
+    const constraints = await pool.query(`
+      select conname, contype, confdeltype, pg_get_constraintdef(oid) as definition
+      from pg_constraint where conrelid='public.todo_completion_events'::regclass order by conname
+    `);
+    expect(constraints.rows).toEqual(expect.arrayContaining([
+      expect.objectContaining({ contype: 'p' }),
+      expect.objectContaining({ contype: 'f', confdeltype: 'c' }),
+      expect.objectContaining({ conname: 'todo_completion_events_user_todo_key', contype: 'u' }),
+    ]));
+    expect(constraints.rows.some((row) => String(row.definition).includes('public.todos'))).toBe(false);
+    const index = await pool.query(`
+      select indexdef from pg_indexes where schemaname='public'
+      and indexname='todo_completion_events_user_completed_at_idx'
+    `);
+    expect(index.rows[0].indexdef).toContain('(user_id, completed_at DESC)');
+    const table = await pool.query(`select relrowsecurity from pg_class where oid='public.todo_completion_events'::regclass`);
+    expect(table.rows[0].relrowsecurity).toBe(true);
+    const policies = await pool.query(`select policyname from pg_policies where schemaname='public' and tablename='todo_completion_events'`);
+    expect(policies.rows).toEqual([]);
+    const routine = await pool.query(`
+      select prosecdef, proconfig from pg_proc
+      where oid='public.record_todo_first_completion()'::regprocedure
+    `);
+    expect(routine.rows[0].prosecdef).toBe(true);
+    expect(routine.rows[0].proconfig).toContain('search_path=""');
+    const trigger = await pool.query(`
+      select tgname from pg_trigger where tgrelid='public.todos'::regclass and not tgisinternal
+    `);
+    expect(trigger.rows).toEqual([{ tgname: 'record_todo_first_completion_trigger' }]);
+  });
+
+  it('records the first todo completion once and retains it after reopen, recompletion and todo deletion', async () => {
+    const todoId = randomUUID();
+    await pool.query(
+      `insert into public.todos (id,user_id,title,completed) values ($1,$2,'first',false)`,
+      [todoId, userA],
+    );
+    await pool.query(`update public.todos set completed=true where id=$1`, [todoId]);
+    await pool.query(`update public.todos set completed=false where id=$1`, [todoId]);
+    await pool.query(`update public.todos set completed=true where id=$1`, [todoId]);
+    let events = await pool.query(`select user_id,todo_id from public.todo_completion_events where todo_id=$1`, [todoId]);
+    expect(events.rows).toEqual([{ user_id: userA, todo_id: todoId }]);
+    await pool.query(`delete from public.todos where id=$1`, [todoId]);
+    events = await pool.query(`select user_id,todo_id from public.todo_completion_events where todo_id=$1`, [todoId]);
+    expect(events.rows).toEqual([{ user_id: userA, todo_id: todoId }]);
+  });
+
+  it('records a todo inserted as completed and isolates the trigger-managed history from clients', async () => {
+    const authenticatedTodoId = randomUUID();
+    await asAuthenticated(pool, userA, (client) => client.query(
+      `insert into public.todos (id,user_id,title,completed) values ($1,$2,'completed insert',true)`,
+      [authenticatedTodoId, userA],
+    ));
+    const todoId = randomUUID();
+    await pool.query(
+      `insert into public.todos (id,user_id,title,completed) values ($1,$2,'persistent completed insert',true)`,
+      [todoId, userA],
+    );
+    const serviceRows = await pool.query(`select user_id,todo_id from public.todo_completion_events where todo_id=$1`, [todoId]);
+    expect(serviceRows.rows).toEqual([{ user_id: userA, todo_id: todoId }]);
+    const clientRows = await asAuthenticated(pool, userA, (client) => client.query(`select * from public.todo_completion_events`));
+    expect(clientRows.rows).toEqual([]);
+    await expect(asAuthenticated(pool, userA, (client) => client.query(
+      `insert into public.todo_completion_events (user_id,todo_id,completed_at) values ($1,$2,now())`,
+      [userA, randomUUID()],
+    ))).rejects.toMatchObject({ code: '42501' });
+    const update = await asAuthenticated(pool, userA, (client) => client.query(
+      `update public.todo_completion_events set completed_at=now() where todo_id=$1`, [todoId],
+    ));
+    const deletion = await asAuthenticated(pool, userA, (client) => client.query(
+      `delete from public.todo_completion_events where todo_id=$1`, [todoId],
+    ));
+    expect(update.rowCount).toBe(0);
+    expect(deletion.rowCount).toBe(0);
+  });
+
   it('executes all statistics queries with correct ownership and calendar boundaries', async () => {
     const ownHabit = randomUUID();
     const archived = randomUUID();
@@ -211,7 +306,7 @@ describe('profile stats and deep-work PostgreSQL integration', () => {
     const source = await createProfileStatsRepository(pool).load(userA, getCalendarBounds(new Date('2026-07-19T12:00:00Z'), 'Europe/Berlin'));
     expect(source.habits).toHaveLength(2);
     expect(source.completions).toHaveLength(2);
-    expect(source).toMatchObject({ todosCompleted: 1, todosTotal: 2, deepWorkSeconds: 180, trainingSessions: 2, goals: 3 });
+    expect(source).toMatchObject({ todosCompleted: 1, todosTotal: 2, todosCompletedAllTime: 2, deepWorkSeconds: 180, trainingSessions: 2, goals: 3 });
     expect(source.plannedDates).toEqual(['2026-07-13', '2026-07-19']);
   });
 });

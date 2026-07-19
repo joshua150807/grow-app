@@ -9,7 +9,7 @@ const user = { id: '11111111-1111-4111-8111-111111111111', email: 'u@example.com
 const verify: AuthTokenVerifier = async (token) => token === 'valid' ? user : null;
 const empty: StatsSourceData = {
   habits: [], completions: [], todosCompleted: 0, todosTotal: 0, deepWorkSeconds: 0,
-  trainingSessions: 0, goals: 0, plannedDates: [],
+  todosCompletedAllTime: 0, trainingSessions: 0, goals: 0, plannedDates: [],
 };
 function service(data: Partial<StatsSourceData> = {}, now = new Date('2026-07-19T10:00:00Z')) {
   const repository: ProfileStatsRepository = { load: vi.fn(async () => ({ ...empty, ...data })) };
@@ -41,7 +41,7 @@ describe('profile stats route', () => {
     expect(response.statusCode).toBe(200);
     expect(response.json()).toEqual({ stats: {
       habit_streak: 0, todos_today: { completed: 0, total: 0 }, deep_work_seconds_all_time: 0,
-      training_sessions: 0, goals: 0, planned_days_current_week: 0,
+      training_sessions: 0, goals: 0, planned_days_current_week: 0, todos_completed_all_time: 0,
     } });
     expect(response.json().stats).not.toHaveProperty('grow_points');
     expect(response.json().stats).not.toHaveProperty('grow_coins');
@@ -50,10 +50,10 @@ describe('profile stats route', () => {
   });
 
   it('returns aggregate values and deduplicates/caps planner days', async () => {
-    const setup = service({ todosCompleted: 2, todosTotal: 3, deepWorkSeconds: 18240, trainingSessions: 8, goals: 6,
+    const setup = service({ todosCompleted: 2, todosTotal: 3, todosCompletedAllTime: 12, deepWorkSeconds: 18240, trainingSessions: 8, goals: 6,
       plannedDates: ['2026-07-13', '2026-07-13', '2026-07-14', '2026-07-15', '2026-07-16', '2026-07-17', '2026-07-18', '2026-07-19', '2026-07-20'] });
     const result = await setup.value.get(user, { timezone: 'Europe/Berlin' });
-    expect(result).toMatchObject({ todos_today: { completed: 2, total: 3 }, deep_work_seconds_all_time: 18240, training_sessions: 8, goals: 6, planned_days_current_week: 7 });
+    expect(result).toMatchObject({ todos_today: { completed: 2, total: 3 }, todos_completed_all_time: 12, deep_work_seconds_all_time: 18240, training_sessions: 8, goals: 6, planned_days_current_week: 7 });
   });
 
   it('passes exact UTC+05:45 local-day boundaries for Asia/Kathmandu to the repository', async () => {

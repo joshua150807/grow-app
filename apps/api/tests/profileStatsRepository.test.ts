@@ -8,6 +8,7 @@ describe('profile stats repository ownership and aggregation queries', () => {
       .mockResolvedValueOnce({ rows: [{ id: 'h1', days: [0], archived_at: null, is_active: true, disabled: false }] })
       .mockResolvedValueOnce({ rows: [{ habit_id: 'h1', completed_date: '2026-07-20' }] })
       .mockResolvedValueOnce({ rows: [{ completed: '2', total: '3' }] })
+      .mockResolvedValueOnce({ rows: [{ total: '12' }] })
       .mockResolvedValueOnce({ rows: [{ total: '5400' }] })
       .mockResolvedValueOnce({ rows: [{ total: '8' }] })
       .mockResolvedValueOnce({ rows: [{ total: '6' }] })
@@ -19,12 +20,13 @@ describe('profile stats repository ownership and aggregation queries', () => {
       weekStartKey: '2026-07-20', weekEndExclusiveKey: '2026-07-27',
     };
     const result = await repository.load('authenticated-user', bounds);
-    expect(query).toHaveBeenCalledTimes(7);
+    expect(query).toHaveBeenCalledTimes(8);
     for (const call of query.mock.calls) expect(call[1][0]).toBe('authenticated-user');
     expect(query.mock.calls[1][1]).toEqual(['authenticated-user', '2026-04-22', '2026-07-20']);
     expect(query.mock.calls[2][1]).toEqual(['authenticated-user', bounds.todayStartUtc, bounds.tomorrowStartUtc]);
-    expect(query.mock.calls[6][1]).toEqual(['authenticated-user', '2026-07-20', '2026-07-27']);
-    expect(result).toMatchObject({ todosCompleted: 2, todosTotal: 3, deepWorkSeconds: 5400, trainingSessions: 8, goals: 6 });
+    expect(query.mock.calls[3][1]).toEqual(['authenticated-user']);
+    expect(query.mock.calls[7][1]).toEqual(['authenticated-user', '2026-07-20', '2026-07-27']);
+    expect(result).toMatchObject({ todosCompleted: 2, todosTotal: 3, todosCompletedAllTime: 12, deepWorkSeconds: 5400, trainingSessions: 8, goals: 6 });
     expect(result.plannedDates).toEqual(['2026-07-20', '2026-07-21']);
     const sql = query.mock.calls.map((call) => call[0]).join('\n');
     expect(sql).toContain('public.training_sessions');
@@ -39,6 +41,7 @@ describe('profile stats repository ownership and aggregation queries', () => {
       .mockResolvedValueOnce({ rows: [{ id: 'colliding-habit-id', days: [6], archived_at: null, is_active: true, disabled: false }] })
       .mockResolvedValueOnce({ rows: [] })
       .mockResolvedValueOnce({ rows: [{ completed: '0', total: '0' }] })
+      .mockResolvedValueOnce({ rows: [{ total: '0' }] })
       .mockResolvedValueOnce({ rows: [{ total: '0' }] })
       .mockResolvedValueOnce({ rows: [{ total: '0' }] })
       .mockResolvedValueOnce({ rows: [{ total: '0' }] })

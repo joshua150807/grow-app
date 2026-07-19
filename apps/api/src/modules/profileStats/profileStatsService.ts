@@ -42,6 +42,7 @@ export function createProfileStatsService(repository: ProfileStatsRepository = c
       return {
         habit_streak: calculateHabitStreak(source.habits, source.completions, bounds.today),
         todos_today: { completed: source.todosCompleted, total: source.todosTotal },
+        todos_completed_all_time: source.todosCompletedAllTime,
         deep_work_seconds_all_time: source.deepWorkSeconds,
         training_sessions: source.trainingSessions,
         goals: source.goals,
