@@ -21,6 +21,8 @@ import OnboardingLayer from '../features/onboarding/components/OnboardingLayer';
 import RootErrorBoundary from '../components/system/RootErrorBoundary';
 import { preloadRatingIconAssets } from '../constants/ratingAssets';
 import { logger } from '../lib/logger';
+import { claimLegacyDeepWorkData } from '../features/tools/deep-work/services/deepWorkStore';
+import { isDeepWorkSyncEnabled } from '../features/tools/deep-work/services/deepWorkSyncConfig';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -206,6 +208,15 @@ export default function RootLayout() {
     // Profil/Tool-Daten laufen danach im Hintergrund.
     SplashScreen.hideAsync().catch(() => {});
   }, [session]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!isDeepWorkSyncEnabled() || !userId) return;
+
+    claimLegacyDeepWorkData(userId).catch((error) => {
+      logger.debug('[DeepWorkSync] Legacy bootstrap failed:', error?.code ?? 'UNKNOWN');
+    });
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (session === undefined) return;
