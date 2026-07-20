@@ -21,12 +21,17 @@ import ProfilePremiumCanvas from '../components/ProfilePremiumCanvas';
 import { useProfile } from '../hooks/useProfile';
 import { useProfileAvatar } from '../hooks/useProfileAvatar';
 import { useProfileStats } from '../hooks/useProfileStats';
+import {
+  buildProfileChanges,
+  createProfileEditDraft,
+  getVisibleProfileBio,
+  validateProfileBio,
+  validateProfileUsername,
+} from '../profileEdit';
 import { isProfileApiV1Enabled, updateMyProfileV1 } from '../services/profiles';
 
-const PROFILE_MOTTO = 'Bereit für den nächsten klaren Schritt.';
 const MOCK_GROW_COINS = 0;
 const PROFILE_STATS_MOCKS = { trainings: '0', goals: '0', plannedDays: '0' };
-const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/;
 const TAB_BAR_HEIGHT = sv(68);
 const TAB_BAR_DEFAULT_BOTTOM = 1;
 const SAMSUNG_LARGE_NAV_INSET_THRESHOLD = 32;
@@ -65,14 +70,6 @@ function formatDeepWork(seconds) {
   return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
 }
 
-function validateUsername(value) {
-  const normalized = value.trim().toLowerCase();
-  if (normalized.length < 3) return 'Mindestens 3 Zeichen.';
-  if (normalized.length > 30) return 'Maximal 30 Zeichen.';
-  if (!USERNAME_REGEX.test(normalized)) return 'Nur Buchstaben, Zahlen und Unterstrich.';
-  return '';
-}
-
 function ProfileEditModal({
   visible,
   username,
@@ -85,21 +82,23 @@ function ProfileEditModal({
   onSave,
 }) {
   const insets = useSafeAreaInsets();
-  const [usernameDraft, setUsernameDraft] = useState(username);
-  const [bioDraft, setBioDraft] = useState(bio);
+  const initialDraft = createProfileEditDraft(username, bio);
+  const [usernameDraft, setUsernameDraft] = useState(initialDraft.username);
+  const [bioDraft, setBioDraft] = useState(initialDraft.bio);
   const wasVisibleRef = useRef(false);
   const normalizedUsername = usernameDraft.trim().toLowerCase();
-  const normalizedBio = bioDraft.trim();
-  const usernameError = validateUsername(usernameDraft);
-  const usernameChanged = normalizedUsername !== username.trim().toLowerCase();
-  const bioChanged = normalizedBio !== bio;
-  const canSave = isV1Enabled && !usernameError && (usernameChanged || bioChanged) && !isSaving;
+  const usernameError = validateProfileUsername(usernameDraft);
+  const bioError = validateProfileBio(bioDraft);
+  const changes = buildProfileChanges({ usernameDraft, bioDraft, username, bio });
+  const hasChanges = Object.keys(changes).length > 0;
+  const canSave = isV1Enabled && !usernameError && !bioError && hasChanges && !isSaving;
   const message = usernameError || saveError || `Zielwert: ${normalizedUsername}`;
 
   useEffect(() => {
     if (visible && !wasVisibleRef.current) {
-      setUsernameDraft(username);
-      setBioDraft(bio);
+      const nextDraft = createProfileEditDraft(username, bio);
+      setUsernameDraft(nextDraft.username);
+      setBioDraft(nextDraft.bio);
     }
     wasVisibleRef.current = visible;
   }, [bio, username, visible]);
@@ -121,7 +120,7 @@ function ProfileEditModal({
           >
             <View style={styles.editHandle} />
             <Text style={styles.editTitle}>Profil bearbeiten</Text>
-            <Text style={styles.editSubtitle}>Passe deinen Benutzernamen und deine Bio an.</Text>
+            <Text style={styles.editSubtitle}>Passe deinen Benutzernamen und deinen Leitsatz an.</Text>
 
             <Text style={styles.inputLabel}>Username</Text>
             <TextInput
@@ -142,7 +141,7 @@ function ProfileEditModal({
               <Text style={styles.charCount}>{normalizedUsername.length}/30</Text>
             </View>
 
-            <Text style={styles.inputLabel}>Bio</Text>
+            <Text style={styles.inputLabel}>Bio / Leitsatz</Text>
             <TextInput
               value={bioDraft}
               onChangeText={(value) => { setBioDraft(value); onDraftChange?.(); }}
@@ -153,10 +152,12 @@ function ProfileEditModal({
               numberOfLines={3}
               placeholder="Erzähle kurz etwas über dich"
               placeholderTextColor={COLORS.textFaint}
-              style={[styles.usernameInput, styles.bioInput]}
+              style={[styles.usernameInput, styles.bioInput, Boolean(bioError) && styles.usernameInputError]}
             />
             <View style={styles.editMetaRow}>
-              <Text style={styles.editHint}>Maximal 100 Zeichen.</Text>
+              <Text style={[styles.editHint, Boolean(bioError) && styles.editError]}>
+                {bioError || 'Maximal 100 Zeichen.'}
+              </Text>
               <Text style={styles.charCount}>{bioDraft.length}/100</Text>
             </View>
 
@@ -166,10 +167,7 @@ function ProfileEditModal({
               </Pressable>
               <Pressable
                 disabled={!canSave}
-                onPress={() => onSave({
-                  ...(usernameChanged ? { username: normalizedUsername } : {}),
-                  ...(bioChanged ? { bio: normalizedBio } : {}),
-                })}
+                onPress={() => onSave(changes)}
                 accessibilityState={{ disabled: !canSave }}
                 style={[styles.saveButton, !canSave && styles.saveButtonDisabled, canSave && styles.saveButtonPrepared]}
               >
@@ -201,6 +199,7 @@ export default function ProfileScreen() {
   const [profileSaveError, setProfileSaveError] = useState('');
   const [avatarImageFailed, setAvatarImageFailed] = useState(false);
   const isMountedRef = useRef(true);
+  const profileSaveInProgressRef = useRef(false);
   const avatarReloadAttemptedRef = useRef(false);
   const hasFocusedProfileRef = useRef(false);
   const profileApiV1Enabled = isProfileApiV1Enabled();
@@ -218,7 +217,10 @@ export default function ProfileScreen() {
     && !hasConfirmedAvatarReset
     && !isResettingAvatar;
 
-  useEffect(() => () => { isMountedRef.current = false; }, []);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
   useEffect(() => { setAvatarImageFailed(false); }, [avatarUrl]);
 
   useFocusEffect(useCallback(() => {
@@ -238,7 +240,8 @@ export default function ProfileScreen() {
   }, [profileApiV1Enabled, reloadProfile]);
 
   async function handleProfileSave(changes) {
-    if (!profileApiV1Enabled || isSavingProfile) return;
+    if (!profileApiV1Enabled || profileSaveInProgressRef.current) return;
+    profileSaveInProgressRef.current = true;
     setProfileSaveError('');
     setIsSavingProfile(true);
     try {
@@ -250,6 +253,7 @@ export default function ProfileScreen() {
     } catch (error) {
       if (isMountedRef.current) setProfileSaveError(getProfileSaveErrorMessage(error));
     } finally {
+      profileSaveInProgressRef.current = false;
       if (isMountedRef.current) setIsSavingProfile(false);
     }
   }
@@ -284,7 +288,7 @@ export default function ProfileScreen() {
         topPadding={Math.max(insets.top, sv(4))}
         bottomPadding={bottomNavReserve + sv(8)}
         username={username}
-        bio={profileApiV1Enabled ? bio : PROFILE_MOTTO}
+        bio={getVisibleProfileBio(bio)}
         avatarUrl={avatarUrl}
         hasRemoteAvatar={hasRemoteAvatar}
         isAvatarEditingEnabled={isAvatarEditingEnabled}
