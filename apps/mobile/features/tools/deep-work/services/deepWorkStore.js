@@ -597,6 +597,42 @@ export async function removeDeepWorkSyncEntry(userId, clientSessionId) {
   });
 }
 
+export async function scheduleDeepWorkSyncEntryRetry(
+  userId,
+  clientSessionId,
+  { nextAttemptAt, errorCode } = {}
+) {
+  const ownerUserId = await requireAuthenticatedQueueOwner(userId);
+  const stableId = optionalString(clientSessionId);
+  const normalizedNextAttemptAt = normalizeIsoDate(nextAttemptAt);
+  if (!stableId || !normalizedNextAttemptAt) {
+    throw new DeepWorkSyncStoreError('DEEP_WORK_SYNC_RETRY_INVALID', 'The sync retry metadata is invalid.');
+  }
+  return runQueueMutation(ownerUserId, async () => {
+    const queue = await getDeepWorkSyncQueueInternal(ownerUserId);
+    const existingIndex = queue.entries.findIndex((entry) => entry.clientSessionId === stableId);
+    if (existingIndex < 0) {
+      await requireAuthenticatedQueueOwner(ownerUserId);
+      return null;
+    }
+    const existing = queue.entries[existingIndex];
+    if (existing.status === 'terminal') {
+      await requireAuthenticatedQueueOwner(ownerUserId);
+      return existing;
+    }
+    const retry = {
+      ...existing,
+      attempts: existing.attempts + 1,
+      nextAttemptAt: normalizedNextAttemptAt,
+      lastErrorCode: optionalString(errorCode) || 'UNKNOWN',
+    };
+    const entries = [...queue.entries];
+    entries[existingIndex] = retry;
+    await writeAuthenticatedDeepWorkSyncQueue(ownerUserId, { ...queue, entries });
+    return retry;
+  });
+}
+
 export async function markDeepWorkSyncEntryTerminal(userId, clientSessionId, errorCode) {
   const ownerUserId = await requireAuthenticatedQueueOwner(userId);
   const stableId = optionalString(clientSessionId);

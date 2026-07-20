@@ -16,6 +16,7 @@ function loadHook({ enabled, session, stateOverrides = {}, executeEffects = fals
   const saved = [];
   const finalized = [];
   const legacyCompleted = [];
+  let syncTriggers = 0;
   let authReads = 0;
   let authChangeHandler = null;
   const restoreOwners = [];
@@ -73,6 +74,9 @@ function loadHook({ enabled, session, stateOverrides = {}, executeEffects = fals
       },
       '../services/deepWorkClientId': { createDeepWorkClientSessionId: () => 'stable-client-id' },
       '../services/deepWorkSyncConfig': { isDeepWorkSyncEnabled: () => enabled },
+      '../services/deepWorkSyncWorker': {
+        triggerDeepWorkSyncForCurrentUser: async () => { syncTriggers += 1; },
+      },
       '../../../../services/supabaseClient': {
         supabase: { auth: {
           getSession: async () => { authReads += 1; return { data: { session } }; },
@@ -104,6 +108,7 @@ function loadHook({ enabled, session, stateOverrides = {}, executeEffects = fals
     result, refs, saved, finalized, legacyCompleted, restoreOwners,
     emitAuthChange: (nextSession) => authChangeHandler?.('SIGNED_IN', nextSession),
     getAuthReads: () => authReads,
+    getSyncTriggers: () => syncTriggers,
   };
 }
 
@@ -251,4 +256,12 @@ test('natural and manual completion share one in-flight finalization', async () 
   release();
   await manual;
   assert.equal(harness.finalized.length, 1);
+});
+
+test('successful local finalization immediately triggers background sync', async () => {
+  const harness = loadHook({ enabled: true, session: { user: { id: 'user-a' } } });
+  await harness.result.startSession();
+  await harness.result.endSession();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(harness.getSyncTriggers(), 1);
 });

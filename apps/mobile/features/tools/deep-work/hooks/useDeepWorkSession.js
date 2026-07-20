@@ -13,6 +13,7 @@ import {
 } from '../services/deepWorkStore';
 import { createDeepWorkClientSessionId } from '../services/deepWorkClientId';
 import { isDeepWorkSyncEnabled } from '../services/deepWorkSyncConfig';
+import { triggerDeepWorkSyncForCurrentUser } from '../services/deepWorkSyncWorker';
 import { supabase } from '../../../../services/supabaseClient';
 
 import {
@@ -129,11 +130,17 @@ export function useDeepWorkSession() {
       const expectedUserId = isDeepWorkSyncEnabled()
         ? await assertCurrentOwner(snapshot)
         : undefined;
-      return finalizeDeepWorkSession({
+      const result = await finalizeDeepWorkSession({
         session: snapshot,
         expectedUserId,
         ...options,
       });
+      if (isDeepWorkSyncEnabled()) {
+        triggerDeepWorkSyncForCurrentUser().catch((error) => {
+          logger.debug('[DeepWorkSync] Immediate sync failed:', error?.code ?? 'UNKNOWN');
+        });
+      }
+      return result;
     })();
     finalizationFlightRef.current = operation;
     operation.finally(() => {

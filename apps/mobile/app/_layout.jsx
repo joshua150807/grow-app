@@ -6,7 +6,7 @@ import {
   useCallback,
   useMemo,
 } from 'react';
-import { Image, View } from 'react-native';
+import { AppState, Image, View } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
@@ -23,6 +23,7 @@ import { preloadRatingIconAssets } from '../constants/ratingAssets';
 import { logger } from '../lib/logger';
 import { claimLegacyDeepWorkData } from '../features/tools/deep-work/services/deepWorkStore';
 import { isDeepWorkSyncEnabled } from '../features/tools/deep-work/services/deepWorkSyncConfig';
+import { triggerDeepWorkSyncForCurrentUser } from '../features/tools/deep-work/services/deepWorkSyncWorker';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -213,10 +214,23 @@ export default function RootLayout() {
     const userId = session?.user?.id;
     if (!isDeepWorkSyncEnabled() || !userId) return;
 
-    claimLegacyDeepWorkData(userId).catch((error) => {
-      logger.debug('[DeepWorkSync] Legacy bootstrap failed:', error?.code ?? 'UNKNOWN');
+    claimLegacyDeepWorkData(userId)
+      .then(() => triggerDeepWorkSyncForCurrentUser())
+      .catch((error) => {
+        logger.debug('[DeepWorkSync] Bootstrap failed:', error?.code ?? 'UNKNOWN');
+      });
+  }, [session?.user?.id, session?.access_token]);
+
+  useEffect(() => {
+    if (!isDeepWorkSyncEnabled()) return undefined;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+      triggerDeepWorkSyncForCurrentUser().catch((error) => {
+        logger.debug('[DeepWorkSync] AppState sync failed:', error?.code ?? 'UNKNOWN');
+      });
     });
-  }, [session?.user?.id]);
+    return () => subscription?.remove?.();
+  }, []);
 
   useEffect(() => {
     if (session === undefined) return;

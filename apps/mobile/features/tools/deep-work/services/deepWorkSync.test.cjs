@@ -758,3 +758,17 @@ test('auth switch between queue entry and write prevents the queued mutation', a
   });
   assert.equal(storage.values.get(key), original);
 });
+
+test('retry metadata is atomically incremented without changing stable session data', async () => {
+  const key = '@deep_work_sync_v1:user-a';
+  const queue = { schemaVersion: 1, ownerUserId: 'user-a', legacyImportCompleted: true, entries: [queueEntry] };
+  const { store } = createStore({ initial: { [key]: JSON.stringify(queue) } });
+  const retry = await store.scheduleDeepWorkSyncEntryRetry('user-a', 'session-a', {
+    nextAttemptAt: '2026-07-20T12:00:05.000Z',
+    errorCode: 'PROFILE_API_NETWORK_ERROR',
+  });
+  assert.equal(retry.attempts, 1);
+  assert.equal(retry.clientSessionId, queueEntry.clientSessionId);
+  assert.equal(retry.durationSeconds, queueEntry.durationSeconds);
+  assert.equal(retry.completedAt, queueEntry.completedAt);
+});
