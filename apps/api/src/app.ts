@@ -14,6 +14,7 @@ import type { CreatorService } from './modules/creator/creatorService.js';
 import type { ProfileService } from './modules/profiles/profileService.js';
 import type { ProfileStatsService } from './modules/profileStats/profileStatsService.js';
 import type { DeepWorkSessionService } from './modules/profileStats/deepWorkSessionService.js';
+import type { HabitCollectionService } from './modules/habitCollections/habitCollectionService.js';
 
 export type BuildAppOptions = {
   authTokenVerifier?: AuthTokenVerifier;
@@ -22,6 +23,7 @@ export type BuildAppOptions = {
   profileService?: ProfileService;
   profileStatsService?: ProfileStatsService;
   deepWorkSessionService?: DeepWorkSessionService;
+  habitCollectionService?: HabitCollectionService;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -43,6 +45,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     profileService: options.profileService,
     profileStatsService: options.profileStatsService,
     deepWorkSessionService: options.deepWorkSessionService,
+    habitCollectionService: options.habitCollectionService,
   });
 
   return app;
