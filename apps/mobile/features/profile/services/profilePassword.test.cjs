@@ -12,10 +12,14 @@ function loadPasswordService({ sessions = [], reauth, update } = {}) {
     plugins: [transformModulesCommonJs],
   }).code;
   const module = { exports: {} };
-  const calls = { reauth: [], update: [] };
+  const calls = { createIsolated: 0, globalReauth: [], globalUpdate: [], reauth: [], update: [] };
   let sessionIndex = 0;
-  const auth = {
+  const globalAuth = {
     getSession: async () => sessions[Math.min(sessionIndex++, sessions.length - 1)],
+    signInWithPassword: async (input) => { calls.globalReauth.push(input); },
+    updateUser: async (input) => { calls.globalUpdate.push(input); },
+  };
+  const isolatedAuth = {
     signInWithPassword: async (input) => {
       calls.reauth.push(input);
       return reauth ?? { data: { user: { id: 'user-1' } }, error: null };
@@ -25,12 +29,21 @@ function loadPasswordService({ sessions = [], reauth, update } = {}) {
       return update ?? { data: { user: { id: 'user-1' } }, error: null };
     },
   };
+  const isolatedClient = { auth: isolatedAuth };
   const localRequire = (request) => {
-    if (request === '../../../services/supabaseClient') return { supabase: { auth } };
+    if (request === '../../../services/supabaseClient') {
+      return {
+        supabase: { auth: globalAuth },
+        createIsolatedSupabaseAuthClient: () => {
+          calls.createIsolated += 1;
+          return isolatedClient;
+        },
+      };
+    }
     return require(request);
   };
   new Function('require', 'module', 'exports', code)(localRequire, module, module.exports);
-  return { service: module.exports, calls };
+  return { service: module.exports, calls, globalAuth, isolatedAuth, isolatedClient };
 }
 
 const input = { currentPassword: 'old-pass', newPassword: 'new-pass', confirmPassword: 'new-pass' };
@@ -95,6 +108,9 @@ test('successful reauth updates password without transforming it', async () => {
   await service.changeCurrentUserPassword(input);
   assert.deepEqual(calls.reauth, [{ email: emailUser.email, password: input.currentPassword }]);
   assert.deepEqual(calls.update, [{ password: input.newPassword }]);
+  assert.equal(calls.createIsolated, 1);
+  assert.deepEqual(calls.globalReauth, []);
+  assert.deepEqual(calls.globalUpdate, []);
 });
 
 test('update failure is controlled', async () => {
@@ -104,5 +120,35 @@ test('update failure is controlled', async () => {
 
 test('password service contains no persistence or logging calls', () => {
   const source = require('node:fs').readFileSync(path.resolve(__dirname, 'profilePassword.js'), 'utf8');
-  assert.doesNotMatch(source, /AsyncStorage|console\.|logger\./);
+  assert.doesNotMatch(source, /AsyncStorage|console\.|logger\.|\.signOut\(/);
+});
+
+test('reauthentication and password update use the same isolated client only', async () => {
+  const { service, calls, isolatedClient } = loadPasswordService({ sessions: [validSession, validSession, validSession] });
+  await service.changeCurrentUserPassword(input);
+  assert.equal(calls.createIsolated, 1);
+  assert.equal(isolatedClient.auth.signInWithPassword instanceof Function, true);
+  assert.equal(isolatedClient.auth.updateUser instanceof Function, true);
+  assert.deepEqual(calls.globalReauth, []);
+  assert.deepEqual(calls.globalUpdate, []);
+});
+
+test('a different global user before update aborts without mutating either global or isolated identity', async () => {
+  const otherSession = { data: { session: { user: { ...emailUser, id: 'user-2' } } }, error: null };
+  const { service, calls } = loadPasswordService({ sessions: [validSession, otherSession] });
+  await assert.rejects(service.changeCurrentUserPassword(input), (error) => error.code === 'PASSWORD_AUTH_CHANGED');
+  assert.deepEqual(calls.update, []);
+  assert.deepEqual(calls.globalUpdate, []);
+});
+
+test('isolated auth client configuration is non-persistent and has no storage or cleanup sign-out', () => {
+  const source = require('node:fs').readFileSync(
+    path.resolve(__dirname, '../../../services/supabaseClient.js'),
+    'utf8',
+  );
+  const factory = source.slice(source.indexOf('export function createIsolatedSupabaseAuthClient'));
+  assert.match(factory, /persistSession:\s*false/);
+  assert.match(factory, /autoRefreshToken:\s*false/);
+  assert.doesNotMatch(factory, /storage:/);
+  assert.doesNotMatch(factory, /signOut/);
 });

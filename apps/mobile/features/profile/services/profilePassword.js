@@ -1,4 +1,7 @@
-import { supabase } from '../../../services/supabaseClient';
+import {
+  createIsolatedSupabaseAuthClient,
+  supabase,
+} from '../../../services/supabaseClient';
 
 export class ProfilePasswordError extends Error {
   constructor(code) {
@@ -46,26 +49,32 @@ export async function changeCurrentUserPassword(input) {
     throw new ProfilePasswordError('PASSWORD_PROVIDER_UNSUPPORTED');
   }
 
-  const { data: reauthData, error: reauthError } = await supabase.auth.signInWithPassword({
-    email,
-    password: input.currentPassword,
-  });
+  let isolatedClient = createIsolatedSupabaseAuthClient();
 
-  if (reauthError) throw new ProfilePasswordError('PASSWORD_CURRENT_INVALID');
-  if (reauthData?.user?.id !== expectedUserId) {
-    throw new ProfilePasswordError('PASSWORD_REAUTH_USER_MISMATCH');
+  try {
+    const { data: reauthData, error: reauthError } = await isolatedClient.auth.signInWithPassword({
+      email,
+      password: input.currentPassword,
+    });
+
+    if (reauthError) throw new ProfilePasswordError('PASSWORD_CURRENT_INVALID');
+    if (reauthData?.user?.id !== expectedUserId) {
+      throw new ProfilePasswordError('PASSWORD_REAUTH_USER_MISMATCH');
+    }
+
+    await readSession(expectedUserId);
+
+    const { data: updateData, error: updateError } = await isolatedClient.auth.updateUser({
+      password: input.newPassword,
+    });
+
+    if (updateError) throw new ProfilePasswordError('PASSWORD_UPDATE_FAILED');
+    if (updateData?.user?.id && updateData.user.id !== expectedUserId) {
+      throw new ProfilePasswordError('PASSWORD_AUTH_CHANGED');
+    }
+
+    await readSession(expectedUserId);
+  } finally {
+    isolatedClient = null;
   }
-
-  await readSession(expectedUserId);
-
-  const { data: updateData, error: updateError } = await supabase.auth.updateUser({
-    password: input.newPassword,
-  });
-
-  if (updateError) throw new ProfilePasswordError('PASSWORD_UPDATE_FAILED');
-  if (updateData?.user?.id && updateData.user.id !== expectedUserId) {
-    throw new ProfilePasswordError('PASSWORD_AUTH_CHANGED');
-  }
-
-  await readSession(expectedUserId);
 }

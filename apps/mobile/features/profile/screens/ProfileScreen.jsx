@@ -21,6 +21,7 @@ import ProfilePremiumCanvas from '../components/ProfilePremiumCanvas';
 import { useProfile } from '../hooks/useProfile';
 import { useProfileAvatar } from '../hooks/useProfileAvatar';
 import { useProfileStats } from '../hooks/useProfileStats';
+import { applyConfirmedProfileResponse } from '../context/ProfileContext';
 import {
   buildProfileChanges,
   createProfileEditDraft,
@@ -184,7 +185,7 @@ function ProfileEditModal({
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
-  const { username, bio, avatarUrl, growPoints, reloadProfile } = useProfile();
+  const { username, bio, avatarUrl, growPoints, reloadProfile, applyProfile } = useProfile();
   const { streak, todoProgress, deepWorkTime } = useToolsTrackerData();
   const profileStats = useProfileStats({
     habitStreak: streak,
@@ -209,7 +210,7 @@ export default function ProfileScreen() {
     isResettingAvatar,
     isUpdatingAvatar,
     showAvatarActions,
-  } = useProfileAvatar({ avatarUrl, reloadProfile });
+  } = useProfileAvatar({ avatarUrl, reloadProfile, applyProfile });
   const hasRemoteAvatar = profileApiV1Enabled
     && typeof avatarUrl === 'string'
     && avatarUrl.trim().length > 0
@@ -245,8 +246,8 @@ export default function ProfileScreen() {
     setProfileSaveError('');
     setIsSavingProfile(true);
     try {
-      await updateMyProfileV1(changes);
-      await reloadProfile?.();
+      const confirmedProfile = await updateMyProfileV1(changes);
+      applyConfirmedProfileResponse(confirmedProfile, applyProfile, reloadProfile);
       if (!isMountedRef.current) return;
       setProfileSaveError('');
       setEditVisible(false);

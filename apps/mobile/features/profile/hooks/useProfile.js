@@ -39,6 +39,7 @@ export function useProfile() {
     loading: context?.loading ?? false,
     error: context?.error ?? null,
     reloadProfile: context?.reloadProfile,
+    applyProfile: context?.applyProfile,
     ...normalizedProfile,
     isCeo,
     reload: context?.reloadProfile,

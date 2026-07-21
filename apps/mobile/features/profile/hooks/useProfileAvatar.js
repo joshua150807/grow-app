@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
 
 import { supabase } from '../../../services/supabaseClient';
+import { applyConfirmedProfileResponse } from '../context/ProfileContext';
 import {
   confirmMyAvatarUploadV1,
   createMyAvatarUploadV1,
@@ -47,7 +48,7 @@ function getAvatarErrorMessage(error, phase) {
   }
 }
 
-export function useProfileAvatar({ avatarUrl, reloadProfile }) {
+export function useProfileAvatar({ avatarUrl, reloadProfile, applyProfile }) {
   const enabled = isProfileApiV1Enabled();
   const operationInProgressRef = useRef(false);
   const pickerInProgressRef = useRef(false);
@@ -132,8 +133,8 @@ export function useProfileAvatar({ avatarUrl, reloadProfile }) {
         }
 
         phase = 'confirm';
-        await confirmMyAvatarUploadV1(upload.path);
-        await reloadProfile?.();
+        const confirmedProfile = await confirmMyAvatarUploadV1(upload.path);
+        applyConfirmedProfileResponse(confirmedProfile, applyProfile, reloadProfile);
       } catch (error) {
         Alert.alert('Profilbild nicht aktualisiert', getAvatarErrorMessage(error, phase));
       } finally {
@@ -145,7 +146,7 @@ export function useProfileAvatar({ avatarUrl, reloadProfile }) {
     } finally {
       pickerInProgressRef.current = false;
     }
-  }, [enabled, reloadProfile]);
+  }, [applyProfile, enabled, reloadProfile]);
 
   const resetAvatar = useCallback(async () => {
     if (!enabled || !avatarUrl || operationInProgressRef.current) return;

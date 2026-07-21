@@ -5,6 +5,7 @@ import {
   useContext,
   useCallback,
   useMemo,
+  useRef,
 } from 'react';
 import { AppState, Image, View } from 'react-native';
 import { Stack, router } from 'expo-router';
@@ -15,7 +16,10 @@ import * as Linking from 'expo-linking';
 import { supabase } from '../services/supabaseClient';
 import { COLORS } from '../constants/colors';
 import { loadProfileData } from '../features/profile/services/profiles';
-import { StartupProfileContext } from '../features/profile/context/ProfileContext';
+import {
+  mergeConfirmedProfile,
+  StartupProfileContext,
+} from '../features/profile/context/ProfileContext';
 import { OnboardingProvider } from '../features/onboarding/context/OnboardingContext';
 import OnboardingLayer from '../features/onboarding/components/OnboardingLayer';
 import RootErrorBoundary from '../components/system/RootErrorBoundary';
@@ -80,6 +84,7 @@ export default function RootLayout() {
   const [startupProfile, setStartupProfile] = useState(null);
   const [startupProfileLoading, setStartupProfileLoading] = useState(false);
   const [startupProfileError, setStartupProfileError] = useState(null);
+  const activeSessionUserIdRef = useRef(null);
 
   useEffect(() => {
     let handledInitialUrl = false;
@@ -177,6 +182,7 @@ export default function RootLayout() {
     supabase.auth
       .getSession()
       .then(({ data }) => {
+        activeSessionUserIdRef.current = data.session?.user?.id ?? null;
         if (mounted) {
           setSession(data.session ?? null);
         }
@@ -191,6 +197,7 @@ export default function RootLayout() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      activeSessionUserIdRef.current = newSession?.user?.id ?? null;
       if (mounted) {
         setSession(newSession ?? null);
       }
@@ -264,6 +271,15 @@ export default function RootLayout() {
     }
   }, [session?.user?.id]);
 
+  const applyStartupProfile = useCallback((profileOrPatch) => {
+    const expectedUserId = activeSessionUserIdRef.current;
+    if (!expectedUserId) return;
+
+    setStartupProfile((currentProfile) => (
+      mergeConfirmedProfile(currentProfile, profileOrPatch, expectedUserId)
+    ));
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -309,8 +325,15 @@ export default function RootLayout() {
       loading: startupProfileLoading,
       error: startupProfileError,
       reloadProfile: reloadStartupProfile,
+      applyProfile: applyStartupProfile,
     }),
-    [startupProfile, startupProfileLoading, startupProfileError, reloadStartupProfile]
+    [
+      startupProfile,
+      startupProfileLoading,
+      startupProfileError,
+      reloadStartupProfile,
+      applyStartupProfile,
+    ]
   );
 
 

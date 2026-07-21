@@ -88,12 +88,14 @@ test('matches the backend username and bio validation boundaries', () => {
   assert.equal(edit.validateProfileBio('a'.repeat(101)), 'Maximal 100 Zeichen.');
 });
 
-test('profile screen retains cancel, single-flight save, controlled errors and central reload', () => {
+test('profile screen applies confirmed PATCH before closing and keeps reload best effort', () => {
   const source = fs.readFileSync(path.join(profileDir, 'screens', 'ProfileScreen.jsx'), 'utf8');
   assert.match(source, /profileSaveInProgressRef\.current\) return;/);
+  assert.match(source, /const confirmedProfile = await updateMyProfileV1\(changes\)/);
+  assert.match(source, /applyConfirmedProfileResponse\(confirmedProfile, applyProfile, reloadProfile\)/);
   assert.match(source, /setEditVisible\(false\)/);
   assert.match(source, /setProfileSaveError\(getProfileSaveErrorMessage\(error\)\)/);
-  assert.match(source, /await reloadProfile\?\.\(\)/);
+  assert.doesNotMatch(source, /await reloadProfile\?\.\(\)/);
   assert.match(source, /if \(isSavingProfile\) return;/);
 });
 
@@ -103,8 +105,8 @@ test('avatar flow retains camera, gallery, upload, confirm, reset and failure ha
   assert.match(source, /runImagePicker\('library'\)/);
   assert.match(source, /uploadToSignedUrl/);
   assert.match(source, /confirmMyAvatarUploadV1/);
+  assert.match(source, /applyConfirmedProfileResponse\(confirmedProfile, applyProfile, reloadProfile\)/);
   assert.match(source, /deleteMyAvatarV1/);
-  assert.match(source, /await reloadProfile\?\.\(\)/);
   assert.match(source, /Profilbild nicht aktualisiert/);
   assert.match(source, /Profilbild nicht zurückgesetzt/);
 });
