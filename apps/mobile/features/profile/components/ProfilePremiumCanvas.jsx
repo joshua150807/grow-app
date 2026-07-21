@@ -4,8 +4,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { COLORS } from '../../../constants/colors';
 import { GROW_AVATAR, GROW_COIN, GROW_POINTS_ICON } from '../../../constants/toolAssets';
 
-const ART_WIDTH = 853;
-const ART_HEIGHT = 1844;
+const ART_WIDTH = 855;
+const ART_HEIGHT = 1840;
 const ART_ASPECT_RATIO = ART_WIDTH / ART_HEIGHT;
 const PROFILE_BACKGROUND = require('../../../assets/images/profile_background.webp');
 
@@ -21,8 +21,8 @@ function frame(canvasWidth, x, y, width, height) {
 
 function BalanceContent({ canvasWidth, icon, value, label, side }) {
   const box = side === 'left'
-    ? frame(canvasWidth, 54, 548, 345, 158)
-    : frame(canvasWidth, 454, 548, 345, 158);
+    ? frame(canvasWidth, 54, 628, 345, 158)
+    : frame(canvasWidth, 454, 628, 345, 158);
   const scale = canvasWidth / ART_WIDTH;
   const iconScale = side === 'left' ? 2.2 : 2;
 
@@ -54,7 +54,7 @@ function PremiumStat({ canvasWidth, item, index }) {
   const row = Math.floor(index / 3);
   const columns = [49, 300, 570];
   const widths = [231, 240, 234];
-  const box = frame(canvasWidth, columns[column], row === 0 ? 808 : 1056, widths[column], 230);
+  const box = frame(canvasWidth, columns[column], row === 0 ? 1003 : 1240, widths[column], 230);
   const scale = canvasWidth / ART_WIDTH;
 
   return (
@@ -127,12 +127,13 @@ export default function ProfilePremiumCanvas({
   growCoins,
   stats,
   onEditProfile,
+  onSettingsPress,
 }) {
   const canvasWidth = Math.min(availableWidth, 430);
   const canvasHeight = canvasWidth / ART_ASPECT_RATIO;
   const scale = canvasWidth / ART_WIDTH;
-  const avatarFrame = frame(canvasWidth, 304, 143, 245, 245);
-  const rawCameraFrame = frame(canvasWidth, 381, 367, 91, 91);
+  const avatarFrame = frame(canvasWidth, 305, 116, 245, 245);
+  const rawCameraFrame = frame(canvasWidth, 381, 339, 91, 91);
   const cameraSize = Math.max(44, rawCameraFrame.width);
   const cameraFrame = {
     left: rawCameraFrame.left - (cameraSize - rawCameraFrame.width) / 2,
@@ -140,7 +141,7 @@ export default function ProfilePremiumCanvas({
     width: cameraSize,
     height: cameraSize,
   };
-  const identityFrame = frame(canvasWidth, 82, 445, 689, 91);
+  const identityFrame = frame(canvasWidth, 82, 465, 689, 96);
 
   return (
     <View style={styles.screen}>
@@ -189,14 +190,14 @@ export default function ProfilePremiumCanvas({
 
           <View style={[styles.absoluteCenter, identityFrame, styles.identity]}>
             <Text
-              style={[styles.username, { fontSize: Math.max(14, 36 * scale) }]}
+              style={[styles.username, { fontSize: Math.max(15, 40 * scale) }]}
               numberOfLines={1}
               adjustsFontSizeToFit
             >
               {username}
             </Text>
             <Text
-              style={[styles.bio, { fontSize: Math.max(8, 18 * scale), lineHeight: Math.max(10, 22 * scale) }]}
+              style={[styles.bio, { fontSize: Math.max(9, 21 * scale), lineHeight: Math.max(12, 26 * scale) }]}
               numberOfLines={2}
             >
               {bio}
@@ -206,12 +207,22 @@ export default function ProfilePremiumCanvas({
           <BalanceContent canvasWidth={canvasWidth} icon={GROW_POINTS_ICON} value={growPoints} label="GROW Points" side="left" />
           <BalanceContent canvasWidth={canvasWidth} icon={GROW_COIN} value={growCoins} label="GROW Coins" side="right" />
 
+          <Text
+            style={[
+              styles.statisticsHeading,
+              frame(canvasWidth, 48, 850, 759, 52),
+              { fontSize: Math.max(15, 30 * scale), lineHeight: Math.max(19, 37 * scale) },
+            ]}
+          >
+            Statistiken
+          </Text>
+
           {stats.map((item, index) => (
             <PremiumStat key={item.label} canvasWidth={canvasWidth} item={item} index={index} />
           ))}
 
-          <ActionContent canvasWidth={canvasWidth} top={1349} icon="person-outline" label="Profil bearbeiten" onPress={onEditProfile} />
-          <ActionContent canvasWidth={canvasWidth} top={1481} icon="settings-outline" label="Einstellungen" disabled />
+          <ActionContent canvasWidth={canvasWidth} top={1539} icon="person-outline" label="Profil bearbeiten" onPress={onEditProfile} />
+          <ActionContent canvasWidth={canvasWidth} top={1670} icon="settings-outline" label="Einstellungen" onPress={onSettingsPress} disabled={!onSettingsPress} />
         </ImageBackground>
       </ScrollView>
     </View>
@@ -249,6 +260,7 @@ const styles = StyleSheet.create({
   balanceText: { justifyContent: 'center', marginLeft: 8 },
   balanceValue: { color: '#FFF5DE', fontWeight: '900' },
   balanceLabel: { marginTop: 2, color: 'rgba(231,220,235,0.72)', fontWeight: '700' },
+  statisticsHeading: { position: 'absolute', color: '#FFF5DE', fontWeight: '800', textAlign: 'center', textAlignVertical: 'center' },
   statContent: { alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
   statValue: { maxWidth: '92%', color: '#FFF5DE', fontWeight: '900', textAlign: 'center' },
   statLabel: { maxWidth: '94%', color: 'rgba(231,220,235,0.76)', fontWeight: '600', textAlign: 'center' },

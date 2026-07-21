@@ -11,6 +11,7 @@ import {
   Easing,
   ScrollView,
   ActivityIndicator,
+  Alert,
   useWindowDimensions,
 } from 'react-native';
 import { Ionicons, Feather, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -27,7 +28,7 @@ import {
 } from '../../../../constants/toolAssets';
 
 import { useProfile } from '../../../profile/hooks/useProfile';
-import { supabase } from '../../../../services/supabaseClient';
+import { logoutCurrentUser } from '../../../../services/authSession';
 
 import TrackerBox from '../components/Trackerbox';
 import AnimatedToolsGridSwitcher from '../components/AnimatedToolsGridSwitcher';
@@ -160,18 +161,14 @@ export default function ToolsScreen() {
     if (navigationLockedRef.current) return;
 
     navigationLockedRef.current = true;
-    setMenuOpen(false);
-
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
+    try {
+      await logoutCurrentUser({ beforeSignOut: () => setMenuOpen(false) });
+    } catch (error) {
       logger.debug('[ToolsOverview] Logout failed:', error);
       navigationLockedRef.current = false;
-      return;
-    }
-
-    if (mountedRef.current) {
-      router.replace('/login');
+      if (mountedRef.current) {
+        Alert.alert('Logout fehlgeschlagen', 'Bitte versuche es erneut.');
+      }
     }
   };
 

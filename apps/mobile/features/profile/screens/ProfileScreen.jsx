@@ -11,7 +11,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { COLORS } from '../../../constants/colors';
@@ -299,6 +299,7 @@ export default function ProfileScreen() {
         growCoins={formatNumber(MOCK_GROW_COINS)}
         stats={statItems}
         onEditProfile={() => { setProfileSaveError(''); setEditVisible(true); }}
+        onSettingsPress={() => router.push('/profile-settings')}
       />
       <ProfileEditModal
         visible={editVisible}
