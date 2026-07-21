@@ -19,6 +19,7 @@ import {
   isCurrentOwnerRequest,
   ownsHabit,
   setOwnerCache,
+  subscribeToOwnerCache,
 } from '../services/habitCache';
 
 function normalizeDays(days) {
@@ -234,6 +235,24 @@ export function useHabits(selectedDay) {
     setCompletedIds(new Set(cached));
     loadCompletions();
   }, [ownerUserId, selectedDate, loadCompletions]);
+
+  useEffect(() => {
+    if (!ownerUserId) return undefined;
+    const cacheKey = getHabitCompletionsCacheKey(ownerUserId, selectedDate);
+    return subscribeToOwnerCache(cacheKey, (ids) => {
+      if (
+        mountedRef.current
+        && ownerRef.current === ownerUserId
+        && selectedDateRef.current === selectedDate
+      ) {
+        setCompletedIds(new Set(applyPendingCompletionMutations(
+          ids,
+          ownerUserId,
+          selectedDate
+        )));
+      }
+    });
+  }, [ownerUserId, selectedDate]);
 
   const requireMutationOwner = useCallback(async (expectedOwnerId, habitId = null) => {
     if (!expectedOwnerId) throw new Error('Nicht eingeloggt');

@@ -14,6 +14,7 @@ export function HabitItem({
   onDelete,
   onEdit,
   onOpenLinkedTool,
+  showActions = true,
 }) {
   const hasLinkedTool = Boolean(habit.linked_tool_route && habit.linked_tool_title);
 
@@ -107,7 +108,7 @@ export function HabitItem({
             ))}
           </View>
 
-          <View pointerEvents="box-none" style={styles.actionRow}>
+          {showActions && <View pointerEvents="box-none" style={styles.actionRow}>
             <PressableScale
               style={styles.actionBtn}
               activeScale={0.92}
@@ -132,7 +133,7 @@ export function HabitItem({
                 <Ionicons name="trash-outline" size={s(16)} color={COLORS.white} />
               </PressableScale>
             )}
-          </View>
+          </View>}
         </View>
       </View>
     </View>

@@ -1,5 +1,7 @@
 import { getPreloadedToolData, setPreloadedToolData } from '../../../../lib/preloadedTools';
 
+const cacheListeners = new Map();
+
 export function getHabitsCacheKey(userId) {
   return userId ? `habits:${userId}` : null;
 }
@@ -18,7 +20,20 @@ export function getOwnerCache(key) {
 }
 
 export function setOwnerCache(key, value) {
-  if (key) setPreloadedToolData(key, value);
+  if (!key) return;
+  setPreloadedToolData(key, value);
+  cacheListeners.get(key)?.forEach(listener => listener(value));
+}
+
+export function subscribeToOwnerCache(key, listener) {
+  if (!key || typeof listener !== 'function') return () => {};
+  const listeners = cacheListeners.get(key) ?? new Set();
+  listeners.add(listener);
+  cacheListeners.set(key, listeners);
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) cacheListeners.delete(key);
+  };
 }
 
 export function isCurrentOwnerRequest(activeOwnerId, requestOwnerId, currentSequence, responseSequence) {

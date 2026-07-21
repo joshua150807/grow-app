@@ -80,3 +80,8 @@ test('one card press and one check press each call the shared handler once', () 
 test('touch component contains no disabled, debounce or timeout behavior', () => {
   assert.doesNotMatch(source, /disabled=|setTimeout|debounce/);
 });
+
+test('collection detail can hide edit and delete controls without changing the default', () => {
+  assert.match(source, /showActions = true/);
+  assert.match(source, /\{showActions && <View pointerEvents="box-none" style=\{styles\.actionRow\}>/);
+});

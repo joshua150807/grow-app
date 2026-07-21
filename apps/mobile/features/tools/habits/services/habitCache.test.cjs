@@ -148,3 +148,18 @@ test('20 auth changes only reset local owner state and perform no server delete'
   assert.doesNotMatch(hookSource, /getPreloadedToolData\('habits'\)/);
   assert.doesNotMatch(hookSource, /`habitCompletions:\$\{selectedDate\}`/);
 });
+
+test('21 owner cache subscriptions are key-scoped and removable', () => {
+  const api = loadHabitCache();
+  const observed = [];
+  const unsubscribe = api.subscribeToOwnerCache('habitCompletions:user-a:2026-07-21', value => {
+    observed.push(value);
+  });
+
+  api.setOwnerCache('habitCompletions:user-b:2026-07-21', ['habit-b']);
+  api.setOwnerCache('habitCompletions:user-a:2026-07-21', ['habit-a']);
+  unsubscribe();
+  api.setOwnerCache('habitCompletions:user-a:2026-07-21', []);
+
+  assert.deepEqual(observed, [['habit-a']]);
+});

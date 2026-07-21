@@ -94,6 +94,7 @@ async function createHarness({ completed = false } = {}) {
         getHabitPendingCacheKey: (userId, date) => userId && date ? `habitCompletions:${userId}:${date}:pending` : null,
         getOwnerCache: key => key && cache.has(key) ? cache.get(key) : null,
         setOwnerCache: (key, value) => { if (key) cache.set(key, value); },
+        subscribeToOwnerCache: () => () => {},
         isCurrentOwnerRequest: (active, owner, current, response) => Boolean(active && active === owner && current === response),
         ownsHabit: (habits, id) => habits.some(habit => habit.id === id),
       },
