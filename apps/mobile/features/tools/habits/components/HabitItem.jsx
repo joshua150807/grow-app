@@ -30,13 +30,20 @@ export function HabitItem({
         done && styles.habitCardDone,
       ]}
     >
+      <Pressable
+        style={StyleSheet.absoluteFill}
+        onPress={handleToggle}
+      />
+
       <View
+        pointerEvents="box-none"
         style={[
           styles.habitMainRow,
           hasLinkedTool ? styles.habitMainRowWithLinkedTool : styles.habitMainRowWithoutLinkedTool,
         ]}
       >
         <View
+          pointerEvents="box-none"
           style={[
             styles.habitLeft,
             hasLinkedTool ? styles.habitLeftWithLinkedTool : styles.habitLeftWithoutLinkedTool,
@@ -47,7 +54,7 @@ export function HabitItem({
             activeScale={0.92}
             activeOpacity={0.86}
             onPressIn={handleToggle}
-            hitSlop={{ top: s(8), bottom: s(8), left: s(8), right: s(8) }}
+            hitSlop={{ top: s(10), bottom: s(10), left: s(10), right: s(10) }}
             pressRetentionOffset={{ top: s(24), bottom: s(24), left: s(24), right: s(24) }}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: !!done }}
@@ -59,21 +66,15 @@ export function HabitItem({
             </View>
           </PressableScale>
 
-          <View style={styles.habitTextWrap}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.habitTitlePressable,
-                pressed && styles.habitTitlePressed,
-              ]}
-              onPress={handleToggle}
-            >
+          <View pointerEvents="box-none" style={styles.habitTextWrap}>
+            <View pointerEvents="none" style={styles.habitTitlePressable}>
               <Text
                 style={[styles.habitTitle, done && styles.habitTitleDone]}
                 numberOfLines={2}
               >
                 {habit.name}
               </Text>
-            </Pressable>
+            </View>
 
             {hasLinkedTool && (
               <Pressable
@@ -93,8 +94,8 @@ export function HabitItem({
           </View>
         </View>
 
-        <View style={styles.habitRight}>
-          <View style={styles.habitDayDots}>
+        <View pointerEvents="box-none" style={styles.habitRight}>
+          <View pointerEvents="none" style={styles.habitDayDots}>
             {habit.days.map((day) => (
               <View
                 key={day}
@@ -106,7 +107,7 @@ export function HabitItem({
             ))}
           </View>
 
-          <View style={styles.actionRow}>
+          <View pointerEvents="box-none" style={styles.actionRow}>
             <PressableScale
               style={styles.actionBtn}
               activeScale={0.92}

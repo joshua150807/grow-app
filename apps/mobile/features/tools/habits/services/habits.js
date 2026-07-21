@@ -102,9 +102,16 @@ function isMissingLinkedToolColumnError(error) {
   return error?.code === 'PGRST204' || message.includes('linked_tool_');
 }
 
-export async function getHabits() {
+async function resolveUserId(expectedUserId = null) {
   const userId = await getCurrentUserId();
-  if (!userId) return [];
+  if (!userId || (expectedUserId && userId !== expectedUserId)) {
+    throw new Error('Nicht eingeloggt');
+  }
+  return userId;
+}
+
+export async function getHabits(expectedUserId = null) {
+  const userId = await resolveUserId(expectedUserId);
 
   const { data, error } = await supabase
     .from('habits')
@@ -116,9 +123,8 @@ export async function getHabits() {
   return Array.isArray(data) ? data : [];
 }
 
-export async function addHabit(name, days, linkedTool = null) {
-  const userId = await getCurrentUserId();
-  if (!userId) throw new Error('Nicht eingeloggt');
+export async function addHabit(name, days, linkedTool = null, expectedUserId = null) {
+  const userId = await resolveUserId(expectedUserId);
 
   const safeName = typeof name === 'string' ? name.trim() : '';
   const safeDays = normalizeDays(days);
@@ -144,11 +150,10 @@ export async function addHabit(name, days, linkedTool = null) {
 }
 
 
-export async function updateHabit(id, name, days, linkedTool = null) {
+export async function updateHabit(id, name, days, linkedTool = null, expectedUserId = null) {
   if (!id) throw new Error('Ungültige Gewohnheit.');
 
-  const userId = await getCurrentUserId();
-  if (!userId) throw new Error('Nicht eingeloggt');
+  const userId = await resolveUserId(expectedUserId);
 
   const safeName = typeof name === 'string' ? name.trim() : '';
   const safeDays = normalizeDays(days);
@@ -186,21 +191,23 @@ export async function updateHabit(id, name, days, linkedTool = null) {
   return data;
 }
 
-export async function deleteHabit(id) {
+export async function deleteHabit(id, expectedUserId = null) {
   if (!id) return;
+
+  const userId = await resolveUserId(expectedUserId);
 
   const { error } = await supabase
     .from('habits')
     .delete()
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', userId);
 
   if (error) throw error;
 }
 
 // Gibt alle habit_ids zurück, die am angegebenen Datum (YYYY-MM-DD) abgehakt sind
-export async function getCompletionsForDate(date) {
-  const userId = await getCurrentUserId();
-  if (!userId) return [];
+export async function getCompletionsForDate(date, expectedUserId = null) {
+  const userId = await resolveUserId(expectedUserId);
 
   const { data, error } = await supabase
     .from('habit_completions')
@@ -268,9 +275,8 @@ export async function getTodayHabitProgress() {
 }
 
 // isCompleted=true → Eintrag anlegen, false → löschen
-export async function toggleCompletion(habitId, date, isCompleted) {
-  const userId = await getCurrentUserId();
-  if (!userId) throw new Error('Nicht eingeloggt');
+export async function toggleCompletion(habitId, date, isCompleted, expectedUserId = null) {
+  const userId = await resolveUserId(expectedUserId);
   if (!habitId || !date) throw new Error('Ungültige Gewohnheit.');
 
   if (isCompleted) {
