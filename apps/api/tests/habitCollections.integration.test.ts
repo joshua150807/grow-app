@@ -249,12 +249,15 @@ describe('habit collections PostgreSQL integration', () => {
       { type: 'existing', habit_id: retained },
     ]);
     await pool.query(`insert into public.habit_completions (habit_id,user_id,completed_date) values ($1,$2,'2026-07-21')`, [removed, userA]);
-    await inRole(pool, 'authenticated', userA, (client) => client.query('delete from public.habits where id=$1 and user_id=$2', [removed, userA]));
-    expect((await pool.query('select count(*)::int count from public.habits where id=$1', [removed])).rows[0].count).toBe(0);
-    expect((await pool.query('select count(*)::int count from public.habit_collection_memberships where habit_id=$1', [removed])).rows[0].count).toBe(0);
-    expect((await pool.query('select count(*)::int count from public.habit_completions where habit_id=$1', [removed])).rows[0].count).toBe(0);
-    expect((await pool.query('select count(*)::int count from public.habit_collection_memberships where collection_id=$1 and habit_id=$2 and active_until is null', [collection, retained])).rows[0].count).toBe(1);
-    expect((await pool.query('select count(*)::int count from public.habit_collections where id=$1 and deleted_at is null', [collection])).rows[0].count).toBe(1);
+    await inRole(pool, 'authenticated', userA, async (client) => {
+      await client.query('delete from public.habits where id=$1 and user_id=$2', [removed, userA]);
+      expect((await client.query('select count(*)::int count from public.habits where id=$1', [removed])).rows[0].count).toBe(0);
+      expect((await client.query('select count(*)::int count from public.habits where id=$1', [retained])).rows[0].count).toBe(1);
+      expect((await client.query('select count(*)::int count from public.habit_collection_memberships where habit_id=$1', [removed])).rows[0].count).toBe(0);
+      expect((await client.query('select count(*)::int count from public.habit_completions where habit_id=$1', [removed])).rows[0].count).toBe(0);
+      expect((await client.query('select count(*)::int count from public.habit_collection_memberships where collection_id=$1 and habit_id=$2 and active_until is null', [collection, retained])).rows[0].count).toBe(1);
+      expect((await client.query('select count(*)::int count from public.habit_collections where id=$1 and deleted_at is null', [collection])).rows[0].count).toBe(1);
+    });
   });
 
   it('isolates RLS reads, denies direct client mutations and permits the service-role RPC', async () => {
