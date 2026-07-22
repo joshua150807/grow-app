@@ -51,6 +51,10 @@ export function useHabitCollections() {
 
   const activateOwner = useCallback((nextOwnerId) => {
     const safeOwnerId = nextOwnerId || null;
+    const previousOwnerId = ownerRef.current;
+    if (previousOwnerId && previousOwnerId !== safeOwnerId) {
+      ownerCaches.delete(getOwnerCacheKey(previousOwnerId, 'list'));
+    }
     ownerRef.current = safeOwnerId;
     listRequestRef.current += 1;
     pendingActionsRef.current.clear();

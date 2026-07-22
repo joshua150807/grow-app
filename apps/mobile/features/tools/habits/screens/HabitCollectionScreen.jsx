@@ -34,7 +34,7 @@ export default function HabitCollectionScreen() {
 
   const selectedDay = getTodayIndex();
   const {
-    visibleHabits,
+    habits,
     completedIds: allCompletedIds,
     toggle,
   } = useHabits(selectedDay);
@@ -51,9 +51,9 @@ export default function HabitCollectionScreen() {
   const memberHabits = useMemo(() => {
     if (!collection?.members) return [];
     return collection.members
-      .map(m => visibleHabits.find(h => h.id === m.habit_id))
+      .map(m => habits.find(h => h.id === m.habit_id))
       .filter(Boolean);
-  }, [collection, visibleHabits]);
+  }, [collection, habits]);
 
   const progress = useMemo(() => {
     const total = memberHabits.length;

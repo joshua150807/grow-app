@@ -269,6 +269,33 @@ test('collection detail uses the same parent content padding and list spacing as
   assert.match(overviewSource, /<View style=\{styles\.list\}>/);
 });
 
+test('collection detail resolves off-day members from the complete owner-bound habit list', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const detailSource = fs.readFileSync(
+    path.resolve(__dirname, '../screens/HabitCollectionScreen.jsx'),
+    'utf8'
+  );
+
+  assert.match(detailSource, /const \{[\s\S]*?habits,[\s\S]*?completedIds: allCompletedIds,[\s\S]*?toggle,[\s\S]*?\} = useHabits\(selectedDay\)/);
+  assert.match(detailSource, /collection\.members[\s\S]*?\.map\(m => habits\.find\(h => h\.id === m\.habit_id\)\)[\s\S]*?\.filter\(Boolean\)/);
+  assert.doesNotMatch(detailSource, /\.map\(m => visibleHabits\.find/);
+});
+
+test('collection detail keeps today completion state and the existing toggle worker', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const detailSource = fs.readFileSync(
+    path.resolve(__dirname, '../screens/HabitCollectionScreen.jsx'),
+    'utf8'
+  );
+
+  assert.match(detailSource, /const selectedDay = getTodayIndex\(\)/);
+  assert.match(detailSource, /done=\{allCompletedIds\.has\(habit\.id\)\}/);
+  assert.match(detailSource, /onToggle=\{toggle\}/);
+  assert.doesNotMatch(detailSource, /toggleCompletion|supabase\.(?:from|rpc)/);
+});
+
 test('create and edit use the same scaled gap below all-days selection', () => {
   const fs = require('fs');
   const path = require('path');
