@@ -11,6 +11,8 @@ describe('profile mappers', () => {
     const row: ProfilePersistenceRow = {
       id: 'user-123',
       username: 'grower',
+      bio: 'Keep growing.',
+      avatarPath: null,
       growPoints: 42,
       role: 'user',
       createdAt: '2026-07-05T10:00:00.000Z',
@@ -22,12 +24,16 @@ describe('profile mappers', () => {
     expect(profile).toEqual({
       id: 'user-123',
       username: 'grower',
+      bio: 'Keep growing.',
+      avatarPath: null,
       growPoints: 42,
       role: 'user',
       createdAt: '2026-07-05T10:00:00.000Z',
       updatedAt: '2026-07-05T11:00:00.000Z',
     });
     expect(Object.keys(profile).sort()).toEqual([
+      'avatarPath',
+      'bio',
       'createdAt',
       'growPoints',
       'id',
@@ -41,6 +47,8 @@ describe('profile mappers', () => {
     const row: ProfilePersistenceRow = {
       id: 'user-123',
       username: 'grower',
+      bio: '',
+      avatarPath: null,
       growPoints: null,
       role: null,
       createdAt: null,
@@ -50,6 +58,8 @@ describe('profile mappers', () => {
     expect(mapProfilePersistenceRowToDomain(row)).toEqual({
       id: 'user-123',
       username: 'grower',
+      bio: '',
+      avatarPath: null,
       growPoints: null,
       role: null,
       createdAt: null,
@@ -61,6 +71,8 @@ describe('profile mappers', () => {
     const profile: Profile = {
       id: 'user-123',
       username: 'grower',
+      bio: '',
+      avatarPath: null,
       growPoints: null,
       role: null,
       createdAt: null,
@@ -72,6 +84,8 @@ describe('profile mappers', () => {
     expect(dto).toEqual({
       id: 'user-123',
       username: 'grower',
+      bio: '',
+      avatar_url: null,
       grow_points: null,
       role: null,
       created_at: null,
@@ -81,7 +95,8 @@ describe('profile mappers', () => {
     expect(dto).not.toHaveProperty('user_id');
     expect(dto).not.toHaveProperty('display_name');
     expect(dto).not.toHaveProperty('name');
-    expect(dto).not.toHaveProperty('avatar_url');
-    expect(dto).not.toHaveProperty('bio');
+    expect(dto).toHaveProperty('avatar_url', null);
+    expect(dto).toHaveProperty('bio', '');
+    expect(dto).not.toHaveProperty('avatarPath');
   });
 });

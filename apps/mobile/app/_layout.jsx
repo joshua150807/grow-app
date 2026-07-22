@@ -5,8 +5,9 @@ import {
   useContext,
   useCallback,
   useMemo,
+  useRef,
 } from 'react';
-import { Image, View } from 'react-native';
+import { AppState, Image, View } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
@@ -15,12 +16,18 @@ import * as Linking from 'expo-linking';
 import { supabase } from '../services/supabaseClient';
 import { COLORS } from '../constants/colors';
 import { loadProfileData } from '../features/profile/services/profiles';
-import { StartupProfileContext } from '../features/profile/context/ProfileContext';
+import {
+  mergeConfirmedProfile,
+  StartupProfileContext,
+} from '../features/profile/context/ProfileContext';
 import { OnboardingProvider } from '../features/onboarding/context/OnboardingContext';
 import OnboardingLayer from '../features/onboarding/components/OnboardingLayer';
 import RootErrorBoundary from '../components/system/RootErrorBoundary';
 import { preloadRatingIconAssets } from '../constants/ratingAssets';
 import { logger } from '../lib/logger';
+import { claimLegacyDeepWorkData } from '../features/tools/deep-work/services/deepWorkStore';
+import { isDeepWorkSyncEnabled } from '../features/tools/deep-work/services/deepWorkSyncConfig';
+import { triggerDeepWorkSyncForCurrentUser } from '../features/tools/deep-work/services/deepWorkSyncWorker';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -75,6 +82,9 @@ export function useAuth() {
 export default function RootLayout() {
   const [session, setSession] = useState(undefined);
   const [startupProfile, setStartupProfile] = useState(null);
+  const [startupProfileLoading, setStartupProfileLoading] = useState(false);
+  const [startupProfileError, setStartupProfileError] = useState(null);
+  const activeSessionUserIdRef = useRef(null);
 
   useEffect(() => {
     let handledInitialUrl = false;
@@ -172,6 +182,7 @@ export default function RootLayout() {
     supabase.auth
       .getSession()
       .then(({ data }) => {
+        activeSessionUserIdRef.current = data.session?.user?.id ?? null;
         if (mounted) {
           setSession(data.session ?? null);
         }
@@ -186,6 +197,7 @@ export default function RootLayout() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      activeSessionUserIdRef.current = newSession?.user?.id ?? null;
       if (mounted) {
         setSession(newSession ?? null);
       }
@@ -206,6 +218,28 @@ export default function RootLayout() {
   }, [session]);
 
   useEffect(() => {
+    const userId = session?.user?.id;
+    if (!isDeepWorkSyncEnabled() || !userId) return;
+
+    claimLegacyDeepWorkData(userId)
+      .then(() => triggerDeepWorkSyncForCurrentUser())
+      .catch((error) => {
+        logger.debug('[DeepWorkSync] Bootstrap failed:', error?.code ?? 'UNKNOWN');
+      });
+  }, [session?.user?.id, session?.access_token]);
+
+  useEffect(() => {
+    if (!isDeepWorkSyncEnabled()) return undefined;
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') return;
+      triggerDeepWorkSyncForCurrentUser().catch((error) => {
+        logger.debug('[DeepWorkSync] AppState sync failed:', error?.code ?? 'UNKNOWN');
+      });
+    });
+    return () => subscription?.remove?.();
+  }, []);
+
+  useEffect(() => {
     if (session === undefined) return;
 
     preloadRatingIconAssets().catch((err) => {
@@ -216,8 +250,12 @@ export default function RootLayout() {
   const reloadStartupProfile = useCallback(async () => {
     if (!session?.user?.id) {
       setStartupProfile(null);
+      setStartupProfileError(null);
       return null;
     }
+
+    setStartupProfileLoading(true);
+    setStartupProfileError(null);
 
     try {
       const profile = await loadProfileData(session.user.id);
@@ -225,10 +263,22 @@ export default function RootLayout() {
 
       return profile;
     } catch (err) {
-      logger.debug('Profil konnte nicht neu geladen werden:', err);
-      return null;
+      logger.error('Profil konnte nicht neu geladen werden:', err);
+      setStartupProfileError(err);
+      throw err;
+    } finally {
+      setStartupProfileLoading(false);
     }
   }, [session?.user?.id]);
+
+  const applyStartupProfile = useCallback((profileOrPatch) => {
+    const expectedUserId = activeSessionUserIdRef.current;
+    if (!expectedUserId) return;
+
+    setStartupProfile((currentProfile) => (
+      mergeConfirmedProfile(currentProfile, profileOrPatch, expectedUserId)
+    ));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -237,16 +287,26 @@ export default function RootLayout() {
       try {
         if (!session?.user?.id) {
           setStartupProfile(null);
+          setStartupProfileError(null);
           return;
         }
 
+        setStartupProfileLoading(true);
+        setStartupProfileError(null);
         const profile = await loadProfileData(session.user.id);
 
         if (!cancelled) {
           setStartupProfile(profile);
         }
       } catch (err) {
-        logger.debug('Profil konnte im Hintergrund nicht geladen werden:', err);
+        logger.error('Profil konnte im Hintergrund nicht geladen werden:', err);
+        if (!cancelled) {
+          setStartupProfileError(err);
+        }
+      } finally {
+        if (!cancelled) {
+          setStartupProfileLoading(false);
+        }
       }
     }
 
@@ -262,9 +322,18 @@ export default function RootLayout() {
   const startupProfileValue = useMemo(
     () => ({
       profile: startupProfile,
+      loading: startupProfileLoading,
+      error: startupProfileError,
       reloadProfile: reloadStartupProfile,
+      applyProfile: applyStartupProfile,
     }),
-    [startupProfile, reloadStartupProfile]
+    [
+      startupProfile,
+      startupProfileLoading,
+      startupProfileError,
+      reloadStartupProfile,
+      applyStartupProfile,
+    ]
   );
 
 

@@ -9,6 +9,8 @@ import type { ProfilesReadRepository } from './profilesReadRepository.js';
 const profileReadSelection = {
   id: profiles.id,
   username: profiles.username,
+  bio: profiles.bio,
+  avatarPath: profiles.avatarPath,
   growPoints: profiles.growPoints,
   role: profiles.role,
   createdAt: profiles.createdAt,

@@ -19,7 +19,8 @@
       "bundleIdentifier": "app.joingrow.grow",
       "buildNumber": "37",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "Grow benötigt Zugriff auf deine Fotos, damit du Feedback-Bilder anhängen kannst.",
+        "NSPhotoLibraryUsageDescription": "Grow benötigt Zugriff auf deine Fotos, damit du Profil- oder Feedback-Bilder auswählen kannst.",
+        "NSCameraUsageDescription": "Grow benötigt Zugriff auf deine Kamera, damit du ein Profilbild aufnehmen kannst.",
         "NSMotionUsageDescription": "Grow nutzt Bewegungsdaten, um deine Schritte im Active Tracker anzuzeigen.",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -40,7 +41,15 @@
       "@react-native-community/datetimepicker",
       "expo-asset",
       "expo-font",
-      "expo-audio"
+      "expo-audio",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Grow benötigt Zugriff auf deine Fotos, damit du Profil- oder Feedback-Bilder auswählen kannst.",
+          "cameraPermission": "Grow benötigt Zugriff auf deine Kamera, damit du ein Profilbild aufnehmen kannst.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "extra": {
       "router": {},

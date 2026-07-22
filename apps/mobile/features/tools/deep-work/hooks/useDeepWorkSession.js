@@ -7,8 +7,14 @@ import {
   saveDeepWorkSession,
   clearDeepWorkSession,
   getSavedDeepWorkSession,
+  finalizeDeepWorkSession,
+  claimLegacyDeepWorkData,
   addCompletedDeepWorkSession,
 } from '../services/deepWorkStore';
+import { createDeepWorkClientSessionId } from '../services/deepWorkClientId';
+import { isDeepWorkSyncEnabled } from '../services/deepWorkSyncConfig';
+import { triggerDeepWorkSyncForCurrentUser } from '../services/deepWorkSyncWorker';
+import { supabase } from '../../../../services/supabaseClient';
 
 import {
   DEFAULT_SESSION_MINUTES,
@@ -40,7 +46,7 @@ export function useDeepWorkSession() {
   const intervalRef = useRef(null);
   const mountedRef = useRef(true);
   const startLockRef = useRef(false);
-  const endLockRef = useRef(false);
+  const finalizationFlightRef = useRef(null);
   const completedRef = useRef(false);
   const latestSessionRef = useRef({
     phase: 'idle',
@@ -49,10 +55,31 @@ export function useDeepWorkSession() {
     taskName: '',
     category: '',
     endTimestamp: null,
+    ownerUserId: null,
+    clientSessionId: null,
+    startedAt: null,
+    completionIntent: null,
   });
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const donePlayer = useAudioPlayer(deepWorkDoneSound);
+
+  const getCurrentUserId = useCallback(async () => {
+    if (!isDeepWorkSyncEnabled()) return null;
+    const { data: { session } = {} } = await supabase.auth.getSession();
+    return session?.user?.id || null;
+  }, []);
+
+  const assertCurrentOwner = useCallback(async (snapshot) => {
+    if (!isDeepWorkSyncEnabled()) return null;
+    const currentUserId = await getCurrentUserId();
+    if ((snapshot?.ownerUserId || null) !== currentUserId) {
+      const error = new Error('The active Deep Work session belongs to another user.');
+      error.code = 'DEEP_WORK_SESSION_OWNER_MISMATCH';
+      throw error;
+    }
+    return currentUserId;
+  }, [getCurrentUserId]);
 
   const clearTicker = useCallback(() => {
     if (intervalRef.current) {
@@ -68,9 +95,16 @@ export function useDeepWorkSession() {
     };
 
     if (snapshot.phase === 'idle') {
-      await clearDeepWorkSession();
+      if (isDeepWorkSyncEnabled()) {
+        const currentUserId = await assertCurrentOwner(snapshot);
+        await clearDeepWorkSession(currentUserId);
+      } else {
+        await clearDeepWorkSession();
+      }
       return;
     }
+
+    if (isDeepWorkSyncEnabled()) await assertCurrentOwner(snapshot);
 
     await saveDeepWorkSession({
       phase: snapshot.phase,
@@ -82,8 +116,38 @@ export function useDeepWorkSession() {
       endTimestamp: snapshot.phase === 'running'
         ? snapshot.endTimestamp
         : null,
+      ownerUserId: snapshot.ownerUserId,
+      clientSessionId: snapshot.clientSessionId,
+      startedAt: snapshot.startedAt,
+      legacyClaimEligible: snapshot.legacyClaimEligible,
+      completionIntent: snapshot.completionIntent,
     });
-  }, []);
+  }, [assertCurrentOwner]);
+
+  const runFinalization = useCallback((snapshot, options) => {
+    if (finalizationFlightRef.current) return finalizationFlightRef.current;
+    const operation = (async () => {
+      const expectedUserId = isDeepWorkSyncEnabled()
+        ? await assertCurrentOwner(snapshot)
+        : undefined;
+      const result = await finalizeDeepWorkSession({
+        session: snapshot,
+        expectedUserId,
+        ...options,
+      });
+      if (isDeepWorkSyncEnabled()) {
+        triggerDeepWorkSyncForCurrentUser().catch((error) => {
+          logger.debug('[DeepWorkSync] Immediate sync failed:', error?.code ?? 'UNKNOWN');
+        });
+      }
+      return result;
+    })();
+    finalizationFlightRef.current = operation;
+    operation.finally(() => {
+      if (finalizationFlightRef.current === operation) finalizationFlightRef.current = null;
+    }).catch(() => {});
+    return operation;
+  }, [assertCurrentOwner]);
 
   const playDoneSound = useCallback(() => {
     try {
@@ -94,21 +158,47 @@ export function useDeepWorkSession() {
     }
   }, [donePlayer]);
 
+  const restoreIntoState = useCallback((saved) => {
+    setPhase(saved.phase || 'paused');
+    setRemaining(saved.remaining || 0);
+    setTotalMinutes(Math.ceil((saved.totalSeconds || saved.remaining || 0) / 60));
+    setTaskName(saved.taskName || 'Deep Work');
+    setCategory(saved.category || 'Fokus');
+    setEndTimestamp(saved.phase === 'running' ? saved.endTimestamp : null);
+    latestSessionRef.current = {
+      phase: saved.phase || 'paused',
+      remaining: saved.remaining || 0,
+      totalMinutes: Math.ceil((saved.totalSeconds || saved.remaining || 0) / 60),
+      taskName: saved.taskName || 'Deep Work',
+      category: saved.category || 'Fokus',
+      endTimestamp: saved.phase === 'running' ? saved.endTimestamp : null,
+      ownerUserId: saved.ownerUserId || null,
+      clientSessionId: saved.clientSessionId || null,
+      startedAt: saved.startedAt || null,
+      legacyClaimEligible: saved.legacyClaimEligible === true,
+      completionIntent: saved.completionIntent || null,
+    };
+  }, []);
+
   useEffect(() => {
     mountedRef.current = true;
 
     const restoreSession = async () => {
       try {
+        if (isDeepWorkSyncEnabled()) {
+          const currentUserId = await getCurrentUserId();
+          if (currentUserId) {
+            await claimLegacyDeepWorkData(currentUserId);
+          }
+          const saved = await getSavedDeepWorkSession(currentUserId);
+          if (!mountedRef.current || !saved) return;
+          restoreIntoState(saved);
+          return;
+        }
         const saved = await getSavedDeepWorkSession();
 
         if (!mountedRef.current || !saved) return;
-
-        setPhase(saved.phase || 'paused');
-        setRemaining(saved.remaining || 0);
-        setTotalMinutes(Math.ceil((saved.totalSeconds || saved.remaining || 0) / 60));
-        setTaskName(saved.taskName || 'Deep Work');
-        setCategory(saved.category || 'Fokus');
-        setEndTimestamp(saved.phase === 'running' ? saved.endTimestamp : null);
+        restoreIntoState(saved);
       } catch (e) {
         logger.debug('Fehler beim Wiederherstellen der Deep-Work-Session:', e);
       }
@@ -120,7 +210,41 @@ export function useDeepWorkSession() {
       mountedRef.current = false;
       clearTicker();
     };
-  }, [clearTicker]);
+  }, [clearTicker, getCurrentUserId, restoreIntoState]);
+
+  useEffect(() => {
+    if (!isDeepWorkSyncEnabled()) return undefined;
+    const { data: { subscription } = {} } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      const nextUserId = nextSession?.user?.id || null;
+      const snapshot = latestSessionRef.current;
+      if ((snapshot.ownerUserId || null) !== nextUserId) {
+        clearTicker();
+        latestSessionRef.current = {
+          ...snapshot,
+          phase: 'idle',
+          remaining: 0,
+          endTimestamp: null,
+          ownerUserId: null,
+          clientSessionId: null,
+          completionIntent: null,
+        };
+        if (mountedRef.current) {
+          setPhase('idle');
+          setRemaining(0);
+          setEndTimestamp(null);
+        }
+      }
+
+      getSavedDeepWorkSession(nextUserId)
+        .then((saved) => {
+          if (mountedRef.current && saved) restoreIntoState(saved);
+        })
+        .catch((e) => {
+          logger.debug('Deep-Work-Session konnte nach Auth-Wechsel nicht geladen werden:', e?.code ?? 'UNKNOWN');
+        });
+    });
+    return () => subscription?.unsubscribe();
+  }, [clearTicker, restoreIntoState]);
 
   useEffect(() => {
     latestSessionRef.current = {
@@ -130,6 +254,11 @@ export function useDeepWorkSession() {
       taskName,
       category,
       endTimestamp,
+      ownerUserId: latestSessionRef.current.ownerUserId,
+      clientSessionId: latestSessionRef.current.clientSessionId,
+      startedAt: latestSessionRef.current.startedAt,
+      legacyClaimEligible: latestSessionRef.current.legacyClaimEligible,
+      completionIntent: latestSessionRef.current.completionIntent,
     };
   }, [phase, remaining, totalMinutes, taskName, category, endTimestamp]);
 
@@ -177,26 +306,40 @@ export function useDeepWorkSession() {
       if (left <= 0) {
         clearTicker();
 
+        const showCompletedState = () => {
+          if (!mountedRef.current) return;
+          setRemaining(0);
+          setEndTimestamp(null);
+          setPhase('idle');
+          setDoneVisible(true);
+        };
+
         if (!completedRef.current) {
           completedRef.current = true;
           const completedSeconds = totalMinutes * 60;
 
           playDoneSound();
 
-          addCompletedDeepWorkSession(completedSeconds).catch((e) => {
-            logger.debug('Fehler beim Speichern der Deep-Work-Historie:', e);
-          });
-
-          clearDeepWorkSession().catch((e) => {
-            logger.debug('Fehler beim Löschen der Deep-Work-Session:', e);
-          });
-        }
-
-        if (mountedRef.current) {
-          setRemaining(0);
-          setEndTimestamp(null);
-          setPhase('idle');
-          setDoneVisible(true);
+          if (!isDeepWorkSyncEnabled()) {
+            addCompletedDeepWorkSession(completedSeconds).catch((e) => {
+              logger.debug('Fehler beim Speichern der Deep-Work-Historie:', e);
+            });
+            clearDeepWorkSession().catch((e) => {
+              logger.debug('Fehler beim Löschen der Deep-Work-Session:', e);
+            });
+            showCompletedState();
+          } else {
+            runFinalization(latestSessionRef.current, {
+              durationSeconds: completedSeconds,
+              completedAt: new Date(endTimestamp).toISOString(),
+              reason: 'natural',
+            })
+              .then(showCompletedState)
+              .catch((e) => {
+                completedRef.current = false;
+                logger.debug('Fehler beim Speichern der Deep-Work-Historie:', e?.code ?? 'UNKNOWN');
+              });
+          }
         }
         return;
       }
@@ -208,7 +351,7 @@ export function useDeepWorkSession() {
     intervalRef.current = setInterval(updateRemaining, 1000);
 
     return clearTicker;
-  }, [phase, appState, endTimestamp, totalMinutes, playDoneSound, clearTicker]);
+  }, [phase, appState, endTimestamp, totalMinutes, playDoneSound, clearTicker, runFinalization]);
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {
@@ -254,7 +397,31 @@ export function useDeepWorkSession() {
     const cat = customCategory.trim() || selCategory || 'Fokus';
     const seconds = mins * 60;
     const name = inputTask.trim() || 'Deep Work';
-    const sessionEndTimestamp = Date.now() + seconds * 1000;
+    const startedAtMs = Date.now();
+    const sessionEndTimestamp = startedAtMs + seconds * 1000;
+    let syncMetadata = {};
+
+    if (isDeepWorkSyncEnabled()) {
+      try {
+        const ownerUserId = await getCurrentUserId();
+        syncMetadata = {
+          schemaVersion: 2,
+          ownerUserId,
+          clientSessionId: createDeepWorkClientSessionId(),
+          startedAt: new Date(startedAtMs).toISOString(),
+          legacyClaimEligible: false,
+        };
+      } catch (e) {
+        logger.debug('Deep-Work-Sync-Nutzer konnte nicht geladen werden:', e?.code ?? 'UNKNOWN');
+        syncMetadata = {
+          schemaVersion: 2,
+          ownerUserId: null,
+          clientSessionId: createDeepWorkClientSessionId(),
+          startedAt: new Date(startedAtMs).toISOString(),
+          legacyClaimEligible: false,
+        };
+      }
+    }
 
     try {
       await saveDeepWorkSession({
@@ -265,6 +432,7 @@ export function useDeepWorkSession() {
         category: cat,
         updatedAt: Date.now(),
         endTimestamp: sessionEndTimestamp,
+        ...syncMetadata,
       });
 
       completedRef.current = false;
@@ -276,6 +444,19 @@ export function useDeepWorkSession() {
       setTotalMinutes(mins);
       setRemaining(seconds);
       setEndTimestamp(sessionEndTimestamp);
+      latestSessionRef.current = {
+        phase: 'running',
+        remaining: seconds,
+        totalMinutes: mins,
+        taskName: name,
+        category: cat,
+        endTimestamp: sessionEndTimestamp,
+        ownerUserId: syncMetadata.ownerUserId || null,
+        clientSessionId: syncMetadata.clientSessionId || null,
+        startedAt: syncMetadata.startedAt || null,
+        legacyClaimEligible: syncMetadata.legacyClaimEligible === true,
+        completionIntent: null,
+      };
       setSetupVisible(false);
       setPhase('running');
     } catch (e) {
@@ -286,7 +467,7 @@ export function useDeepWorkSession() {
         setIsStarting(false);
       }
     }
-  }, [inputTask, selHours, selMinutes, selCategory, customCategory]);
+  }, [inputTask, selHours, selMinutes, selCategory, customCategory, getCurrentUserId]);
 
   const togglePause = useCallback(() => {
     const snapshot = latestSessionRef.current;
@@ -300,23 +481,33 @@ export function useDeepWorkSession() {
       ? Date.now() + nextRemaining * 1000
       : null;
 
-    setRemaining(nextRemaining);
-    setEndTimestamp(nextEndTimestamp);
-    setPhase(nextPhase);
+    const applyToggle = () => {
+      setRemaining(nextRemaining);
+      setEndTimestamp(nextEndTimestamp);
+      setPhase(nextPhase);
 
-    persistCurrentSession({
-      phase: nextPhase,
-      remaining: nextRemaining,
-      endTimestamp: nextEndTimestamp,
-    }).catch((e) => {
-      logger.debug('Fehler beim Speichern des Deep-Work-Pausenstatus:', e);
-    });
-  }, [persistCurrentSession]);
+      persistCurrentSession({
+        phase: nextPhase,
+        remaining: nextRemaining,
+        endTimestamp: nextEndTimestamp,
+      }).catch((e) => {
+        logger.debug('Fehler beim Speichern des Deep-Work-Pausenstatus:', e);
+      });
+    };
+
+    if (!isDeepWorkSyncEnabled()) {
+      applyToggle();
+      return;
+    }
+
+    assertCurrentOwner(snapshot)
+      .then(applyToggle)
+      .catch((e) => {
+        logger.debug('Deep-Work-Session darf nicht verändert werden:', e?.code ?? 'UNKNOWN');
+      });
+  }, [persistCurrentSession, assertCurrentOwner]);
 
   const endSession = useCallback(async () => {
-    if (endLockRef.current) return;
-
-    endLockRef.current = true;
     setIsEnding(true);
     clearTicker();
 
@@ -328,11 +519,11 @@ export function useDeepWorkSession() {
     const completedSeconds = Math.max(totalSeconds - currentRemaining, 0);
 
     try {
-      if (completedSeconds > 0) {
-        await addCompletedDeepWorkSession(completedSeconds);
-      }
-
-      await clearDeepWorkSession();
+      await runFinalization(snapshot, {
+        durationSeconds: completedSeconds,
+        completedAt: new Date().toISOString(),
+        reason: 'manual',
+      });
 
       if (!mountedRef.current) return;
 
@@ -343,12 +534,11 @@ export function useDeepWorkSession() {
     } catch (e) {
       logger.debug('Fehler beim Beenden der Deep-Work-Session:', e);
     } finally {
-      endLockRef.current = false;
       if (mountedRef.current) {
         setIsEnding(false);
       }
     }
-  }, [clearTicker]);
+  }, [clearTicker, runFinalization]);
 
   const openSetup = useCallback(() => {
     setInputTask('');

@@ -28,6 +28,9 @@ export function createLazyProfilesRepository(
     updateProfileByUserId(userId, input) {
       return getRepository().updateProfileByUserId(userId, input);
     },
+    updateAvatarPathByUserId(userId, avatarPath) {
+      return getRepository().updateAvatarPathByUserId!(userId, avatarPath);
+    },
   };
 }
 
@@ -48,9 +51,13 @@ export function createLazyDrizzleProfilesReadRepository(
   };
 }
 
-export function createRuntimeProfileService(): ProfileService {
+export function createRuntimeProfileService(
+  warn?: (context: Record<string, unknown>, message: string) => void,
+): ProfileService {
   return createProfileService(
     createLazyProfilesRepository(),
     createLazyDrizzleProfilesReadRepository(),
+    undefined,
+    warn,
   );
 }

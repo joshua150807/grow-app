@@ -69,6 +69,8 @@ describe('GET /v1/profile/me', () => {
     const readRepository = createReadRepository({
       id: validUser.id,
       username: 'grower',
+      bio: 'Keep growing.',
+      avatarPath: null,
       growPoints: 12,
       role: 'user',
       createdAt: '2026-07-05T10:00:00.000Z',
@@ -90,6 +92,8 @@ describe('GET /v1/profile/me', () => {
       profile: {
         id: validUser.id,
         username: 'grower',
+        bio: 'Keep growing.',
+        avatar_url: null,
         grow_points: 12,
         role: 'user',
         created_at: '2026-07-05T10:00:00.000Z',
@@ -123,6 +127,37 @@ describe('GET /v1/profile/me', () => {
     await app.close();
   });
 
+  it('returns an existing empty bio as an empty string', async () => {
+    const repository: ProfilesRepository = {
+      getProfileByUserId: vi.fn(),
+      updateProfileByUserId: vi.fn(),
+    };
+    const readRepository = createReadRepository({
+      id: validUser.id,
+      username: 'grower',
+      bio: '',
+      avatarPath: null,
+      growPoints: 0,
+      role: 'user',
+      createdAt: null,
+      updatedAt: null,
+    });
+    const app = buildTestApp(createProfileService(repository, readRepository));
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/profile/me',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().profile.bio).toBe('');
+
+    await app.close();
+  });
+
   it('does not accept a foreign user id from query params', async () => {
     const repository: ProfilesRepository = {
       getProfileByUserId: vi.fn(async () => ({
@@ -134,6 +169,8 @@ describe('GET /v1/profile/me', () => {
     const readRepository = createReadRepository({
       id: validUser.id,
       username: 'grower',
+      bio: '',
+      avatarPath: null,
       growPoints: null,
       role: null,
       createdAt: null,
@@ -155,8 +192,9 @@ describe('GET /v1/profile/me', () => {
     expect(response.json().profile).not.toHaveProperty('user_id');
     expect(response.json().profile).not.toHaveProperty('display_name');
     expect(response.json().profile).not.toHaveProperty('name');
-    expect(response.json().profile).not.toHaveProperty('avatar_url');
-    expect(response.json().profile).not.toHaveProperty('bio');
+    expect(response.json().profile).toHaveProperty('avatar_url', null);
+    expect(response.json().profile).toHaveProperty('bio', '');
+    expect(response.json().profile).not.toHaveProperty('avatar_path');
 
     await app.close();
   });
@@ -167,6 +205,9 @@ describe('GET /v1/profile/me', () => {
         throw new AppError(404, 'PROFILE_NOT_FOUND', 'Profile missing.');
       }),
       updateCurrentUserProfile: vi.fn(),
+      createAvatarUpload: vi.fn(),
+      confirmAvatarUpload: vi.fn(),
+      deleteAvatar: vi.fn(),
     };
     const app = buildTestApp(profileService);
 
@@ -260,7 +301,8 @@ describe('PATCH /v1/profile/me', () => {
     ['display_name', 'Grower'],
     ['name', 'Grower'],
     ['avatar_url', 'https://example.com/avatar.png'],
-    ['bio', 'Short bio.'],
+    ['avatar_path', 'user-123/avatar.png'],
+    ['grow_points', 100],
   ])('returns 400 when %s is provided', async (field, value) => {
     const repository: ProfilesRepository = {
       getProfileByUserId: vi.fn(),
@@ -295,6 +337,8 @@ describe('PATCH /v1/profile/me', () => {
       updateProfileByUserId: vi.fn(async () => ({
         id: validUser.id,
         username: 'grower',
+        bio: '',
+        avatar_url: null,
         grow_points: 12,
         role: 'user',
         created_at: '2026-07-05T10:00:00.000Z',
@@ -325,6 +369,8 @@ describe('PATCH /v1/profile/me', () => {
       profile: {
         id: validUser.id,
         username: 'grower',
+        bio: '',
+        avatar_url: null,
         grow_points: 12,
         role: 'user',
         created_at: '2026-07-05T10:00:00.000Z',
@@ -335,8 +381,237 @@ describe('PATCH /v1/profile/me', () => {
     expect(response.json().profile).not.toHaveProperty('recovery_email');
     expect(response.json().profile).not.toHaveProperty('display_name');
     expect(response.json().profile).not.toHaveProperty('name');
-    expect(response.json().profile).not.toHaveProperty('avatar_url');
-    expect(response.json().profile).not.toHaveProperty('bio');
+    expect(response.json().profile).toHaveProperty('avatar_url', null);
+    expect(response.json().profile).toHaveProperty('bio', '');
+    expect(response.json().profile).not.toHaveProperty('avatar_path');
+
+    await app.close();
+  });
+
+  it('updates only bio and returns the complete profile response', async () => {
+    const repository: ProfilesRepository = {
+      getProfileByUserId: vi.fn(async () => ({
+        id: validUser.id,
+        username: 'grower',
+      })),
+      updateProfileByUserId: vi.fn(async () => ({
+        id: validUser.id,
+        username: 'grower',
+        bio: 'Meine Bio',
+        avatar_url: null,
+        grow_points: 12,
+        role: 'user',
+        created_at: '2026-07-05T10:00:00.000Z',
+        updated_at: '2026-07-05T11:00:00.000Z',
+      })),
+    };
+    const app = buildTestApp(createProfileService(repository));
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/profile/me',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        bio: 'Meine Bio',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(repository.updateProfileByUserId).toHaveBeenCalledWith(validUser.id, {
+      bio: 'Meine Bio',
+    });
+    expect(response.json()).toEqual({
+      profile: {
+        id: validUser.id,
+        username: 'grower',
+        grow_points: 12,
+        role: 'user',
+        created_at: '2026-07-05T10:00:00.000Z',
+        updated_at: '2026-07-05T11:00:00.000Z',
+        bio: 'Meine Bio',
+        avatar_url: null,
+      },
+    });
+    expect(response.json().profile).not.toHaveProperty('avatar_path');
+    expect(response.json().profile).toHaveProperty('avatar_url', null);
+
+    await app.close();
+  });
+
+  it('updates username and bio together', async () => {
+    const repository: ProfilesRepository = {
+      getProfileByUserId: vi.fn(async () => ({
+        id: validUser.id,
+        username: 'old_name',
+      })),
+      updateProfileByUserId: vi.fn(async () => ({
+        id: validUser.id,
+        username: 'grower',
+        bio: 'Meine Bio',
+        grow_points: 12,
+        role: 'user',
+        created_at: null,
+        updated_at: null,
+      })),
+    };
+    const app = buildTestApp(createProfileService(repository));
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/profile/me',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        username: 'Grower',
+        bio: 'Meine Bio',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(repository.updateProfileByUserId).toHaveBeenCalledWith(validUser.id, {
+      username: 'grower',
+      bio: 'Meine Bio',
+    });
+    expect(response.json().profile).toMatchObject({
+      username: 'grower',
+      bio: 'Meine Bio',
+    });
+
+    await app.close();
+  });
+
+  it('trims only the outside of bio and preserves internal line breaks', async () => {
+    const repository: ProfilesRepository = {
+      getProfileByUserId: vi.fn(async () => ({
+        id: validUser.id,
+        username: 'grower',
+      })),
+      updateProfileByUserId: vi.fn(async () => ({
+        id: validUser.id,
+        username: 'grower',
+        bio: 'Erste Zeile\nZweite Zeile',
+        grow_points: 0,
+        role: 'user',
+        created_at: null,
+        updated_at: null,
+      })),
+    };
+    const app = buildTestApp(createProfileService(repository));
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/profile/me',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        bio: '  Erste Zeile\nZweite Zeile  ',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(repository.updateProfileByUserId).toHaveBeenCalledWith(validUser.id, {
+      bio: 'Erste Zeile\nZweite Zeile',
+    });
+
+    await app.close();
+  });
+
+  it('allows an empty bio', async () => {
+    const repository: ProfilesRepository = {
+      getProfileByUserId: vi.fn(async () => ({
+        id: validUser.id,
+        username: 'grower',
+      })),
+      updateProfileByUserId: vi.fn(async () => ({
+        id: validUser.id,
+        username: 'grower',
+        bio: '',
+        grow_points: 0,
+        role: 'user',
+        created_at: null,
+        updated_at: null,
+      })),
+    };
+    const app = buildTestApp(createProfileService(repository));
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/profile/me',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        bio: '   ',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(repository.updateProfileByUserId).toHaveBeenCalledWith(validUser.id, {
+      bio: '',
+    });
+    expect(response.json().profile.bio).toBe('');
+
+    await app.close();
+  });
+
+  it('returns 400 when bio exceeds 100 characters', async () => {
+    const repository: ProfilesRepository = {
+      getProfileByUserId: vi.fn(),
+      updateProfileByUserId: vi.fn(),
+    };
+    const app = buildTestApp(createProfileService(repository));
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/profile/me',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        bio: 'a'.repeat(101),
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('VALIDATION_ERROR');
+    expect(repository.getProfileByUserId).not.toHaveBeenCalled();
+    expect(repository.updateProfileByUserId).not.toHaveBeenCalled();
+
+    await app.close();
+  });
+
+  it('does not map an unrelated unique violation during a bio update to USERNAME_TAKEN', async () => {
+    const repository: ProfilesRepository = {
+      getProfileByUserId: vi.fn(async () => ({
+        id: validUser.id,
+        username: 'grower',
+      })),
+      updateProfileByUserId: vi.fn(async () => {
+        throw {
+          code: '23505',
+          message: 'duplicate key value violates another constraint',
+        };
+      }),
+    };
+    const app = buildTestApp(createProfileService(repository));
+
+    const response = await app.inject({
+      method: 'PATCH',
+      url: '/v1/profile/me',
+      headers: {
+        authorization: 'Bearer valid-token',
+      },
+      payload: {
+        bio: 'Meine Bio',
+      },
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json().error.code).toBe('INTERNAL_ERROR');
 
     await app.close();
   });

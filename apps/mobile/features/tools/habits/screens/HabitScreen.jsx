@@ -6,7 +6,7 @@ import {
   Pressable,
   ImageBackground,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../../constants/colors';
@@ -19,7 +19,9 @@ import {
 } from '../utils/habitUtils';
 
 import { useHabits } from '../hooks/useHabits';
+import { useHabitCollections } from '../hooks/useHabitCollections';
 import { HabitItem } from '../components/HabitItem';
+import { HabitCollectionItem } from '../components/HabitCollectionItem';
 import { AddHabitModal } from '../components/AddHabitModal';
 import { styles } from '../styles/habitStyles';
 import ToolStateCard from '../../../../components/ui/ToolStateCard';
@@ -45,9 +47,6 @@ export default function HabitsScreen() {
     loading,
     loadError,
     actionError,
-    completedCount,
-    total,
-    progress,
     loadHabits,
     setActionError,
     toggle,
@@ -55,6 +54,17 @@ export default function HabitsScreen() {
     add,
     update,
   } = useHabits(selectedDay);
+
+  const {
+    collections,
+    loadCollections,
+  } = useHabitCollections();
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadCollections({ silent: true });
+    }, [loadCollections])
+  );
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingHabit, setEditingHabit] = useState(null);
@@ -70,6 +80,42 @@ export default function HabitsScreen() {
     () => tools.filter((tool) => !tool.disabled && tool.route && tool.id !== 'habits'),
     []
   );
+
+  const collectionChildHabitIds = useMemo(() => {
+    const ids = new Set();
+    collections.forEach(c => {
+      if (c.days.includes(selectedDay)) {
+        c.members.forEach(m => ids.add(m.habit_id));
+      }
+    });
+    return ids;
+  }, [collections, selectedDay]);
+
+  const visibleFreeHabits = useMemo(
+    () => visibleHabits.filter(h => !collectionChildHabitIds.has(h.id)),
+    [visibleHabits, collectionChildHabitIds]
+  );
+
+  const visibleDueCollections = useMemo(() => {
+    return collections
+      .filter(c => c.days.includes(selectedDay) && c.members.length > 0)
+      .map(c => ({
+        ...c,
+        progress_completed: c.members.filter(m => completedIds.has(m.habit_id)).length,
+        progress_total: c.members.length,
+      }));
+  }, [collections, selectedDay, completedIds]);
+
+  const visualProgress = useMemo(() => {
+    const completedHabits = visibleFreeHabits.filter(habit => completedIds.has(habit.id)).length;
+    const completedCollections = visibleDueCollections.filter(
+      collection => collection.progress_total > 0
+        && collection.progress_completed === collection.progress_total
+    ).length;
+    const total = visibleFreeHabits.length + visibleDueCollections.length;
+    const completed = completedHabits + completedCollections;
+    return { completed, total, ratio: total === 0 ? 0 : completed / total };
+  }, [visibleFreeHabits, visibleDueCollections, completedIds]);
 
   const resetModalState = useCallback(() => {
     setEditingHabit(null);
@@ -154,6 +200,10 @@ export default function HabitsScreen() {
     router.push(habit.linked_tool_route);
   }, []);
 
+  const handleOpenCollections = useCallback(() => {
+    router.push('/tools/habits-collections');
+  }, []);
+
   const canSave = inputName.trim().length > 0 && (allDays || modalDays.size > 0);
 
   return (
@@ -214,17 +264,17 @@ export default function HabitsScreen() {
 
         <View style={styles.progressRow}>
           <Text style={styles.sectionTitle}>HEUTE</Text>
-          <Text style={styles.counter}>{completedCount}/{total} erledigt</Text>
+          <Text style={styles.counter}>{visualProgress.completed}/{visualProgress.total} erledigt</Text>
         </View>
         <View style={styles.progressCard}>
           <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
+            <View style={[styles.progressFill, { width: `${visualProgress.ratio * 100}%` }]} />
           </View>
         </View>
 
         {showLoading ? (
           <ToolStateCard loading title="Gewohnheiten werden geladen" subtitle="Dein heutiger Fortschritt wird vorbereitet." />
-        ) : !loading && total === 0 ? (
+        ) : !loading && visibleFreeHabits.length === 0 && visibleDueCollections.length === 0 ? (
           <ToolStateCard
             icon="flame-outline"
             title="Noch keine Gewohnheiten."
@@ -232,7 +282,21 @@ export default function HabitsScreen() {
           />
         ) : !loading ? (
           <View style={styles.list}>
-            {visibleHabits.map((habit) => (
+            {visibleDueCollections.map((collection) => (
+              <HabitCollectionItem
+                key={collection.id}
+                collection={collection}
+                completedCount={collection.progress_completed}
+                total={collection.progress_total}
+                onPress={() => {
+                  router.push({
+                    pathname: '/tools/habits-collection-detail',
+                    params: { collectionId: collection.id },
+                  });
+                }}
+              />
+            ))}
+            {visibleFreeHabits.map((habit) => (
               <HabitItem
                 key={habit.id}
                 habit={habit}
@@ -246,6 +310,11 @@ export default function HabitsScreen() {
             ))}
           </View>
         ) : null}
+
+        <Pressable style={styles.addButton} onPress={handleOpenCollections}>
+          <Ionicons name="albums-outline" size={s(22)} color={COLORS.gold} />
+          <Text style={styles.addText}>Sammlungen verwalten</Text>
+        </Pressable>
 
         <Pressable style={styles.addButton} onPress={openAddModal}>
           <Ionicons name="add-circle-outline" size={s(22)} color={COLORS.gold} />
