@@ -24,6 +24,7 @@
       "cache": {
         "disabled": true
       },
+      "environment": "production",
       "channel": "beta"
     },
     "internal-testflight": {
