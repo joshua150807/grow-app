@@ -6,6 +6,25 @@ export const planIdSchema = uuidSchema;
 export const planRevisionIdSchema = uuidSchema;
 export const unitIdSchema = uuidSchema;
 export const exerciseIdSchema = uuidSchema;
+export const systemExerciseKeySchema = z.string()
+  .min(1)
+  .max(120)
+  .regex(/^[a-z0-9]+(?:_[a-z0-9]+)*$/);
+const asciiBoundaryWhitespacePattern = /^[^ \t\n\r\f\v](?:[\s\S]*[^ \t\n\r\f\v])?$/;
+export const exerciseEquipmentValueSchema = z.string()
+  .min(1)
+  .regex(asciiBoundaryWhitespacePattern, {
+    message: 'Equipment values must not start or end with ASCII whitespace.',
+  });
+export const exerciseEquipmentListSchema = z.array(exerciseEquipmentValueSchema)
+  .superRefine((values, context) => {
+    if (new Set(values).size !== values.length) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Equipment values must be unique.',
+      });
+    }
+  });
 export const sessionIdSchema = uuidSchema;
 export const sessionExerciseIdSchema = uuidSchema;
 export const sessionSetIdSchema = uuidSchema;
@@ -22,6 +41,9 @@ export type PlanId = z.infer<typeof planIdSchema>;
 export type PlanRevisionId = z.infer<typeof planRevisionIdSchema>;
 export type UnitId = z.infer<typeof unitIdSchema>;
 export type ExerciseId = z.infer<typeof exerciseIdSchema>;
+export type SystemExerciseKey = z.infer<typeof systemExerciseKeySchema>;
+export type ExerciseEquipmentValue = z.infer<typeof exerciseEquipmentValueSchema>;
+export type ExerciseEquipmentList = z.infer<typeof exerciseEquipmentListSchema>;
 export type SessionId = z.infer<typeof sessionIdSchema>;
 export type SessionExerciseId = z.infer<typeof sessionExerciseIdSchema>;
 export type SessionSetId = z.infer<typeof sessionSetIdSchema>;

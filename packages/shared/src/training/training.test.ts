@@ -5,6 +5,8 @@ import {
   calculateSetVolumeKg,
   cycleTriggerSchema,
   exerciseCategorySchema,
+  exerciseEquipmentListSchema,
+  exerciseEquipmentValueSchema,
   exerciseScopeSchema,
   exerciseStatusSchema,
   getEffectiveLoadForVolumeKg,
@@ -27,6 +29,7 @@ import {
   sessionOriginSchema,
   setCorrectionInputSchema,
   setTypeSchema,
+  systemExerciseKeySchema,
   targetSetInputSchema,
   trainingUnitTypeSchema,
   versionSchema,
@@ -161,6 +164,43 @@ describe('training primitive schemas', () => {
   it('requires optimistic concurrency versions to start at one', () => {
     expect(versionSchema.safeParse(1).success).toBe(true);
     expect(versionSchema.safeParse(0).success).toBe(false);
+  });
+
+  it('accepts canonical system exercise keys only', () => {
+    for (const value of ['squat', 'barbell_back_squat', 'press_2', 'a'.repeat(120)]) {
+      expect(systemExerciseKeySchema.safeParse(value).success).toBe(true);
+    }
+    for (const value of [
+      '', ' Squat', 'squat ', 'Barbell_Squat', 'barbell-squat',
+      'barbell__squat', '_squat', 'squat_', 'ä_squat', 'a'.repeat(121),
+    ]) {
+      expect(systemExerciseKeySchema.safeParse(value).success, value).toBe(false);
+    }
+  });
+
+  it('matches PostgreSQL ASCII boundary whitespace and exact duplicate semantics', () => {
+    const asciiWhitespace = [' ', '\t', '\n', '\r', '\f', '\v'];
+
+    expect(exerciseEquipmentValueSchema.safeParse('barbell').success).toBe(true);
+    expect(exerciseEquipmentValueSchema.safeParse('bar bell').success).toBe(true);
+    expect(exerciseEquipmentValueSchema.safeParse('bar\tbell\nrack').success).toBe(true);
+    expect(exerciseEquipmentListSchema.safeParse([]).success).toBe(true);
+    expect(exerciseEquipmentListSchema.safeParse(['barbell', 'bench']).success).toBe(true);
+    expect(exerciseEquipmentListSchema.safeParse(['Barbell', 'barbell']).success).toBe(true);
+
+    expect(exerciseEquipmentValueSchema.safeParse('').success).toBe(false);
+    for (const whitespace of asciiWhitespace) {
+      for (const value of [whitespace, `${whitespace}barbell`, `barbell${whitespace}`]) {
+        expect(exerciseEquipmentValueSchema.safeParse(value).success, JSON.stringify(value)).toBe(false);
+      }
+    }
+
+    expect(exerciseEquipmentListSchema.safeParse(['barbell', 'barbell']).success).toBe(false);
+    expect(exerciseEquipmentListSchema.safeParse(['barbell', null]).success).toBe(false);
+
+    const unchanged = 'bar\tbell';
+    const parsed = exerciseEquipmentValueSchema.parse(unchanged);
+    expect(parsed).toBe(unchanged);
   });
 });
 
