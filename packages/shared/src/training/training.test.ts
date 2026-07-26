@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
+import type {
+  SystemExerciseEquipment,
+  SystemExerciseMuscle,
+} from '../index.js';
 import {
   calculateEpleyOneRepMaxKg,
   calculateRunPaceSecondsPerKilometer,
@@ -29,7 +33,9 @@ import {
   sessionOriginSchema,
   setCorrectionInputSchema,
   setTypeSchema,
+  systemExerciseEquipmentSchema,
   systemExerciseKeySchema,
+  systemExerciseMuscleSchema,
   targetSetInputSchema,
   trainingUnitTypeSchema,
   versionSchema,
@@ -131,6 +137,35 @@ describe('training enum schemas', () => {
     expect(persistedSessionStatusSchema.safeParse('completed').success).toBe(true);
     expect(persistedSessionStatusSchema.safeParse('incomplete').success).toBe(true);
     expect(persistedSessionStatusSchema.safeParse('in_progress').success).toBe(false);
+  });
+
+  it('exports the canonical system exercise taxonomies and inferred types', () => {
+    const muscles = [
+      'abs', 'abductors', 'adductors', 'biceps', 'calves', 'chest', 'forearms',
+      'front_delts', 'glutes', 'hamstrings', 'hip_flexors', 'lats', 'lower_back',
+      'obliques', 'quadriceps', 'rear_delts', 'side_delts', 'traps', 'triceps',
+      'upper_back',
+    ] as const;
+    const equipment = [
+      'barbell', 'bench', 'cable', 'dip_bars', 'dumbbell', 'elliptical', 'ez_bar',
+      'kettlebell', 'landmine', 'machine', 'mat', 'pull_up_bar', 'plyo_box',
+      'rowing_machine', 'smith_machine', 'squat_rack', 'stair_climber',
+      'stationary_bike', 'treadmill', 'trap_bar',
+    ] as const;
+
+    expect(systemExerciseMuscleSchema.options).toEqual(muscles);
+    expect(systemExerciseEquipmentSchema.options).toEqual(equipment);
+    for (const value of muscles) {
+      expect(systemExerciseMuscleSchema.safeParse(value).success, value).toBe(true);
+    }
+    for (const value of equipment) {
+      expect(systemExerciseEquipmentSchema.safeParse(value).success, value).toBe(true);
+    }
+    expect(systemExerciseMuscleSchema.safeParse('unknown').success).toBe(false);
+    expect(systemExerciseEquipmentSchema.safeParse('unknown').success).toBe(false);
+
+    expectTypeOf<SystemExerciseMuscle>().toEqualTypeOf<(typeof muscles)[number]>();
+    expectTypeOf<SystemExerciseEquipment>().toEqualTypeOf<(typeof equipment)[number]>();
   });
 });
 

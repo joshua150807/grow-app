@@ -19,6 +19,54 @@ export const loadTypeSchema = z.enum([
 ]);
 export type LoadType = z.infer<typeof loadTypeSchema>;
 
+export const systemExerciseMuscleSchema = z.enum([
+  'abs',
+  'abductors',
+  'adductors',
+  'biceps',
+  'calves',
+  'chest',
+  'forearms',
+  'front_delts',
+  'glutes',
+  'hamstrings',
+  'hip_flexors',
+  'lats',
+  'lower_back',
+  'obliques',
+  'quadriceps',
+  'rear_delts',
+  'side_delts',
+  'traps',
+  'triceps',
+  'upper_back',
+]);
+export type SystemExerciseMuscle = z.infer<typeof systemExerciseMuscleSchema>;
+
+export const systemExerciseEquipmentSchema = z.enum([
+  'barbell',
+  'bench',
+  'cable',
+  'dip_bars',
+  'dumbbell',
+  'elliptical',
+  'ez_bar',
+  'kettlebell',
+  'landmine',
+  'machine',
+  'mat',
+  'pull_up_bar',
+  'plyo_box',
+  'rowing_machine',
+  'smith_machine',
+  'squat_rack',
+  'stair_climber',
+  'stationary_bike',
+  'treadmill',
+  'trap_bar',
+]);
+export type SystemExerciseEquipment = z.infer<typeof systemExerciseEquipmentSchema>;
+
 export const personalPlanStatusSchema = z.enum(['draft', 'scheduled', 'active', 'archived']);
 export type PersonalPlanStatus = z.infer<typeof personalPlanStatusSchema>;
 
