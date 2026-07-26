@@ -1,0 +1,369 @@
+import type {
+  CreateTrainingPlanInput, PlanTreeInput, TrainingPlan, TrainingPlanSummary, UpdateTrainingPlanInput,
+} from '@grow/shared';
+import type pg from 'pg';
+import { getPgPool } from '../../db/client.js';
+
+type Database = Pick<pg.Pool, 'query' | 'connect'>;
+type Client = pg.PoolClient;
+export type MutationResult =
+  | { outcome: 'ok'; planId: string }
+  | { outcome: 'not_found' | 'version_conflict' | 'status_conflict' | 'schedule_conflict' };
+export type TrainingPlanRepository = {
+  list(userId: string): Promise<TrainingPlanSummary[]>;
+  find(userId: string, planId: string): Promise<TrainingPlan | null>;
+  create(userId: string, input: CreateTrainingPlanInput): Promise<string>;
+  update(userId: string, planId: string, input: UpdateTrainingPlanInput): Promise<MutationResult>;
+  activate(userId: string, planId: string, expectedVersion: number, reactivation: boolean): Promise<MutationResult>;
+  schedule(userId: string, planId: string, expectedVersion: number, effectiveAt: Date, timeZone: string): Promise<MutationResult>;
+  archive(userId: string, planId: string, expectedVersion: number): Promise<MutationResult>;
+  updateWeeklyGoal(userId: string, planId: string, expectedVersion: number, weeklyGoal: number): Promise<MutationResult>;
+};
+
+type PlanRow = {
+  id: string; name: string; status: TrainingPlanSummary['status']; version: number;
+  current_revision_id: string | null; weekly_goal: number | null;
+  created_at: Date | string; updated_at: Date | string;
+  activated_at: Date | string | null; archived_at: Date | string | null;
+};
+type ExerciseRow = { id: string; scope: 'system' | 'user'; owner_user_id: string | null };
+
+const iso = (value: Date | string) => new Date(value).toISOString();
+const nullableIso = (value: Date | string | null) => value === null ? null : iso(value);
+const planSummarySelect = `
+  select plan.id,plan.name,plan.status,plan.version,plan.current_revision_id,
+    plan.created_at,plan.updated_at,plan.activated_at,plan.archived_at,
+    (select goal.target_sessions_per_week from public.training_weekly_goal_versions_v2 goal
+     where goal.plan_id=plan.id and goal.user_id=plan.user_id
+     order by goal.effective_from desc limit 1) as weekly_goal
+  from public.training_plans_v2 plan`;
+
+function mapSummary(row: PlanRow): TrainingPlanSummary {
+  return {
+    id: String(row.id), name: String(row.name), status: row.status, version: Number(row.version),
+    currentRevisionId: row.current_revision_id === null ? null : String(row.current_revision_id),
+    weeklyGoal: row.weekly_goal === null ? null : Number(row.weekly_goal),
+    createdAt: iso(row.created_at), updatedAt: iso(row.updated_at),
+    activatedAt: nullableIso(row.activated_at), archivedAt: nullableIso(row.archived_at),
+  };
+}
+
+async function transaction<T>(db: Database, operation: (client: Client) => Promise<T>): Promise<T> {
+  const client = await db.connect();
+  try {
+    await client.query('begin');
+    const result = await operation(client);
+    await client.query('commit');
+    return result;
+  } catch (error) {
+    await client.query('rollback');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function insertTree(
+  client: Client, userId: string, planId: string, revisionNumber: number, input: PlanTreeInput,
+) {
+  const requestedIds = [...new Set(input.units.flatMap((unit) => unit.exercises.map((item) => item.exerciseId)))];
+  const available = requestedIds.length === 0 ? { rows: [] as ExerciseRow[] } : await client.query<ExerciseRow>(`
+    select id,scope,owner_user_id from public.training_exercises_v2
+    where id=any($1::uuid[]) and status='active'
+      and ((scope='system' and owner_user_id is null) or (scope='user' and owner_user_id=$2))
+    for share
+  `, [requestedIds, userId]);
+  const exercises = new Map(available.rows.map((row) => [String(row.id), row]));
+  if (exercises.size !== requestedIds.length) {
+    const error = new Error('One or more exercises are unavailable.');
+    error.name = 'TrainingExerciseNotAvailableError';
+    throw error;
+  }
+  const revision = await client.query<{ id: string }>(`
+    insert into public.training_plan_revisions_v2(plan_id,user_id,revision_number)
+    values ($1,$2,$3) returning id`, [planId, userId, revisionNumber]);
+  const revisionId = String(revision.rows[0].id);
+  const units: Array<{ id: string; logicalKey: string; orderIndex: number }> = [];
+  for (const unit of [...input.units].sort((a, b) => a.orderIndex - b.orderIndex)) {
+    const insertedUnit = await client.query<{ id: string }>(`
+      insert into public.training_plan_units_v2
+        (revision_id,plan_id,user_id,logical_unit_key,name,unit_type,order_index)
+      values ($1,$2,$3,$4,$5,$6,$7) returning id
+    `, [revisionId, planId, userId, unit.logicalUnitKey, unit.name, unit.unitType, unit.orderIndex]);
+    const unitId = String(insertedUnit.rows[0].id);
+    units.push({ id: unitId, logicalKey: unit.logicalUnitKey, orderIndex: unit.orderIndex });
+    for (const exercise of [...unit.exercises].sort((a, b) => a.orderIndex - b.orderIndex)) {
+      const source = exercises.get(exercise.exerciseId)!;
+      const insertedExercise = await client.query<{ id: string }>(`
+        insert into public.training_plan_exercises_v2
+          (unit_id,revision_id,plan_id,user_id,exercise_id,exercise_scope,exercise_owner_user_id,
+           logical_target_exercise_key,order_index,note)
+        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id
+      `, [unitId, revisionId, planId, userId, exercise.exerciseId, source.scope,
+        source.owner_user_id, exercise.logicalTargetExerciseKey, exercise.orderIndex, exercise.note]);
+      const targetExerciseId = String(insertedExercise.rows[0].id);
+      for (const set of [...exercise.targetSets].sort((a, b) => a.orderIndex - b.orderIndex)) {
+        await client.query(`
+          insert into public.training_plan_target_sets_v2
+            (target_exercise_id,unit_id,revision_id,plan_id,user_id,logical_target_set_key,
+             order_index,set_type,target_weight_kg,target_reps_min,target_reps_max,target_rir,
+             planned_rest_seconds,imported_from_legacy_plan)
+          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+        `, [targetExerciseId, unitId, revisionId, planId, userId, set.logicalTargetSetKey,
+          set.orderIndex, set.setType, set.targetWeightKg, set.targetReps?.minimum ?? null,
+          set.targetReps?.maximum ?? null, set.targetRir, set.plannedRestSeconds,
+          set.importedFromLegacyPlan]);
+      }
+    }
+  }
+  return { revisionId, units };
+}
+
+async function resetCycle(
+  client: Client, userId: string, planId: string, revisionId: string,
+  trigger: 'plan_activated' | 'plan_reactivated',
+) {
+  const first = await client.query<{ id: string; order_index: number }>(`
+    select id,order_index from public.training_plan_units_v2
+    where revision_id=$1 and plan_id=$2 and user_id=$3 order by order_index limit 1
+  `, [revisionId, planId, userId]);
+  if (!first.rows[0]) throw new Error('Training plan has no unit.');
+  await client.query(`
+    insert into public.training_plan_cycle_states_v2
+      (plan_id,user_id,revision_id,next_unit_id,next_order_index,last_trigger,version,advanced_at)
+    values ($1,$2,$3,$4,$5,$6,1,now())
+    on conflict(plan_id) do update set
+      user_id=excluded.user_id,revision_id=excluded.revision_id,next_unit_id=excluded.next_unit_id,
+      next_order_index=excluded.next_order_index,last_trigger=excluded.last_trigger,
+      version=public.training_plan_cycle_states_v2.version+1,advanced_at=now()
+  `, [planId, userId, revisionId, first.rows[0].id, first.rows[0].order_index, trigger]);
+}
+
+async function loadPlan(db: Pick<pg.Pool | Client, 'query'>, userId: string, planId: string): Promise<TrainingPlan | null> {
+  const plans = await db.query<PlanRow>(`${planSummarySelect}
+    where plan.user_id=$1 and plan.id=$2 and plan.current_revision_id is not null`, [userId, planId]);
+  const plan = plans.rows[0];
+  if (!plan?.current_revision_id) return null;
+  const revisions = await db.query<{ id: string; revision_number: number; created_at: Date | string }>(`
+    select id,revision_number,created_at from public.training_plan_revisions_v2
+    where id=$1 and plan_id=$2 and user_id=$3
+  `, [plan.current_revision_id, planId, userId]);
+  const revision = revisions.rows[0];
+  if (!revision) return null;
+  const units = await db.query<{
+    id: string; logical_unit_key: string; name: string;
+    unit_type: TrainingPlan['revision']['units'][number]['unitType']; order_index: number;
+  }>(`select id,logical_unit_key,name,unit_type,order_index from public.training_plan_units_v2
+      where revision_id=$1 and plan_id=$2 and user_id=$3 order by order_index`,
+  [revision.id, planId, userId]);
+  const targetExercises = await db.query<{
+    id: string; unit_id: string; logical_target_exercise_key: string;
+    exercise_id: string; order_index: number; note: string | null;
+  }>(`select id,unit_id,logical_target_exercise_key,exercise_id,order_index,note
+      from public.training_plan_exercises_v2
+      where revision_id=$1 and plan_id=$2 and user_id=$3 order by unit_id,order_index`,
+  [revision.id, planId, userId]);
+  const targetSets = await db.query<{
+    id: string; target_exercise_id: string; logical_target_set_key: string; order_index: number;
+    set_type: 'warmup' | 'work' | 'drop'; target_weight_kg: string | number | null;
+    target_reps_min: number | null; target_reps_max: number | null; target_rir: number | null;
+    planned_rest_seconds: number; imported_from_legacy_plan: boolean;
+  }>(`select id,target_exercise_id,logical_target_set_key,order_index,set_type,target_weight_kg,
+        target_reps_min,target_reps_max,target_rir,planned_rest_seconds,imported_from_legacy_plan
+      from public.training_plan_target_sets_v2
+      where revision_id=$1 and plan_id=$2 and user_id=$3 order by target_exercise_id,order_index`,
+  [revision.id, planId, userId]);
+  return {
+    ...mapSummary(plan),
+    revision: {
+      id: String(revision.id), revisionNumber: Number(revision.revision_number),
+      createdAt: iso(revision.created_at),
+      units: units.rows.map((unit) => ({
+        id: String(unit.id), logicalUnitKey: String(unit.logical_unit_key), name: String(unit.name),
+        unitType: unit.unit_type, orderIndex: Number(unit.order_index),
+        exercises: targetExercises.rows.filter((item) => item.unit_id === unit.id).map((item) => ({
+          id: String(item.id), logicalTargetExerciseKey: String(item.logical_target_exercise_key),
+          exerciseId: String(item.exercise_id), orderIndex: Number(item.order_index), note: item.note,
+          targetSets: targetSets.rows.filter((set) => set.target_exercise_id === item.id).map((set) => ({
+            id: String(set.id), logicalTargetSetKey: String(set.logical_target_set_key),
+            orderIndex: Number(set.order_index), setType: set.set_type,
+            targetWeightKg: set.target_weight_kg === null ? null : Number(set.target_weight_kg),
+            targetReps: set.target_reps_min === null || set.target_reps_max === null ? null
+              : { minimum: Number(set.target_reps_min), maximum: Number(set.target_reps_max) },
+            targetRir: set.target_rir === null ? null : Number(set.target_rir),
+            plannedRestSeconds: Number(set.planned_rest_seconds),
+            importedFromLegacyPlan: Boolean(set.imported_from_legacy_plan),
+          })),
+        })),
+      })),
+    },
+  };
+}
+
+export function createTrainingPlanRepository(db: Database = getPgPool()): TrainingPlanRepository {
+  return {
+    async list(userId) {
+      const result = await db.query<PlanRow>(`${planSummarySelect}
+        where plan.user_id=$1 and plan.status in ('active','scheduled','archived')
+        order by case plan.status when 'active' then 0 when 'scheduled' then 1 else 2 end,
+          plan.updated_at desc`, [userId]);
+      return result.rows.map(mapSummary);
+    },
+    find(userId, planId) { return loadPlan(db, userId, planId); },
+    create(userId, input) {
+      return transaction(db, async (client) => {
+        if (input.activateImmediately) {
+          await client.query(`update public.training_plans_v2
+            set status='archived',archived_at=now(),version=version+1
+            where user_id=$1 and status='active'`, [userId]);
+        }
+        const plans = await client.query<{ id: string }>(`
+          insert into public.training_plans_v2(user_id,name,status,activated_at)
+          values ($1,$2,$3,case when $3='active' then now() else null end) returning id
+        `, [userId, input.name, input.activateImmediately ? 'active' : 'draft']);
+        const planId = String(plans.rows[0].id);
+        const tree = await insertTree(client, userId, planId, 1, input);
+        await client.query(`update public.training_plans_v2 set current_revision_id=$1
+          where id=$2 and user_id=$3`, [tree.revisionId, planId, userId]);
+        await client.query(`insert into public.training_weekly_goal_versions_v2
+          (plan_id,user_id,target_sessions_per_week,effective_from) values ($1,$2,$3,now())`,
+        [planId, userId, input.weeklyGoal]);
+        if (input.activateImmediately) {
+          await resetCycle(client, userId, planId, tree.revisionId, 'plan_activated');
+        }
+        return planId;
+      });
+    },
+    update(userId, planId, input) {
+      return transaction(db, async (client): Promise<MutationResult> => {
+        const currentRows = await client.query<{
+          version: number; current_revision_id: string; revision_number: number;
+        }>(`select plan.version,plan.current_revision_id,revision.revision_number
+            from public.training_plans_v2 plan join public.training_plan_revisions_v2 revision
+              on revision.id=plan.current_revision_id and revision.plan_id=plan.id
+              and revision.user_id=plan.user_id
+            where plan.id=$1 and plan.user_id=$2 for update of plan`, [planId, userId]);
+        const current = currentRows.rows[0];
+        if (!current) return { outcome: 'not_found' };
+        if (Number(current.version) !== input.expectedVersion) return { outcome: 'version_conflict' };
+        const cycleRows = await client.query<{ logical_unit_key: string; order_index: number }>(`
+          select unit.logical_unit_key,unit.order_index from public.training_plan_cycle_states_v2 cycle
+          join public.training_plan_units_v2 unit on unit.id=cycle.next_unit_id
+            and unit.revision_id=cycle.revision_id and unit.plan_id=cycle.plan_id
+            and unit.user_id=cycle.user_id where cycle.plan_id=$1 and cycle.user_id=$2`,
+        [planId, userId]);
+        const oldUnits = await client.query<{ logical_unit_key: string; order_index: number }>(`
+          select logical_unit_key,order_index from public.training_plan_units_v2
+          where revision_id=$1 and plan_id=$2 and user_id=$3 order by order_index`,
+        [current.current_revision_id, planId, userId]);
+        const tree = await insertTree(client, userId, planId, Number(current.revision_number) + 1, input);
+        await client.query(`update public.training_plans_v2
+          set name=$1,current_revision_id=$2,version=version+1 where id=$3 and user_id=$4`,
+        [input.name, tree.revisionId, planId, userId]);
+        if (cycleRows.rows[0]) {
+          const cycle = cycleRows.rows[0];
+          let next = tree.units.find((unit) => unit.logicalKey === cycle.logical_unit_key);
+          if (!next) {
+            const followingKeys = oldUnits.rows.filter((unit) => unit.order_index > cycle.order_index)
+              .map((unit) => unit.logical_unit_key);
+            next = followingKeys.map((key) => tree.units.find((unit) => unit.logicalKey === key))
+              .find((unit) => unit !== undefined) ?? tree.units[0];
+          }
+          await client.query(`update public.training_plan_cycle_states_v2
+            set revision_id=$1,next_unit_id=$2,next_order_index=$3,last_trigger='plan_revision_remapped',
+              version=version+1,advanced_at=now() where plan_id=$4 and user_id=$5`,
+          [tree.revisionId, next.id, next.orderIndex, planId, userId]);
+        }
+        return { outcome: 'ok', planId };
+      });
+    },
+    activate(userId, planId, expectedVersion, reactivation) {
+      return transaction(db, async (client): Promise<MutationResult> => {
+        const rows = await client.query<{ version: number; status: string; current_revision_id: string | null }>(`
+          select version,status,current_revision_id from public.training_plans_v2
+          where id=$1 and user_id=$2 for update`, [planId, userId]);
+        const plan = rows.rows[0];
+        if (!plan) return { outcome: 'not_found' };
+        if (Number(plan.version) !== expectedVersion) return { outcome: 'version_conflict' };
+        if (
+          !plan.current_revision_id
+          || (reactivation
+            ? plan.status !== 'archived'
+            : plan.status !== 'draft' && plan.status !== 'scheduled')
+        ) {
+          return { outcome: 'status_conflict' };
+        }
+        await client.query(`update public.training_plans_v2
+          set status='archived',archived_at=now(),version=version+1
+          where user_id=$1 and status='active' and id<>$2`, [userId, planId]);
+        await client.query(`update public.training_plan_activations_v2
+          set status='cancelled',cancelled_at=now()
+          where user_id=$1 and plan_id=$2 and status='pending'`, [userId, planId]);
+        await client.query(`update public.training_plans_v2
+          set status='active',activated_at=now(),archived_at=null,version=version+1
+          where id=$1 and user_id=$2`, [planId, userId]);
+        await resetCycle(client, userId, planId, plan.current_revision_id,
+          reactivation ? 'plan_reactivated' : 'plan_activated');
+        return { outcome: 'ok', planId };
+      });
+    },
+    schedule(userId, planId, expectedVersion, effectiveAt, timeZone) {
+      return transaction(db, async (client): Promise<MutationResult> => {
+        const rows = await client.query<{ version: number; status: string; current_revision_id: string | null }>(`
+          select version,status,current_revision_id from public.training_plans_v2
+          where id=$1 and user_id=$2 for update`, [planId, userId]);
+        const plan = rows.rows[0];
+        if (!plan) return { outcome: 'not_found' };
+        if (Number(plan.version) !== expectedVersion) return { outcome: 'version_conflict' };
+        if (!plan.current_revision_id || plan.status === 'active') return { outcome: 'status_conflict' };
+        const scheduled = await client.query(`select id from public.training_plans_v2
+          where user_id=$1 and status='scheduled' and id<>$2 limit 1`, [userId, planId]);
+        if (scheduled.rows[0]) return { outcome: 'schedule_conflict' };
+        await client.query(`update public.training_plan_activations_v2
+          set status='cancelled',cancelled_at=now()
+          where user_id=$1 and plan_id=$2 and status='pending'`, [userId, planId]);
+        await client.query(`update public.training_plans_v2
+          set status='scheduled',archived_at=null,version=version+1 where id=$1 and user_id=$2`,
+        [planId, userId]);
+        await client.query(`insert into public.training_plan_activations_v2
+          (plan_id,revision_id,user_id,effective_at,timezone,status,expected_plan_version)
+          values ($1,$2,$3,$4,$5,'pending',$6)`,
+        [planId, plan.current_revision_id, userId, effectiveAt, timeZone, expectedVersion + 1]);
+        return { outcome: 'ok', planId };
+      });
+    },
+    archive(userId, planId, expectedVersion) {
+      return transaction(db, async (client): Promise<MutationResult> => {
+        const rows = await client.query<{ version: number; status: string }>(`
+          select version,status from public.training_plans_v2 where id=$1 and user_id=$2 for update`,
+        [planId, userId]);
+        const plan = rows.rows[0];
+        if (!plan) return { outcome: 'not_found' };
+        if (Number(plan.version) !== expectedVersion) return { outcome: 'version_conflict' };
+        if (plan.status === 'active' || plan.status === 'archived') return { outcome: 'status_conflict' };
+        await client.query(`update public.training_plan_activations_v2
+          set status='cancelled',cancelled_at=now()
+          where plan_id=$1 and user_id=$2 and status='pending'`, [planId, userId]);
+        await client.query(`update public.training_plans_v2
+          set status='archived',archived_at=now(),version=version+1 where id=$1 and user_id=$2`,
+        [planId, userId]);
+        return { outcome: 'ok', planId };
+      });
+    },
+    updateWeeklyGoal(userId, planId, expectedVersion, weeklyGoal) {
+      return transaction(db, async (client): Promise<MutationResult> => {
+        const rows = await client.query<{ version: number }>(`
+          select version from public.training_plans_v2 where id=$1 and user_id=$2 for update`,
+        [planId, userId]);
+        if (!rows.rows[0]) return { outcome: 'not_found' };
+        if (Number(rows.rows[0].version) !== expectedVersion) return { outcome: 'version_conflict' };
+        await client.query(`insert into public.training_weekly_goal_versions_v2
+          (plan_id,user_id,target_sessions_per_week,effective_from)
+          values ($1,$2,$3,clock_timestamp())`, [planId, userId, weeklyGoal]);
+        await client.query(`update public.training_plans_v2 set version=version+1
+          where id=$1 and user_id=$2`, [planId, userId]);
+        return { outcome: 'ok', planId };
+      });
+    },
+  };
+}
