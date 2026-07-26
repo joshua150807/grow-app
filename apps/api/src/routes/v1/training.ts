@@ -3,14 +3,31 @@ import {
   createTrainingPlanService,
   type TrainingPlanService,
 } from '../../modules/trainingPlans/trainingPlanService.js';
+import {
+  createTrainingExerciseService,
+  type TrainingExerciseService,
+} from '../../modules/trainingExercises/trainingExerciseService.js';
 
-export type TrainingRoutesOptions = { trainingPlanService?: TrainingPlanService };
+export type TrainingRoutesOptions = {
+  trainingPlanService?: TrainingPlanService;
+  trainingExerciseService?: TrainingExerciseService;
+};
 
 export const trainingRoutes: FastifyPluginAsync<TrainingRoutesOptions> = async (app, options) => {
   let runtimeService: TrainingPlanService | null = null;
   const service = () => options.trainingPlanService
     ?? (runtimeService ??= createTrainingPlanService());
+  let runtimeExerciseService: TrainingExerciseService | null = null;
+  const exerciseService = () => options.trainingExerciseService
+    ?? (runtimeExerciseService ??= createTrainingExerciseService());
   const id = (request: { params: unknown }) => (request.params as { id: string }).id;
+
+  app.get('/training/exercises', { preHandler: [app.requireAuth] }, async (request) => (
+    exerciseService().list(request.auth.user!, request.query)
+  ));
+  app.get('/training/exercises/:exerciseId', { preHandler: [app.requireAuth] }, async (request) => (
+    exerciseService().get(request.auth.user!, request.params)
+  ));
 
   app.get('/training/plans', { preHandler: [app.requireAuth] }, async (request) => ({
     plans: await service().list(request.auth.user!),
