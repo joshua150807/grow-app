@@ -85,7 +85,18 @@ export type DurationSeconds = z.infer<typeof durationSecondsSchema>;
 export type RestSeconds = z.infer<typeof restSecondsSchema>;
 export type DistanceMeters = z.infer<typeof distanceMetersSchema>;
 
-export const ianaTimeZoneSchema = z.string().trim().min(1).max(255);
+export const ianaTimeZoneSchema = z.string()
+  .min(1)
+  .max(255)
+  .refine((value) => {
+    if (value !== value.trim()) return false;
+    try {
+      new Intl.DateTimeFormat('en', { timeZone: value }).format(new Date(0));
+      return true;
+    } catch {
+      return false;
+    }
+  }, { message: 'Time zone must be a valid IANA time zone.' });
 export type IanaTimeZone = z.infer<typeof ianaTimeZoneSchema>;
 
 export const isoDateTimeSchema = z.string().datetime({ offset: true });

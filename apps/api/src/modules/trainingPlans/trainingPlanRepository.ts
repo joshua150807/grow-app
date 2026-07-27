@@ -1,6 +1,10 @@
 import type {
   CreateTrainingPlanInput, PlanTreeInput, TrainingPlan, TrainingPlanSummary, UpdateTrainingPlanInput,
-} from '@grow/shared';
+} from '@grow/shared/src/training/plans.js';
+import {
+  trainingPlanSchema,
+  trainingPlanSummarySchema,
+} from '@grow/shared/src/training/plans.js';
 import type pg from 'pg';
 import { getPgPool } from '../../db/client.js';
 
@@ -15,16 +19,26 @@ export type TrainingPlanRepository = {
   create(userId: string, input: CreateTrainingPlanInput): Promise<string>;
   update(userId: string, planId: string, input: UpdateTrainingPlanInput): Promise<MutationResult>;
   activate(userId: string, planId: string, expectedVersion: number, reactivation: boolean): Promise<MutationResult>;
-  schedule(userId: string, planId: string, expectedVersion: number, effectiveAt: Date, timeZone: string): Promise<MutationResult>;
+  schedule(
+    userId: string,
+    planId: string,
+    expectedVersion: number,
+    startDate: string,
+    effectiveAt: Date,
+    timeZone: string,
+  ): Promise<MutationResult>;
   archive(userId: string, planId: string, expectedVersion: number): Promise<MutationResult>;
   updateWeeklyGoal(userId: string, planId: string, expectedVersion: number, weeklyGoal: number): Promise<MutationResult>;
 };
 
-type PlanRow = {
+export type PlanRow = {
   id: string; name: string; status: TrainingPlanSummary['status']; version: number;
   current_revision_id: string | null; weekly_goal: number | null;
   created_at: Date | string; updated_at: Date | string;
   activated_at: Date | string | null; archived_at: Date | string | null;
+  schedule_start_date: string | null;
+  schedule_timezone: string | null;
+  schedule_effective_at: Date | string | null;
 };
 type ExerciseRow = { id: string; scope: 'system' | 'user'; owner_user_id: string | null };
 
@@ -33,19 +47,44 @@ const nullableIso = (value: Date | string | null) => value === null ? null : iso
 const planSummarySelect = `
   select plan.id,plan.name,plan.status,plan.version,plan.current_revision_id,
     plan.created_at,plan.updated_at,plan.activated_at,plan.archived_at,
+    schedule.start_date as schedule_start_date,
+    schedule.timezone as schedule_timezone,
+    schedule.effective_at as schedule_effective_at,
     (select goal.target_sessions_per_week from public.training_weekly_goal_versions_v2 goal
      where goal.plan_id=plan.id and goal.user_id=plan.user_id
      order by goal.effective_from desc limit 1) as weekly_goal
-  from public.training_plans_v2 plan`;
+  from public.training_plans_v2 plan
+  left join lateral (
+    select activation.start_date::text as start_date,activation.timezone,activation.effective_at
+    from public.training_plan_activations_v2 activation
+    where activation.plan_id=plan.id and activation.user_id=plan.user_id
+      and activation.status='pending'
+    order by activation.effective_at asc,activation.id asc
+    limit 1
+  ) schedule on true`;
 
-function mapSummary(row: PlanRow): TrainingPlanSummary {
-  return {
+export function mapTrainingPlanSummary(row: PlanRow): TrainingPlanSummary {
+  const hasSchedule = row.schedule_start_date !== null
+    || row.schedule_timezone !== null
+    || row.schedule_effective_at !== null;
+  const parsed = trainingPlanSummarySchema.safeParse({
     id: String(row.id), name: String(row.name), status: row.status, version: Number(row.version),
     currentRevisionId: row.current_revision_id === null ? null : String(row.current_revision_id),
     weeklyGoal: row.weekly_goal === null ? null : Number(row.weekly_goal),
     createdAt: iso(row.created_at), updatedAt: iso(row.updated_at),
     activatedAt: nullableIso(row.activated_at), archivedAt: nullableIso(row.archived_at),
-  };
+    schedule: hasSchedule ? {
+      startDate: String(row.schedule_start_date),
+      timeZone: String(row.schedule_timezone),
+      effectiveAt: iso(row.schedule_effective_at!),
+    } : null,
+  });
+  if (!parsed.success) {
+    const error = new Error('Internal training plan contract violation.');
+    error.name = 'TrainingPlanContractError';
+    throw error;
+  }
+  return parsed.data;
 }
 
 async function transaction<T>(db: Database, operation: (client: Client) => Promise<T>): Promise<T> {
@@ -173,8 +212,8 @@ async function loadPlan(db: Pick<pg.Pool | Client, 'query'>, userId: string, pla
       from public.training_plan_target_sets_v2
       where revision_id=$1 and plan_id=$2 and user_id=$3 order by target_exercise_id,order_index`,
   [revision.id, planId, userId]);
-  return {
-    ...mapSummary(plan),
+  const parsed = trainingPlanSchema.safeParse({
+    ...mapTrainingPlanSummary(plan),
     revision: {
       id: String(revision.id), revisionNumber: Number(revision.revision_number),
       createdAt: iso(revision.created_at),
@@ -197,17 +236,26 @@ async function loadPlan(db: Pick<pg.Pool | Client, 'query'>, userId: string, pla
         })),
       })),
     },
-  };
+  });
+  if (!parsed.success) {
+    const error = new Error('Internal training plan contract violation.');
+    error.name = 'TrainingPlanContractError';
+    throw error;
+  }
+  return parsed.data;
 }
 
 export function createTrainingPlanRepository(db: Database = getPgPool()): TrainingPlanRepository {
   return {
     async list(userId) {
       const result = await db.query<PlanRow>(`${planSummarySelect}
-        where plan.user_id=$1 and plan.status in ('active','scheduled','archived')
-        order by case plan.status when 'active' then 0 when 'scheduled' then 1 else 2 end,
-          plan.updated_at desc`, [userId]);
-      return result.rows.map(mapSummary);
+        where plan.user_id=$1 and plan.status in ('active','scheduled','draft','archived')
+        order by case plan.status
+          when 'active' then 0 when 'scheduled' then 1 when 'draft' then 2 else 3 end,
+          case when plan.status='scheduled' then schedule.effective_at end asc,
+          case when plan.status<>'scheduled' then plan.updated_at end desc,
+          plan.id asc`, [userId]);
+      return result.rows.map(mapTrainingPlanSummary);
     },
     find(userId, planId) { return loadPlan(db, userId, planId); },
     create(userId, input) {
@@ -307,7 +355,7 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
         return { outcome: 'ok', planId };
       });
     },
-    schedule(userId, planId, expectedVersion, effectiveAt, timeZone) {
+    schedule(userId, planId, expectedVersion, startDate, effectiveAt, timeZone) {
       return transaction(db, async (client): Promise<MutationResult> => {
         const rows = await client.query<{ version: number; status: string; current_revision_id: string | null }>(`
           select version,status,current_revision_id from public.training_plans_v2
@@ -326,9 +374,9 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
           set status='scheduled',archived_at=null,version=version+1 where id=$1 and user_id=$2`,
         [planId, userId]);
         await client.query(`insert into public.training_plan_activations_v2
-          (plan_id,revision_id,user_id,effective_at,timezone,status,expected_plan_version)
-          values ($1,$2,$3,$4,$5,'pending',$6)`,
-        [planId, plan.current_revision_id, userId, effectiveAt, timeZone, expectedVersion + 1]);
+          (plan_id,revision_id,user_id,start_date,effective_at,timezone,status,expected_plan_version)
+          values ($1,$2,$3,$4,$5,$6,'pending',$7)`,
+        [planId, plan.current_revision_id, userId, startDate, effectiveAt, timeZone, expectedVersion + 1]);
         return { outcome: 'ok', planId };
       });
     },

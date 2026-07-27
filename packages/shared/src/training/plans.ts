@@ -138,7 +138,13 @@ export const planRevisionSchema = z.object({
   units: z.array(planUnitSchema),
 }).strict();
 
-export const trainingPlanSummarySchema = z.object({
+export const trainingPlanScheduleSchema = z.object({
+  startDate: localDateSchema,
+  timeZone: ianaTimeZoneSchema,
+  effectiveAt: isoDateTimeSchema,
+}).strict();
+
+const trainingPlanSummaryShape = {
   id: planIdSchema,
   name: nameSchema,
   status: personalPlanStatusSchema,
@@ -149,11 +155,30 @@ export const trainingPlanSummarySchema = z.object({
   updatedAt: isoDateTimeSchema,
   activatedAt: isoDateTimeSchema.nullable(),
   archivedAt: isoDateTimeSchema.nullable(),
-}).strict();
+  schedule: trainingPlanScheduleSchema.nullable(),
+};
 
-export const trainingPlanSchema = trainingPlanSummarySchema.extend({
+function validateScheduleStatus(
+  plan: { status: z.infer<typeof personalPlanStatusSchema>; schedule: unknown },
+  context: z.RefinementCtx,
+) {
+  if ((plan.status === 'scheduled') !== (plan.schedule !== null)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Schedule metadata must exist exactly for scheduled plans.',
+      path: ['schedule'],
+    });
+  }
+}
+
+export const trainingPlanSummarySchema = z.object(trainingPlanSummaryShape)
+  .strict()
+  .superRefine(validateScheduleStatus);
+
+export const trainingPlanSchema = z.object({
+  ...trainingPlanSummaryShape,
   revision: planRevisionSchema,
-}).strict();
+}).strict().superRefine(validateScheduleStatus);
 
 export type PlanTargetExerciseInput = z.infer<typeof planTargetExerciseInputSchema>;
 export type PlanUnitInput = z.infer<typeof planUnitInputSchema>;
@@ -166,5 +191,6 @@ export type UpdateWeeklyGoalInput = z.infer<typeof updateWeeklyGoalInputSchema>;
 export type PlanTargetExercise = z.infer<typeof planTargetExerciseSchema>;
 export type PlanUnit = z.infer<typeof planUnitSchema>;
 export type PlanRevision = z.infer<typeof planRevisionSchema>;
+export type TrainingPlanSchedule = z.infer<typeof trainingPlanScheduleSchema>;
 export type TrainingPlanSummary = z.infer<typeof trainingPlanSummarySchema>;
 export type TrainingPlan = z.infer<typeof trainingPlanSchema>;

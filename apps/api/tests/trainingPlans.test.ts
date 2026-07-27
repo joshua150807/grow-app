@@ -2,6 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
 import type { AuthTokenVerifier } from '../src/auth/types.js';
 import type { TrainingPlanRepository } from '../src/modules/trainingPlans/trainingPlanRepository.js';
+import {
+  createTrainingPlanRepository,
+  mapTrainingPlanSummary,
+  type PlanRow,
+} from '../src/modules/trainingPlans/trainingPlanRepository.js';
 import { createTrainingPlanService } from '../src/modules/trainingPlans/trainingPlanService.js';
 
 const user = { id: '11111111-1111-4111-8111-111111111111', email: null, role: 'authenticated' };
@@ -18,6 +23,7 @@ const record = {
   currentRevisionId: revisionId, weeklyGoal: 3,
   createdAt: '2026-07-26T10:00:00.000Z', updatedAt: '2026-07-26T10:00:00.000Z',
   activatedAt: null, archivedAt: null,
+  schedule: null,
   revision: {
     id: revisionId, revisionNumber: 1, createdAt: '2026-07-26T10:00:00.000Z',
     units: [{ id: unitId, logicalUnitKey, name: 'Day 1', unitType: 'rest' as const, orderIndex: 0, exercises: [] }],
@@ -130,15 +136,26 @@ describe('training plan API', () => {
   });
 
   it('converts scheduled local midnight to the selected IANA time zone', async () => {
-    const value = repository();
+    const scheduledRecord = {
+      ...record,
+      status: 'scheduled' as const,
+      schedule: {
+        startDate: '2026-07-27',
+        timeZone: 'Europe/Berlin',
+        effectiveAt: '2026-07-26T22:00:00.000Z',
+      },
+    };
+    const value = repository({ find: vi.fn(async () => scheduledRecord) });
     const server = app(value);
     const response = await server.inject({
       method: 'POST', url: `/v1/training/plans/${planId}/schedule`, headers,
       payload: { expectedVersion: 1, startDate: '2026-07-27', timeZone: 'Europe/Berlin' },
     });
     expect(response.statusCode).toBe(200);
+    expect(response.json().plan.schedule).toEqual(scheduledRecord.schedule);
     expect(value.schedule).toHaveBeenCalledWith(
-      user.id, planId, 1, new Date('2026-07-26T22:00:00.000Z'), 'Europe/Berlin',
+      user.id, planId, 1, '2026-07-27',
+      new Date('2026-07-26T22:00:00.000Z'), 'Europe/Berlin',
     );
     await server.close();
   });
@@ -167,5 +184,59 @@ describe('training plan API', () => {
     expect(value.archive).toHaveBeenCalledWith(user.id, planId, 1);
     expect(value.updateWeeklyGoal).toHaveBeenCalledWith(user.id, planId, 1, 4);
     await server.close();
+  });
+});
+
+describe('training plan read repository', () => {
+  const row: PlanRow = {
+    id: planId,
+    name: 'Scheduled',
+    status: 'scheduled',
+    version: 2,
+    current_revision_id: revisionId,
+    weekly_goal: 3,
+    created_at: '2026-07-26T10:00:00.000Z',
+    updated_at: '2026-07-27T10:00:00.000Z',
+    activated_at: null,
+    archived_at: null,
+    schedule_start_date: '2026-10-25',
+    schedule_timezone: 'Europe/Berlin',
+    schedule_effective_at: '2026-10-24T22:00:00.000Z',
+  };
+
+  it('maps the persisted local schedule without reconstructing it from UTC', () => {
+    expect(mapTrainingPlanSummary(row).schedule).toEqual({
+      startDate: '2026-10-25',
+      timeZone: 'Europe/Berlin',
+      effectiveAt: '2026-10-24T22:00:00.000Z',
+    });
+    expect(() => mapTrainingPlanSummary({
+      ...row,
+      status: 'active',
+      schedule_start_date: '2026-10-26',
+    })).toThrow('Internal training plan contract violation.');
+    expect(() => mapTrainingPlanSummary({
+      ...row,
+      schedule_start_date: null,
+      schedule_timezone: null,
+      schedule_effective_at: null,
+    })).toThrow('Internal training plan contract violation.');
+  });
+
+  it('loads all four owned statuses and the pending schedule in one deterministically ordered query', async () => {
+    const query = vi.fn(async () => ({ rows: [row] }));
+    const value = createTrainingPlanRepository({ query } as never);
+    expect(await value.list(user.id)).toEqual([mapTrainingPlanSummary(row)]);
+    expect(query).toHaveBeenCalledOnce();
+    const [sql, parameters] = query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(parameters).toEqual([user.id]);
+    expect(sql).toContain("plan.user_id=$1");
+    expect(sql).toContain("plan.status in ('active','scheduled','draft','archived')");
+    expect(sql).toContain("activation.status='pending'");
+    expect(sql).toContain('left join lateral');
+    expect(sql).toContain("when 'active' then 0 when 'scheduled' then 1 when 'draft' then 2 else 3");
+    expect(sql).toContain("case when plan.status='scheduled' then schedule.effective_at end asc");
+    expect(sql).toContain("case when plan.status<>'scheduled' then plan.updated_at end desc");
+    expect(sql).toContain('plan.id asc');
   });
 });

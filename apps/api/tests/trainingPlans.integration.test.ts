@@ -70,6 +70,11 @@ describe('training plan API PostgreSQL integration', () => {
       'utf8',
     );
     await pool.query(migration);
+    const activationMigration = await readFile(
+      new URL('../../../supabase/migrations/20260726210000_training_v2_activation_start_date.sql', import.meta.url),
+      'utf8',
+    );
+    await pool.query(activationMigration);
     server = buildApp({
       authTokenVerifier: verify,
       trainingPlanService: createTrainingPlanService(createTrainingPlanRepository(pool)),
@@ -143,6 +148,7 @@ describe('training plan API PostgreSQL integration', () => {
     expect(plan.revision.units[0].exercises).toHaveLength(2);
     expect(plan.revision.units[0].exercises[0].targetSets).toHaveLength(1);
     expect(plan.weeklyGoal).toBe(3);
+    expect(plan.schedule).toBeNull();
     const counts = await pool.query(`
       select
         (select count(*)::int from public.training_plans_v2) plans,
@@ -169,6 +175,24 @@ describe('training plan API PostgreSQL integration', () => {
     expect(foreignWrite.statusCode).toBe(404);
   });
 
+  it('returns an internal contract error for a non-scheduled plan with a pending activation', async () => {
+    const plan = (await create(payload({ active: true }))).json().plan;
+    await pool.query(`
+      insert into public.training_plan_activations_v2(
+        plan_id,revision_id,user_id,start_date,effective_at,timezone,status,expected_plan_version
+      ) values ($1,$2,$3,'2026-07-28','2026-07-27T22:00:00Z','Europe/Berlin','pending',$4)
+    `, [plan.id, plan.currentRevisionId, userA, plan.version]);
+    const response = await server.inject({
+      method: 'GET', url: `/v1/training/plans/${plan.id}`, headers: headersA,
+    });
+    expect(response.statusCode).toBe(500);
+    expect(response.json().error).toMatchObject({
+      code: 'INTERNAL_ERROR',
+      message: 'Internal server error.',
+    });
+    expect(response.json().error).not.toHaveProperty('details');
+  });
+
   it('creates a new immutable revision and remaps a deleted next unit', async () => {
     const initial = payload({ active: true, twoUnits: true });
     const created = await create(initial);
@@ -180,6 +204,7 @@ describe('training plan API PostgreSQL integration', () => {
     });
     expect(update.statusCode).toBe(200);
     expect(update.json().plan.revision.revisionNumber).toBe(2);
+    expect(update.json().plan.schedule).toBeNull();
     expect((await pool.query(
       'select count(*)::int count from public.training_plan_revisions_v2 where plan_id=$1', [plan.id],
     )).rows[0].count).toBe(2);
@@ -209,6 +234,7 @@ describe('training plan API PostgreSQL integration', () => {
       payload: { expectedVersion: 1 },
     });
     expect(activated.statusCode).toBe(200);
+    expect(activated.json().plan.schedule).toBeNull();
     const statuses = await pool.query(
       'select id,status from public.training_plans_v2 where id=any($1::uuid[]) order by id',
       [[old.id, next.id]],
@@ -220,6 +246,7 @@ describe('training plan API PostgreSQL integration', () => {
       payload: { expectedVersion: 2 },
     });
     expect(reactivated.statusCode).toBe(200);
+    expect(reactivated.json().plan.schedule).toBeNull();
     const cycle = await pool.query(
       'select next_order_index,last_trigger from public.training_plan_cycle_states_v2 where plan_id=$1',
       [old.id],
@@ -234,11 +261,22 @@ describe('training plan API PostgreSQL integration', () => {
       method: 'POST', url: `/v1/training/plans/${first.id}/schedule`, headers: headersA,
       payload: { expectedVersion: 1, startDate: '2026-07-27', timeZone: 'Europe/Berlin' },
     });
-    expect(scheduled.statusCode).toBe(200);
+    expect(scheduled.statusCode, JSON.stringify(scheduled.json())).toBe(200);
+    expect(scheduled.json().plan.schedule).toEqual({
+      startDate: '2026-07-27',
+      timeZone: 'Europe/Berlin',
+      effectiveAt: '2026-07-26T22:00:00.000Z',
+    });
+    const detail = await server.inject({
+      method: 'GET', url: `/v1/training/plans/${first.id}`, headers: headersA,
+    });
+    expect(detail.statusCode).toBe(200);
+    expect(detail.json().plan.schedule).toEqual(scheduled.json().plan.schedule);
     const activation = await pool.query(
-      'select effective_at,timezone from public.training_plan_activations_v2 where plan_id=$1',
+      'select start_date::text,effective_at,timezone from public.training_plan_activations_v2 where plan_id=$1',
       [first.id],
     );
+    expect(activation.rows[0].start_date).toBe('2026-07-27');
     expect(new Date(activation.rows[0].effective_at).toISOString()).toBe('2026-07-26T22:00:00.000Z');
     expect(activation.rows[0].timezone).toBe('Europe/Berlin');
     const conflict = await server.inject({
@@ -247,6 +285,78 @@ describe('training plan API PostgreSQL integration', () => {
     });
     expect(conflict.statusCode).toBe(409);
     expect(conflict.json().error.code).toBe('TRAINING_SCHEDULE_CONFLICT');
+    const archived = await server.inject({
+      method: 'POST', url: `/v1/training/plans/${first.id}/archive`, headers: headersA,
+      payload: { expectedVersion: 2 },
+    });
+    expect(archived.statusCode).toBe(200);
+    expect(archived.json().plan.schedule).toBeNull();
+  });
+
+  it('lists owned active, scheduled, draft and archived plans in deterministic status order', async () => {
+    const active = (await create(payload({ active: true }))).json().plan;
+    const scheduled = (await create()).json().plan;
+    const scheduleResponse = await server.inject({
+      method: 'POST', url: `/v1/training/plans/${scheduled.id}/schedule`, headers: headersA,
+      payload: { expectedVersion: 1, startDate: '2026-11-01', timeZone: 'America/New_York' },
+    });
+    expect(scheduleResponse.statusCode, JSON.stringify(scheduleResponse.json())).toBe(200);
+    const draftOld = (await create()).json().plan;
+    const draftNew = (await create()).json().plan;
+    const archivedOld = (await create()).json().plan;
+    expect((await server.inject({
+      method: 'POST', url: `/v1/training/plans/${archivedOld.id}/archive`, headers: headersA,
+      payload: { expectedVersion: 1 },
+    })).statusCode).toBe(200);
+    const archivedNew = (await create()).json().plan;
+    expect((await server.inject({
+      method: 'POST', url: `/v1/training/plans/${archivedNew.id}/archive`, headers: headersA,
+      payload: { expectedVersion: 1 },
+    })).statusCode).toBe(200);
+    await pool.query('alter table public.training_plans_v2 disable trigger training_plans_v2_set_updated_at');
+    await pool.query(`
+      update public.training_plans_v2
+      set updated_at = case id
+        when $1 then '2026-07-27T10:00:00Z'::timestamptz
+        when $2 then '2026-07-27T11:00:00Z'::timestamptz
+        when $3 then '2026-07-27T08:00:00Z'::timestamptz
+        when $4 then '2026-07-27T09:00:00Z'::timestamptz
+        else updated_at
+      end
+      where id=any($5::uuid[])
+    `, [
+      draftOld.id, draftNew.id, archivedOld.id, archivedNew.id,
+      [draftOld.id, draftNew.id, archivedOld.id, archivedNew.id],
+    ]);
+    await pool.query('alter table public.training_plans_v2 enable trigger training_plans_v2_set_updated_at');
+    const foreign = await server.inject({
+      method: 'POST', url: '/v1/training/plans', headers: headersB,
+      payload: payload({ exerciseIds: [systemExercise] }),
+    });
+    expect(foreign.statusCode).toBe(201);
+
+    const response = await server.inject({
+      method: 'GET', url: '/v1/training/plans', headers: headersA,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().plans.map((plan: { id: string }) => plan.id))
+      .toEqual([
+        active.id, scheduled.id,
+        draftNew.id, draftOld.id,
+        archivedNew.id, archivedOld.id,
+      ]);
+    expect(response.json().plans.map((plan: { status: string }) => plan.status))
+      .toEqual(['active', 'scheduled', 'draft', 'draft', 'archived', 'archived']);
+    expect(response.json().plans.some((plan: { id: string }) => plan.id === foreign.json().plan.id))
+      .toBe(false);
+    expect(response.json().plans.find((plan: { id: string }) => plan.id === scheduled.id).schedule)
+      .toEqual({
+        startDate: '2026-11-01',
+        timeZone: 'America/New_York',
+        effectiveAt: '2026-11-01T04:00:00.000Z',
+      });
+    expect(response.json().plans.filter((plan: { id: string }) => plan.id !== scheduled.id)
+      .every((plan: { schedule: unknown }) => plan.schedule === null)).toBe(true);
   });
 
   it('versions weekly goals and archives without deleting revisions', async () => {
@@ -257,6 +367,7 @@ describe('training plan API PostgreSQL integration', () => {
     });
     expect(goal.statusCode).toBe(200);
     expect(goal.json().plan.weeklyGoal).toBe(4);
+    expect(goal.json().plan.schedule).toBeNull();
     expect((await pool.query(
       'select count(*)::int count from public.training_weekly_goal_versions_v2 where plan_id=$1', [plan.id],
     )).rows[0].count).toBe(2);
@@ -266,6 +377,7 @@ describe('training plan API PostgreSQL integration', () => {
     });
     expect(archived.statusCode).toBe(200);
     expect(archived.json().plan.status).toBe('archived');
+    expect(archived.json().plan.schedule).toBeNull();
     expect((await pool.query(
       'select count(*)::int count from public.training_plan_revisions_v2 where plan_id=$1', [plan.id],
     )).rows[0].count).toBe(1);

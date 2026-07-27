@@ -174,7 +174,7 @@ export function createTrainingPlanService(
       try {
         requireMutation(await repository.schedule(
           user.id, id, input.expectedVersion,
-          scheduleInstant(input.startDate, input.timeZone), input.timeZone,
+          input.startDate, scheduleInstant(input.startDate, input.timeZone), input.timeZone,
         ));
         return await requirePlan(user.id, id);
       } catch (error) {

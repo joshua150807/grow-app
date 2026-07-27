@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   createTrainingPlanInputSchema,
   scheduleTrainingPlanInputSchema,
+  trainingPlanScheduleSchema,
+  trainingPlanSchema,
+  trainingPlanSummarySchema,
   updateTrainingPlanInputSchema,
   updateWeeklyGoalInputSchema,
 } from '../index.js';
@@ -82,5 +85,58 @@ describe('training plan API contracts', () => {
     expect(updateWeeklyGoalInputSchema.safeParse({
       expectedVersion: 1, weeklyGoal: 3, userId: ids[4],
     }).success).toBe(false);
+  });
+
+  it('exports the canonical nullable schedule on plan summaries and full plans', () => {
+    const summary = {
+      id: ids[4],
+      name: 'Scheduled plan',
+      status: 'scheduled',
+      version: 1,
+      currentRevisionId: ids[5],
+      weeklyGoal: 3,
+      createdAt: '2026-07-27T00:00:00.000Z',
+      updatedAt: '2026-07-27T00:00:00.000Z',
+      activatedAt: null,
+      archivedAt: null,
+      schedule: {
+        startDate: '2026-10-25',
+        timeZone: 'Europe/Berlin',
+        effectiveAt: '2026-10-24T22:00:00.000Z',
+      },
+    };
+    expect(trainingPlanScheduleSchema.parse(summary.schedule)).toEqual(summary.schedule);
+    expect(trainingPlanScheduleSchema.parse({
+      ...summary.schedule,
+      timeZone: 'America/New_York',
+    }).timeZone).toBe('America/New_York');
+    expect(trainingPlanSummarySchema.parse(summary).schedule).toEqual(summary.schedule);
+    expect(trainingPlanSummarySchema.parse({
+      ...summary, status: 'draft', schedule: null,
+    }).schedule).toBeNull();
+    expect(trainingPlanSummarySchema.safeParse({
+      ...summary, status: 'draft',
+    }).success).toBe(false);
+    expect(trainingPlanSummarySchema.safeParse({
+      ...summary, schedule: null,
+    }).success).toBe(false);
+    expect(trainingPlanSchema.parse({
+      ...summary,
+      revision: {
+        id: ids[5],
+        revisionNumber: 1,
+        createdAt: '2026-07-27T00:00:00.000Z',
+        units: [],
+      },
+    }).schedule).toEqual(summary.schedule);
+  });
+
+  it.each([
+    { startDate: '2026/02/30', timeZone: 'Europe/Berlin', effectiveAt: '2026-03-01T00:00:00.000Z' },
+    { startDate: '2026-07-27', timeZone: '', effectiveAt: '2026-07-26T22:00:00.000Z' },
+    { startDate: '2026-07-27', timeZone: 'Invalid/Stored_Zone', effectiveAt: '2026-07-26T22:00:00.000Z' },
+    { startDate: '2026-07-27', timeZone: 'Europe/Berlin', effectiveAt: 'not-a-time' },
+  ])('rejects an invalid schedule contract %#', (schedule) => {
+    expect(trainingPlanScheduleSchema.safeParse(schedule).success).toBe(false);
   });
 });
