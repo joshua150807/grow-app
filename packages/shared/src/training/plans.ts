@@ -180,6 +180,14 @@ export const trainingPlanSchema = z.object({
   revision: planRevisionSchema,
 }).strict().superRefine(validateScheduleStatus);
 
+export const listTrainingPlansResponseSchema = z.object({
+  plans: z.array(trainingPlanSummarySchema),
+}).strict();
+
+export const trainingPlanDetailResponseSchema = z.object({
+  plan: trainingPlanSchema,
+}).strict();
+
 export type PlanTargetExerciseInput = z.infer<typeof planTargetExerciseInputSchema>;
 export type PlanUnitInput = z.infer<typeof planUnitInputSchema>;
 export type PlanTreeInput = z.infer<typeof planTreeInputSchema>;
@@ -194,3 +202,5 @@ export type PlanRevision = z.infer<typeof planRevisionSchema>;
 export type TrainingPlanSchedule = z.infer<typeof trainingPlanScheduleSchema>;
 export type TrainingPlanSummary = z.infer<typeof trainingPlanSummarySchema>;
 export type TrainingPlan = z.infer<typeof trainingPlanSchema>;
+export type ListTrainingPlansResponse = z.infer<typeof listTrainingPlansResponseSchema>;
+export type TrainingPlanDetailResponse = z.infer<typeof trainingPlanDetailResponseSchema>;

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   createTrainingPlanInputSchema,
+  listTrainingPlansResponseSchema,
   scheduleTrainingPlanInputSchema,
+  trainingPlanDetailResponseSchema,
   trainingPlanScheduleSchema,
   trainingPlanSchema,
   trainingPlanSummarySchema,
@@ -138,5 +140,35 @@ describe('training plan API contracts', () => {
     { startDate: '2026-07-27', timeZone: 'Europe/Berlin', effectiveAt: 'not-a-time' },
   ])('rejects an invalid schedule contract %#', (schedule) => {
     expect(trainingPlanScheduleSchema.safeParse(schedule).success).toBe(false);
+  });
+
+  it('validates strict list and detail response envelopes', () => {
+    const summary = {
+      id: ids[4],
+      name: 'Draft plan',
+      status: 'draft',
+      version: 1,
+      currentRevisionId: ids[5],
+      weeklyGoal: 3,
+      createdAt: '2026-07-27T00:00:00.000Z',
+      updatedAt: '2026-07-27T00:00:00.000Z',
+      activatedAt: null,
+      archivedAt: null,
+      schedule: null,
+    };
+    const plan = {
+      ...summary,
+      revision: {
+        id: ids[5],
+        revisionNumber: 1,
+        createdAt: '2026-07-27T00:00:00.000Z',
+        units: [],
+      },
+    };
+
+    expect(listTrainingPlansResponseSchema.parse({ plans: [summary] })).toEqual({ plans: [summary] });
+    expect(trainingPlanDetailResponseSchema.parse({ plan })).toEqual({ plan });
+    expect(listTrainingPlansResponseSchema.safeParse({ plans: [summary], legacy: [] }).success).toBe(false);
+    expect(trainingPlanDetailResponseSchema.safeParse({ plan: { ...plan, schedule: {} } }).success).toBe(false);
   });
 });
