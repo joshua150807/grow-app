@@ -25,6 +25,12 @@ export default function TrainingV2PlansScreen() {
       <View style={styles.topRow}>
         <Text onPress={() => router.back()} style={styles.backText}>‹ Zurück</Text>
         <Text style={styles.title}>Trainingspläne</Text>
+        <Text
+          onPress={() => router.push({ pathname: '/tools/training-v2-plan-editor' })}
+          style={styles.editorLink}
+        >
+          + Neuer Plan
+        </Text>
       </View>
       <Text style={styles.subtitle}>Alle Pläne in der vom Server vorgegebenen Reihenfolge.</Text>
       <TrainingV2PlanSections

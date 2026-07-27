@@ -28,6 +28,12 @@ export default function TrainingV2PlanDetailScreen() {
       <View style={styles.topRow}>
         <Text onPress={() => router.back()} style={styles.backText}>‹ Zurück</Text>
         <Text style={styles.title}>Plandetail</Text>
+        <Text
+          onPress={() => router.push({ pathname: '/tools/training-v2-plan-editor', params: { planId } })}
+          style={styles.editorLink}
+        >
+          Bearbeiten
+        </Text>
       </View>
 
       <View style={styles.detailHeader}>

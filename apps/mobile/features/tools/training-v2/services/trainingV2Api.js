@@ -1,7 +1,10 @@
 import {
+  createTrainingPlanInputSchema,
+  listTrainingExercisesResponseSchema,
   listTrainingPlansResponseSchema,
   trainingExerciseDetailResponseSchema,
   trainingPlanDetailResponseSchema,
+  updateTrainingPlanInputSchema,
 } from '@grow/shared';
 
 import { supabase } from '../../../../services/supabaseClient';
@@ -54,6 +57,14 @@ export class TrainingV2ContractError extends TrainingV2ApiError {
   }
 }
 
+export class TrainingV2ValidationError extends TrainingV2ApiError {
+  constructor(code = 'VALIDATION_ERROR', fieldErrors = {}) {
+    super('Bitte überprüfe deine Eingaben.', { status: 400, code });
+    this.name = 'TrainingV2ValidationError';
+    this.fieldErrors = fieldErrors;
+  }
+}
+
 function apiBaseUrl() {
   const value = process.env.EXPO_PUBLIC_API_URL?.trim();
   if (!value) {
@@ -83,7 +94,8 @@ async function responseJson(response) {
   }
 }
 
-function responseError(status, code) {
+function responseError(status, code, details) {
+  if (status === 400) return new TrainingV2ValidationError(code, details?.fieldErrors ?? {});
   if (status === 401) return new TrainingV2AuthError(code);
   if (status === 404) return new TrainingV2NotFoundError(code);
   if (status === 409) return new TrainingV2ConflictError(code);
@@ -91,7 +103,7 @@ function responseError(status, code) {
   return new TrainingV2ApiError('Die Training-API hat die Anfrage abgelehnt.', { status, code });
 }
 
-export async function requestTrainingV2(path, schema) {
+async function callTrainingV2(path, { method = 'GET', body } = {}, schema) {
   const baseUrl = apiBaseUrl();
   const {
     data: { session } = {},
@@ -105,8 +117,12 @@ export async function requestTrainingV2(path, schema) {
   let response;
   try {
     response = await fetch(`${baseUrl}${path}`, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${session.access_token}` },
+      method,
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+      },
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
     });
   } catch {
     throw new TrainingV2NetworkError();
@@ -114,12 +130,16 @@ export async function requestTrainingV2(path, schema) {
 
   const payload = await responseJson(response);
   if (!response.ok) {
-    throw responseError(response.status, payload?.error?.code ?? 'TRAINING_V2_REQUEST_FAILED');
+    throw responseError(response.status, payload?.error?.code ?? 'TRAINING_V2_REQUEST_FAILED', payload?.error?.details);
   }
 
   const parsed = schema.safeParse(payload);
   if (!parsed.success) throw new TrainingV2ContractError();
   return parsed.data;
+}
+
+export async function requestTrainingV2(path, schema) {
+  return callTrainingV2(path, { method: 'GET' }, schema);
 }
 
 export async function listTrainingV2Plans() {
@@ -138,6 +158,50 @@ export async function getTrainingV2Exercise(exerciseId) {
     `/v1/training/exercises/${encodeURIComponent(exerciseId)}`,
     trainingExerciseDetailResponseSchema,
   )).exercise;
+}
+
+export async function listTrainingV2Exercises(query = {}) {
+  const searchParams = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    searchParams.set(key, String(value));
+  });
+  const queryString = searchParams.toString();
+  return requestTrainingV2(
+    `/v1/training/exercises${queryString ? `?${queryString}` : ''}`,
+    listTrainingExercisesResponseSchema,
+  );
+}
+
+function parseTrainingV2Input(schema, input) {
+  const parsed = schema.safeParse(input);
+  if (!parsed.success) {
+    const fieldErrors = {};
+    for (const issue of parsed.error.issues) {
+      const key = issue.path.join('.') || '_root';
+      fieldErrors[key] = [...(fieldErrors[key] ?? []), issue.message];
+    }
+    throw new TrainingV2ValidationError('TRAINING_V2_CLIENT_VALIDATION_ERROR', fieldErrors);
+  }
+  return parsed.data;
+}
+
+export async function createTrainingV2Plan(input) {
+  const body = parseTrainingV2Input(createTrainingPlanInputSchema, input);
+  return (await callTrainingV2(
+    '/v1/training/plans',
+    { method: 'POST', body },
+    trainingPlanDetailResponseSchema,
+  )).plan;
+}
+
+export async function updateTrainingV2Plan(planId, input) {
+  const body = parseTrainingV2Input(updateTrainingPlanInputSchema, input);
+  return (await callTrainingV2(
+    `/v1/training/plans/${encodeURIComponent(planId)}`,
+    { method: 'PATCH', body },
+    trainingPlanDetailResponseSchema,
+  )).plan;
 }
 
 export async function resolveTrainingV2ExerciseNames(plan, cache = new Map()) {

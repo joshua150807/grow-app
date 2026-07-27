@@ -11,6 +11,16 @@ function schema(validate) {
   };
 }
 
+function inputSchema(validate) {
+  return {
+    safeParse(value) {
+      return validate(value)
+        ? { success: true, data: value }
+        : { success: false, error: { issues: [{ path: ['name'], message: 'invalid input' }] } };
+    },
+  };
+}
+
 const listSchema = schema((value) => (
   value && Array.isArray(value.plans) && value.plans.every((plan) => typeof plan.id === 'string')
 ));
@@ -18,6 +28,13 @@ const detailSchema = schema((value) => (
   value?.plan && Array.isArray(value.plan.revision?.units)
 ));
 const exerciseSchema = schema((value) => typeof value?.exercise?.name === 'string');
+const listExercisesSchema = schema((value) => Array.isArray(value?.exercises));
+const createInputSchema = inputSchema((value) => (
+  typeof value?.name === 'string' && value.name.length > 0 && Array.isArray(value.units) && value.units.length > 0
+));
+const updateInputSchema = inputSchema((value) => (
+  typeof value?.name === 'string' && value.name.length > 0 && typeof value?.expectedVersion === 'number'
+));
 
 function loadApi() {
   return loadModule(__dirname, './trainingV2Api.js', {
@@ -25,6 +42,9 @@ function loadApi() {
       listTrainingPlansResponseSchema: listSchema,
       trainingPlanDetailResponseSchema: detailSchema,
       trainingExerciseDetailResponseSchema: exerciseSchema,
+      listTrainingExercisesResponseSchema: listExercisesSchema,
+      createTrainingPlanInputSchema: createInputSchema,
+      updateTrainingPlanInputSchema: updateInputSchema,
     },
     '../../../../services/supabaseClient': {
       supabase: {
@@ -215,6 +235,148 @@ test('propagates Exercise 401 and contract failures as whole-detail errors', asy
   global.fetch = async () => response(200, { exercise: { invalid: true } });
   await assert.rejects(
     api.resolveTrainingV2ExerciseNames(plan, new Map()),
+    (error) => error instanceof api.TrainingV2ContractError,
+  );
+});
+
+test('listTrainingV2Exercises builds a query string from provided filters and drops empty ones', async (context) => {
+  const previousUrl = process.env.EXPO_PUBLIC_API_URL;
+  const previousFetch = global.fetch;
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.test';
+  context.after(() => {
+    process.env.EXPO_PUBLIC_API_URL = previousUrl;
+    global.fetch = previousFetch;
+  });
+  const calls = [];
+  global.fetch = async (url) => {
+    calls.push(url);
+    return response(200, { exercises: [{ id: 'exercise-1' }], pagination: { page: 0, limit: 50, hasMore: false } });
+  };
+  const api = loadApi();
+
+  const result = await api.listTrainingV2Exercises({
+    search: 'bank', category: 'strength', equipment: '', environment: undefined, page: 0,
+  });
+
+  assert.deepEqual(result.exercises, [{ id: 'exercise-1' }]);
+  const [url] = calls[0].split('?');
+  const params = new URLSearchParams(calls[0].split('?')[1]);
+  assert.equal(url.endsWith('/v1/training/exercises'), true);
+  assert.equal(params.get('search'), 'bank');
+  assert.equal(params.get('category'), 'strength');
+  assert.equal(params.has('equipment'), false);
+  assert.equal(params.has('environment'), false);
+});
+
+test('createTrainingV2Plan validates the request against the shared input schema before sending, then posts it', async (context) => {
+  const previousUrl = process.env.EXPO_PUBLIC_API_URL;
+  const previousFetch = global.fetch;
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.test';
+  context.after(() => {
+    process.env.EXPO_PUBLIC_API_URL = previousUrl;
+    global.fetch = previousFetch;
+  });
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(201, { plan: { id: 'new-plan', revision: { units: [] } } });
+  };
+  const api = loadApi();
+  const validInput = { name: 'Plan', weeklyGoal: 3, units: [{ name: 'Tag 1' }] };
+
+  const plan = await api.createTrainingV2Plan(validInput);
+
+  assert.equal(plan.id, 'new-plan');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][1].method, 'POST');
+  assert.equal(calls[0][1].headers['Content-Type'], 'application/json');
+  assert.deepEqual(JSON.parse(calls[0][1].body), validInput);
+  assert.equal(calls[0][0].endsWith('/v1/training/plans'), true);
+});
+
+test('createTrainingV2Plan rejects an invalid request locally without ever calling fetch', async (context) => {
+  const previousUrl = process.env.EXPO_PUBLIC_API_URL;
+  const previousFetch = global.fetch;
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.test';
+  context.after(() => {
+    process.env.EXPO_PUBLIC_API_URL = previousUrl;
+    global.fetch = previousFetch;
+  });
+  let fetchCalls = 0;
+  global.fetch = async () => { fetchCalls += 1; return response(201, { plan: {} }); };
+  const api = loadApi();
+
+  await assert.rejects(
+    api.createTrainingV2Plan({ name: '', units: [] }),
+    (error) => error instanceof api.TrainingV2ValidationError,
+  );
+  assert.equal(fetchCalls, 0);
+});
+
+test('updateTrainingV2Plan sends a PATCH to the plan id with the validated body', async (context) => {
+  const previousUrl = process.env.EXPO_PUBLIC_API_URL;
+  const previousFetch = global.fetch;
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.test';
+  context.after(() => {
+    process.env.EXPO_PUBLIC_API_URL = previousUrl;
+    global.fetch = previousFetch;
+  });
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(200, { plan: { id: 'plan-1', revision: { units: [] } } });
+  };
+  const api = loadApi();
+  const validInput = { name: 'Plan', expectedVersion: 2 };
+
+  const plan = await api.updateTrainingV2Plan('plan/1', validInput);
+
+  assert.equal(plan.id, 'plan-1');
+  assert.equal(calls[0][1].method, 'PATCH');
+  assert.deepEqual(JSON.parse(calls[0][1].body), validInput);
+  assert.equal(calls[0][0].endsWith('/v1/training/plans/plan%2F1'), true);
+});
+
+test('create and update classify 400/404/409/network/contract failures distinctly', async (context) => {
+  const previousUrl = process.env.EXPO_PUBLIC_API_URL;
+  const previousFetch = global.fetch;
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.test';
+  context.after(() => {
+    process.env.EXPO_PUBLIC_API_URL = previousUrl;
+    global.fetch = previousFetch;
+  });
+  const api = loadApi();
+  const validCreateInput = { name: 'Plan', weeklyGoal: 3, units: [{ name: 'Tag 1' }] };
+  const validUpdateInput = { name: 'Plan', expectedVersion: 4 };
+
+  global.fetch = async () => response(400, {
+    error: { code: 'TRAINING_PLAN_VALIDATION_ERROR', details: { fieldErrors: { name: ['too short'] } } },
+  });
+  await assert.rejects(api.createTrainingV2Plan(validCreateInput), (error) => (
+    error instanceof api.TrainingV2ValidationError && error.fieldErrors.name?.[0] === 'too short'
+  ));
+
+  global.fetch = async () => response(404, { error: { code: 'TRAINING_PLAN_NOT_FOUND' } });
+  await assert.rejects(
+    api.updateTrainingV2Plan('missing', validUpdateInput),
+    (error) => error instanceof api.TrainingV2NotFoundError,
+  );
+
+  global.fetch = async () => response(409, { error: { code: 'TRAINING_PLAN_VERSION_CONFLICT' } });
+  await assert.rejects(
+    api.updateTrainingV2Plan('plan-1', validUpdateInput),
+    (error) => error instanceof api.TrainingV2ConflictError,
+  );
+
+  global.fetch = async () => { throw new Error('offline'); };
+  await assert.rejects(
+    api.createTrainingV2Plan(validCreateInput),
+    (error) => error instanceof api.TrainingV2NetworkError,
+  );
+
+  global.fetch = async () => response(200, { plan: { invalid: true } });
+  await assert.rejects(
+    api.createTrainingV2Plan(validCreateInput),
     (error) => error instanceof api.TrainingV2ContractError,
   );
 });

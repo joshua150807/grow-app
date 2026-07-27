@@ -72,7 +72,7 @@ test('detail is read-only and exposes revision, units, unit type, exercises and 
   assert.doesNotMatch(detail, /Edit|Aktivieren|Vormerken|Archivieren|Reaktivieren/);
 });
 
-test('isolated V2 code contains no legacy service, table or mutation references', () => {
+test('isolated V2 code contains no legacy service, table or lifecycle-mutation references', () => {
   const root = path.resolve(__dirname, '..');
   const files = [];
   const visit = (directory) => {
@@ -86,7 +86,39 @@ test('isolated V2 code contains no legacy service, table or mutation references'
   const source = files.map((file) => fs.readFileSync(file, 'utf8')).join('\n');
 
   assert.doesNotMatch(source, /trainingService|trainingPlanStorage|trainingDraftStorage/);
-  assert.doesNotMatch(source, /\.from\(|training_plans_v2|legacy/i);
-  assert.doesNotMatch(source, /method:\s*['"](POST|PUT|PATCH|DELETE)['"]/);
-  assert.doesNotMatch(source, /createTrainingPlan|updateTrainingPlan|activateTrainingPlan|archiveTrainingPlan/);
+  assert.doesNotMatch(source, /\.from\(|training_plans_v2/i);
+  // `importedFromLegacyPlan` is the shared contract's own required target-set field
+  // (packages/shared/src/training/contracts.ts) carried through unmodified from the
+  // server; it is not a reference to the legacy training module and must stay excluded
+  // from this otherwise case-insensitive "legacy" guard.
+  assert.doesNotMatch(source, /(?<!importedFrom)[Ll]egacy(?!Plan\b)/);
+  // C3a intentionally introduces the two in-scope mutations (create via POST, edit via
+  // PATCH). Everything else stays forbidden: no PUT/DELETE, and no lifecycle actions
+  // (activate/schedule/reactivate/archive/weekly-goal) anywhere in the isolated module.
+  assert.doesNotMatch(source, /method:\s*['"](PUT|DELETE)['"]/);
+  assert.doesNotMatch(source, /\/(activate|schedule|reactivate|archive|weekly-goal)\b/);
+  assert.doesNotMatch(source, /Aktivieren|Vormerken|Archivieren|Reaktivieren/);
+  assert.doesNotMatch(source, /\b(createTrainingPlan|updateTrainingPlan|activateTrainingPlan|archiveTrainingPlan|scheduleTrainingPlan|reactivateTrainingPlan)\b/);
+  assert.match(source, /method:\s*['"]POST['"]/);
+  assert.match(source, /method:\s*['"]PATCH['"]/);
+});
+
+test('the editor route delegates to the isolated editor screen and is reachable from list and detail', () => {
+  const route = read('../../../../app/(tabs)/tools/(training)/training-v2-plan-editor.jsx');
+  assert.match(route, /features\/tools\/training-v2\/screens\/TrainingV2PlanEditorScreen/);
+
+  const list = read('./TrainingV2PlansScreen.jsx');
+  const detail = read('./TrainingV2PlanDetailScreen.jsx');
+  assert.match(list, /training-v2-plan-editor/);
+  assert.match(detail, /training-v2-plan-editor/);
+  assert.match(detail, /planId/);
+});
+
+test('editor screen guards unsaved changes, deduplicates save and navigates to detail on success', () => {
+  const editor = read('./TrainingV2PlanEditorScreen.jsx');
+  assert.match(editor, /beforeRemove/);
+  assert.match(editor, /Ungespeicherte Änderungen/);
+  assert.match(editor, /disabled=\{saving\}/);
+  assert.match(editor, /router\.replace\(\{\s*pathname:\s*'\/tools\/training-v2-plan-detail'/);
+  assert.doesNotMatch(editor, /Aktivieren|Vormerken|Archivieren|Reaktivieren/);
 });
