@@ -62,17 +62,69 @@ test('plan screens wire the behavior-tested hooks to pull-to-refresh controls', 
   assert.match(read('./TrainingV2PlanDetailScreen.jsx'), /RefreshControl/);
 });
 
-test('detail is read-only and exposes revision, units, unit type, exercises and sets', () => {
+test('detail exposes revision, units, unit type, exercises and sets read-only, with no workout/session logging', () => {
   const detail = read('./TrainingV2PlanDetailScreen.jsx');
   assert.match(detail, /revision\.revisionNumber/);
   assert.match(detail, /plan\.units\.map/);
   assert.match(detail, /unit\.unitTypeLabel/);
   assert.match(detail, /exercise\.exerciseName/);
   assert.match(detail, /exercise\.targetSets\.map/);
-  assert.doesNotMatch(detail, /Edit|Aktivieren|Vormerken|Archivieren|Reaktivieren/);
+  assert.doesNotMatch(detail, /session|workout|logSet|completeSet/i);
 });
 
-test('isolated V2 code contains no legacy service, table or lifecycle-mutation references', () => {
+test('detail shows plan actions gated by status, confirms destructive/status-changing actions and never mutates optimistically', () => {
+  const detail = read('./TrainingV2PlanDetailScreen.jsx');
+  assert.match(detail, /TrainingV2PlanActionsPanel/);
+  assert.match(detail, /status=\{plan\.status\}/);
+  assert.match(detail, /pending=\{actions\.pending\}/);
+  // Activate/archive/reactivate are simple one-tap toggles, so each is gated behind an
+  // explicit native confirm dialog before the mutation ever runs.
+  assert.match(detail, /Alert\.alert/);
+  assert.match(detail, /actions\.activate\(plan\.version\)/);
+  assert.match(detail, /actions\.archive\(plan\.version\)/);
+  assert.match(detail, /actions\.reactivate\(plan\.version\)/);
+  // Schedule and weekly-goal take additional input, so their own modal + explicit
+  // confirm button serves as the confirmation step instead of a second Alert.
+  assert.match(detail, /TrainingV2ScheduleModal/);
+  assert.match(detail, /TrainingV2WeeklyGoalModal/);
+  assert.match(detail, /actions\.schedule\(plan\.version, startDate, timeZone\)/);
+  assert.match(detail, /actions\.updateWeeklyGoal\(plan\.version, weeklyGoal\)/);
+  // No optimistic local mutation of `plan` — only the hook's onSuccess (applyServerPlan,
+  // fed by the real server response) is ever allowed to change what is displayed.
+  assert.doesNotMatch(detail, /setPlan\(/);
+  // 409 conflict never overwrites the current view; reload only fires on user action.
+  assert.match(detail, /actions\.conflict/);
+  assert.match(detail, /onPress=\{handleReload\}/);
+  // A schedule/weekly-goal modal only closes via the shared, testable decision helper —
+  // never via a bare `outcome.ok` check reimplemented inline in the screen.
+  assert.match(detail, /shouldClosePlanActionModal\(outcome\)/);
+  assert.doesNotMatch(detail, /if \(outcome\.ok\)/);
+  // Each modal receives the current action error so it can render it itself while it
+  // stays open, instead of relying on the screen-level banner hidden behind it.
+  assert.match(detail, /error=\{scheduleModalVisible \? actions\.error : null\}/);
+  assert.match(detail, /error=\{weeklyGoalModalVisible \? actions\.error : null\}/);
+});
+
+test('schedule and weekly-goal modals render the action error inline while staying open', () => {
+  const scheduleModal = read('../components/TrainingV2ScheduleModal.jsx');
+  const weeklyGoalModal = read('../components/TrainingV2WeeklyGoalModal.jsx');
+  assert.match(scheduleModal, /error \? <Text style=\{styles\.formErrorText\}>\{error\.message\}<\/Text> : null/);
+  assert.match(weeklyGoalModal, /error \? <Text style=\{styles\.formErrorText\}>\{error\.message\}<\/Text> : null/);
+});
+
+test('modal inputs only reset when the modal newly opens (or its seed value changes), never merely because of an error', () => {
+  const scheduleModal = read('../components/TrainingV2ScheduleModal.jsx');
+  const weeklyGoalModal = read('../components/TrainingV2WeeklyGoalModal.jsx');
+  // The reset effects depend only on [visible] / [visible, currentValue] — `error` and
+  // `pending` are not in either dependency list, so a failed attempt can never wipe
+  // out what the user already picked/typed while the modal stays open.
+  assert.match(scheduleModal, /useEffect\(\(\) => \{\s*if \(visible\) setDate\(new Date\(\)\);\s*\}, \[visible\]\);/);
+  assert.match(weeklyGoalModal, /\}, \[visible, currentValue\]\);/);
+  assert.doesNotMatch(scheduleModal, /\[visible, error\]|\[error, visible\]/);
+  assert.doesNotMatch(weeklyGoalModal, /\[visible, currentValue, error\]|\[error, visible, currentValue\]/);
+});
+
+test('isolated V2 code contains no legacy service or table references, and only the fully-wired mutations are reachable', () => {
   const root = path.resolve(__dirname, '..');
   const files = [];
   const visit = (directory) => {
@@ -92,15 +144,33 @@ test('isolated V2 code contains no legacy service, table or lifecycle-mutation r
   // server; it is not a reference to the legacy training module and must stay excluded
   // from this otherwise case-insensitive "legacy" guard.
   assert.doesNotMatch(source, /(?<!importedFrom)[Ll]egacy(?!Plan\b)/);
-  // C3a intentionally introduces the two in-scope mutations (create via POST, edit via
-  // PATCH). Everything else stays forbidden: no PUT/DELETE, and no lifecycle actions
-  // (activate/schedule/reactivate/archive/weekly-goal) anywhere in the isolated module.
-  assert.doesNotMatch(source, /method:\s*['"](PUT|DELETE)['"]/);
-  assert.doesNotMatch(source, /\/(activate|schedule|reactivate|archive|weekly-goal)\b/);
-  assert.doesNotMatch(source, /Aktivieren|Vormerken|Archivieren|Reaktivieren/);
+  // No DELETE anywhere; C3b intentionally adds PUT (weekly-goal) alongside the existing
+  // POST (create/activate/schedule/reactivate/archive) and PATCH (edit).
+  assert.doesNotMatch(source, /method:\s*['"]DELETE['"]/);
+  // Never the bare legacy-service function names (createTrainingPlan, updateTrainingPlan,
+  // activateTrainingPlan, ...) — the V2 module always uses its own `*TrainingV2*` names.
   assert.doesNotMatch(source, /\b(createTrainingPlan|updateTrainingPlan|activateTrainingPlan|archiveTrainingPlan|scheduleTrainingPlan|reactivateTrainingPlan)\b/);
   assert.match(source, /method:\s*['"]POST['"]/);
   assert.match(source, /method:\s*['"]PATCH['"]/);
+  assert.match(source, /method:\s*['"]PUT['"]/);
+  assert.match(source, /\/activate/);
+  assert.match(source, /\/schedule/);
+  assert.match(source, /\/reactivate/);
+  assert.match(source, /\/archive/);
+  assert.match(source, /\/weekly-goal/);
+});
+
+test('schedule modal sends a local YYYY-MM-DD date and the device IANA zone without any client-side UTC math', () => {
+  const modal = read('../components/TrainingV2ScheduleModal.jsx');
+  assert.match(modal, /getTrainingV2DeviceTimeZone/);
+  assert.match(modal, /toLocalDateString/);
+  assert.match(modal, /onConfirm\(toLocalDateString\(date\), timeZone\)/);
+  assert.doesNotMatch(modal, /toISOString|getUTCFullYear|getUTCMonth|getUTCDate|getTimezoneOffset/);
+
+  const timeZoneHelper = read('../services/trainingV2DeviceTimeZone.js');
+  assert.match(timeZoneHelper, /resolvedOptions\(\)\.timeZone/);
+  assert.match(timeZoneHelper, /getFullYear|getMonth|getDate/);
+  assert.doesNotMatch(timeZoneHelper, /toISOString|getUTCFullYear|getUTCMonth|getUTCDate|getTimezoneOffset/);
 });
 
 test('the editor route delegates to the isolated editor screen and is reachable from list and detail', () => {

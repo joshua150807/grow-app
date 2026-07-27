@@ -200,3 +200,65 @@ test('an Exercise 404 fallback still produces a renderable detail plan', async (
     'Unbekannte Übung',
   );
 });
+
+test('applyServerPlan replaces the displayed plan with a mutation response, without an extra GET', async () => {
+  const state = [];
+  const refs = [];
+  let stateIndex = 0;
+  let refIndex = 0;
+  const react = {
+    useCallback: (callback) => callback,
+    useRef: (initial) => {
+      const index = refIndex++;
+      if (!refs[index]) refs[index] = { current: initial };
+      return refs[index];
+    },
+    useState: (initial) => {
+      const index = stateIndex++;
+      if (!(index in state)) state[index] = initial;
+      return [state[index], (next) => {
+        state[index] = typeof next === 'function' ? next(state[index]) : next;
+      }];
+    },
+  };
+  const viewModel = loadModule(__dirname, '../models/trainingV2ViewModel.js');
+  const plan = {
+    id: 'plan', status: 'draft', version: 1,
+    revision: {
+      units: [{
+        id: 'unit', unitType: 'strength',
+        exercises: [{ id: 'target', exerciseId: 'exercise-1', targetSets: [] }],
+      }],
+    },
+  };
+  let getCalls = 0;
+  const module = loadModule(__dirname, './useTrainingV2PlanDetail.js', {
+    react,
+    'expo-router': { useFocusEffect: (callback) => callback() },
+    '../services/trainingV2Api': {
+      getTrainingV2Plan: async () => { getCalls += 1; return plan; },
+      resolveTrainingV2ExerciseNames: async () => ({ 'exercise-1': 'Kniebeuge' }),
+    },
+    '../models/trainingV2ViewModel': viewModel,
+  });
+
+  stateIndex = 0;
+  refIndex = 0;
+  const result = module.useTrainingV2PlanDetail('plan');
+  await flush();
+  assert.equal(getCalls, 1);
+  assert.equal(state[0].status, 'draft');
+
+  const activatedPlan = {
+    ...plan,
+    status: 'active',
+    version: 2,
+    revision: plan.revision,
+  };
+  await result.applyServerPlan(activatedPlan);
+
+  assert.equal(getCalls, 1);
+  assert.equal(state[0].status, 'active');
+  assert.equal(state[0].version, 2);
+  assert.equal(state[0].units[0].exercises[0].exerciseName, 'Kniebeuge');
+});

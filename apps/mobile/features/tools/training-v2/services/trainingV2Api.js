@@ -2,9 +2,12 @@ import {
   createTrainingPlanInputSchema,
   listTrainingExercisesResponseSchema,
   listTrainingPlansResponseSchema,
+  planVersionInputSchema,
+  scheduleTrainingPlanInputSchema,
   trainingExerciseDetailResponseSchema,
   trainingPlanDetailResponseSchema,
   updateTrainingPlanInputSchema,
+  updateWeeklyGoalInputSchema,
 } from '@grow/shared';
 
 import { supabase } from '../../../../services/supabaseClient';
@@ -200,6 +203,51 @@ export async function updateTrainingV2Plan(planId, input) {
   return (await callTrainingV2(
     `/v1/training/plans/${encodeURIComponent(planId)}`,
     { method: 'PATCH', body },
+    trainingPlanDetailResponseSchema,
+  )).plan;
+}
+
+export async function activateTrainingV2Plan(planId, expectedVersion) {
+  const body = parseTrainingV2Input(planVersionInputSchema, { expectedVersion });
+  return (await callTrainingV2(
+    `/v1/training/plans/${encodeURIComponent(planId)}/activate`,
+    { method: 'POST', body },
+    trainingPlanDetailResponseSchema,
+  )).plan;
+}
+
+export async function reactivateTrainingV2Plan(planId, expectedVersion) {
+  const body = parseTrainingV2Input(planVersionInputSchema, { expectedVersion });
+  return (await callTrainingV2(
+    `/v1/training/plans/${encodeURIComponent(planId)}/reactivate`,
+    { method: 'POST', body },
+    trainingPlanDetailResponseSchema,
+  )).plan;
+}
+
+export async function archiveTrainingV2Plan(planId, expectedVersion) {
+  const body = parseTrainingV2Input(planVersionInputSchema, { expectedVersion });
+  return (await callTrainingV2(
+    `/v1/training/plans/${encodeURIComponent(planId)}/archive`,
+    { method: 'POST', body },
+    trainingPlanDetailResponseSchema,
+  )).plan;
+}
+
+export async function scheduleTrainingV2Plan(planId, expectedVersion, startDate, timeZone) {
+  const body = parseTrainingV2Input(scheduleTrainingPlanInputSchema, { expectedVersion, startDate, timeZone });
+  return (await callTrainingV2(
+    `/v1/training/plans/${encodeURIComponent(planId)}/schedule`,
+    { method: 'POST', body },
+    trainingPlanDetailResponseSchema,
+  )).plan;
+}
+
+export async function updateTrainingV2WeeklyGoal(planId, expectedVersion, weeklyGoal) {
+  const body = parseTrainingV2Input(updateWeeklyGoalInputSchema, { expectedVersion, weeklyGoal });
+  return (await callTrainingV2(
+    `/v1/training/plans/${encodeURIComponent(planId)}/weekly-goal`,
+    { method: 'PUT', body },
     trainingPlanDetailResponseSchema,
   )).plan;
 }

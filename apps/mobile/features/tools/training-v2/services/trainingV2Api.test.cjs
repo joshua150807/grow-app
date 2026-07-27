@@ -35,6 +35,16 @@ const createInputSchema = inputSchema((value) => (
 const updateInputSchema = inputSchema((value) => (
   typeof value?.name === 'string' && value.name.length > 0 && typeof value?.expectedVersion === 'number'
 ));
+const planVersionSchema = inputSchema((value) => typeof value?.expectedVersion === 'number');
+const scheduleInputSchema = inputSchema((value) => (
+  typeof value?.expectedVersion === 'number'
+  && /^\d{4}-\d{2}-\d{2}$/.test(value?.startDate ?? '')
+  && typeof value?.timeZone === 'string' && value.timeZone.length > 0
+));
+const weeklyGoalInputSchema = inputSchema((value) => (
+  typeof value?.expectedVersion === 'number'
+  && Number.isInteger(value?.weeklyGoal) && value.weeklyGoal > 0
+));
 
 function loadApi() {
   return loadModule(__dirname, './trainingV2Api.js', {
@@ -45,6 +55,9 @@ function loadApi() {
       listTrainingExercisesResponseSchema: listExercisesSchema,
       createTrainingPlanInputSchema: createInputSchema,
       updateTrainingPlanInputSchema: updateInputSchema,
+      planVersionInputSchema: planVersionSchema,
+      scheduleTrainingPlanInputSchema: scheduleInputSchema,
+      updateWeeklyGoalInputSchema: weeklyGoalInputSchema,
     },
     '../../../../services/supabaseClient': {
       supabase: {
@@ -379,4 +392,145 @@ test('create and update classify 400/404/409/network/contract failures distinctl
     api.createTrainingV2Plan(validCreateInput),
     (error) => error instanceof api.TrainingV2ContractError,
   );
+});
+
+function withEnv(context) {
+  const previousUrl = process.env.EXPO_PUBLIC_API_URL;
+  const previousFetch = global.fetch;
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.test';
+  context.after(() => {
+    process.env.EXPO_PUBLIC_API_URL = previousUrl;
+    global.fetch = previousFetch;
+  });
+}
+
+test('activateTrainingV2Plan posts to /activate with only the expectedVersion', async (context) => {
+  withEnv(context);
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(200, { plan: { id: 'plan-1', revision: { units: [] } } });
+  };
+  const api = loadApi();
+
+  const plan = await api.activateTrainingV2Plan('plan-1', 5);
+
+  assert.equal(plan.id, 'plan-1');
+  assert.equal(calls[0][1].method, 'POST');
+  assert.equal(calls[0][0].endsWith('/v1/training/plans/plan-1/activate'), true);
+  assert.deepEqual(JSON.parse(calls[0][1].body), { expectedVersion: 5 });
+});
+
+test('reactivateTrainingV2Plan posts to /reactivate with only the expectedVersion', async (context) => {
+  withEnv(context);
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(200, { plan: { id: 'plan-1', revision: { units: [] } } });
+  };
+  const api = loadApi();
+
+  await api.reactivateTrainingV2Plan('plan-1', 5);
+
+  assert.equal(calls[0][1].method, 'POST');
+  assert.equal(calls[0][0].endsWith('/v1/training/plans/plan-1/reactivate'), true);
+  assert.deepEqual(JSON.parse(calls[0][1].body), { expectedVersion: 5 });
+});
+
+test('archiveTrainingV2Plan posts to /archive with only the expectedVersion', async (context) => {
+  withEnv(context);
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(200, { plan: { id: 'plan-1', revision: { units: [] } } });
+  };
+  const api = loadApi();
+
+  await api.archiveTrainingV2Plan('plan-1', 5);
+
+  assert.equal(calls[0][1].method, 'POST');
+  assert.equal(calls[0][0].endsWith('/v1/training/plans/plan-1/archive'), true);
+  assert.deepEqual(JSON.parse(calls[0][1].body), { expectedVersion: 5 });
+});
+
+test('scheduleTrainingV2Plan posts the local date and IANA zone (no UTC instant) with the expectedVersion', async (context) => {
+  withEnv(context);
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(200, { plan: { id: 'plan-1', revision: { units: [] } } });
+  };
+  const api = loadApi();
+
+  await api.scheduleTrainingV2Plan('plan-1', 5, '2026-08-01', 'Europe/Berlin');
+
+  assert.equal(calls[0][1].method, 'POST');
+  assert.equal(calls[0][0].endsWith('/v1/training/plans/plan-1/schedule'), true);
+  const body = JSON.parse(calls[0][1].body);
+  assert.deepEqual(body, { expectedVersion: 5, startDate: '2026-08-01', timeZone: 'Europe/Berlin' });
+  assert.equal('effectiveAt' in body, false);
+});
+
+test('updateTrainingV2WeeklyGoal sends a PUT with the expectedVersion and the new goal', async (context) => {
+  withEnv(context);
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(200, { plan: { id: 'plan-1', revision: { units: [] } } });
+  };
+  const api = loadApi();
+
+  await api.updateTrainingV2WeeklyGoal('plan-1', 5, 4);
+
+  assert.equal(calls[0][1].method, 'PUT');
+  assert.equal(calls[0][0].endsWith('/v1/training/plans/plan-1/weekly-goal'), true);
+  assert.deepEqual(JSON.parse(calls[0][1].body), { expectedVersion: 5, weeklyGoal: 4 });
+});
+
+test('every plan-action mutation rejects locally on an invalid expectedVersion without calling fetch', async (context) => {
+  withEnv(context);
+  let fetchCalls = 0;
+  global.fetch = async () => { fetchCalls += 1; return response(200, { plan: {} }); };
+  const api = loadApi();
+
+  await assert.rejects(
+    api.activateTrainingV2Plan('plan-1', 'not-a-version'),
+    (error) => error instanceof api.TrainingV2ValidationError,
+  );
+  await assert.rejects(api.scheduleTrainingV2Plan('plan-1', 5, 'not-a-date', 'Europe/Berlin'));
+  await assert.rejects(api.updateTrainingV2WeeklyGoal('plan-1', 5, -1));
+  assert.equal(fetchCalls, 0);
+});
+
+test('plan-action mutations classify 400/404/409/network/contract failures distinctly', async (context) => {
+  withEnv(context);
+  const api = loadApi();
+
+  global.fetch = async () => response(400, {
+    error: { code: 'TRAINING_PLAN_VALIDATION_ERROR', details: { fieldErrors: { weeklyGoal: ['must be positive'] } } },
+  });
+  await assert.rejects(api.updateTrainingV2WeeklyGoal('plan-1', 5, 4), (error) => (
+    error instanceof api.TrainingV2ValidationError && error.fieldErrors.weeklyGoal?.[0] === 'must be positive'
+  ));
+
+  global.fetch = async () => response(404, { error: { code: 'TRAINING_PLAN_NOT_FOUND' } });
+  await assert.rejects(api.activateTrainingV2Plan('missing', 1), (error) => error instanceof api.TrainingV2NotFoundError);
+
+  global.fetch = async () => response(409, { error: { code: 'TRAINING_PLAN_VERSION_CONFLICT' } });
+  await assert.rejects(api.archiveTrainingV2Plan('plan-1', 1), (error) => (
+    error instanceof api.TrainingV2ConflictError && error.code === 'TRAINING_PLAN_VERSION_CONFLICT'
+  ));
+
+  // A 409 caused by another plan already being scheduled is still a TrainingV2ConflictError,
+  // but with a different code — callers distinguish reload-eligible version conflicts by code.
+  global.fetch = async () => response(409, { error: { code: 'TRAINING_SCHEDULE_CONFLICT' } });
+  await assert.rejects(api.scheduleTrainingV2Plan('plan-1', 1, '2026-08-01', 'Europe/Berlin'), (error) => (
+    error instanceof api.TrainingV2ConflictError && error.code === 'TRAINING_SCHEDULE_CONFLICT'
+  ));
+
+  global.fetch = async () => { throw new Error('offline'); };
+  await assert.rejects(api.reactivateTrainingV2Plan('plan-1', 1), (error) => error instanceof api.TrainingV2NetworkError);
+
+  global.fetch = async () => response(200, { plan: { invalid: true } });
+  await assert.rejects(api.activateTrainingV2Plan('plan-1', 1), (error) => error instanceof api.TrainingV2ContractError);
 });

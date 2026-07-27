@@ -257,5 +257,34 @@ export const styles = StyleSheet.create({
   modalEmpty: { color: COLORS.textMuted, fontSize: sf(13), textAlign: 'center', paddingVertical: sv(24) },
   modalClose: { alignSelf: 'flex-end', paddingVertical: sv(6), paddingHorizontal: s(4) },
   modalCloseText: { color: COLORS.softGold, fontSize: sf(14), fontWeight: '800' },
+  modalPrimaryButtonWrap: { marginTop: sv(12) },
+  datePicker: { alignSelf: 'stretch' },
+
+  // Plan actions (activate / schedule / archive / reactivate / weekly goal)
+  actionsPanel: { flexDirection: 'row', flexWrap: 'wrap', gap: s(10), marginBottom: sv(18) },
+  actionButton: {
+    backgroundColor: COLORS.softGold,
+    borderRadius: s(12),
+    paddingHorizontal: s(16),
+    paddingVertical: sv(11),
+  },
+  actionButtonText: { color: COLORS.nearBlack, fontSize: sf(13), fontWeight: '850' },
+  actionButtonSecondary: {
+    borderWidth: 1,
+    borderColor: COLORS.goldBorderLight,
+    borderRadius: s(12),
+    paddingHorizontal: s(16),
+    paddingVertical: sv(11),
+  },
+  actionButtonSecondaryText: { color: COLORS.softGold, fontSize: sf(13), fontWeight: '800' },
+  actionButtonDanger: {
+    borderWidth: 1,
+    borderColor: 'rgba(212, 106, 106, 0.4)',
+    borderRadius: s(12),
+    paddingHorizontal: s(16),
+    paddingVertical: sv(11),
+  },
+  actionButtonDangerText: { color: COLORS.error, fontSize: sf(13), fontWeight: '800' },
+  actionButtonDisabled: { opacity: 0.5 },
 });
 

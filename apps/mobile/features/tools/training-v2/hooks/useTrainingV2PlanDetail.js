@@ -48,6 +48,14 @@ export function useTrainingV2PlanDetail(planId) {
     };
   }, [load, planId]));
 
+  // Applies a plan tree already returned by a mutation (activate/schedule/archive/
+  // reactivate/weekly-goal) directly, without an extra GET. The tree's exercise ids
+  // are unchanged by those mutations, so the existing name cache is reused as-is.
+  const applyServerPlan = useCallback(async (nextPlan) => {
+    const names = await resolveTrainingV2ExerciseNames(nextPlan, exerciseCacheRef.current);
+    setPlan(mapTrainingV2PlanDetail(nextPlan, names));
+  }, []);
+
   return {
     plan,
     loading,
@@ -55,6 +63,7 @@ export function useTrainingV2PlanDetail(planId) {
     error,
     retry: load,
     refresh: useCallback(() => load({ refresh: true }), [load]),
+    applyServerPlan,
   };
 }
 

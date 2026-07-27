@@ -69,3 +69,54 @@ test('maps ordered units, exercise names and individual target sets without muta
   assert.equal(viewModel.targetSetLabel(mapped.units[0].exercises[0].targetSets[0]), '8–10 Wdh. · 60 kg · RIR 2 · 90s Pause');
   assert.equal(viewModel.targetSetLabel(mapped.units[0].exercises[0].targetSets[1]), 'warmup');
 });
+
+test('available plan actions mirror the API status gates exactly for draft and scheduled', () => {
+  for (const status of ['draft', 'scheduled']) {
+    assert.deepEqual(viewModel.getAvailableTrainingV2PlanActions(status), {
+      canActivate: true, canSchedule: true, canArchive: true, canReactivate: false, canEditWeeklyGoal: true,
+    });
+  }
+});
+
+test('an active plan can only have its weekly goal changed (API forbids activate/schedule/archive/reactivate)', () => {
+  assert.deepEqual(viewModel.getAvailableTrainingV2PlanActions('active'), {
+    canActivate: false, canSchedule: false, canArchive: false, canReactivate: false, canEditWeeklyGoal: true,
+  });
+});
+
+test('an archived plan can only be reactivated', () => {
+  assert.deepEqual(viewModel.getAvailableTrainingV2PlanActions('archived'), {
+    canActivate: false, canSchedule: false, canArchive: false, canReactivate: true, canEditWeeklyGoal: false,
+  });
+});
+
+test('an unknown status exposes no actions at all (fails closed, never fails open)', () => {
+  assert.deepEqual(viewModel.getAvailableTrainingV2PlanActions('something-unexpected'), {
+    canActivate: false, canSchedule: false, canArchive: false, canReactivate: false, canEditWeeklyGoal: false,
+  });
+});
+
+test('a plan-action modal closes on success', () => {
+  assert.equal(viewModel.shouldClosePlanActionModal({ ok: true, plan: {} }), true);
+});
+
+test('a plan-action modal closes on a stale-version conflict, so the screen reload path becomes reachable', () => {
+  assert.equal(viewModel.shouldClosePlanActionModal({
+    ok: false, error: { code: 'TRAINING_PLAN_VERSION_CONFLICT' },
+  }), true);
+});
+
+test('a plan-action modal stays open for a normal error, so its own in-modal message stays visible', () => {
+  for (const code of ['TRAINING_PLAN_VALIDATION_ERROR', 'TRAINING_PLAN_NOT_FOUND', 'TRAINING_V2_NETWORK_ERROR', 'TRAINING_V2_CONTRACT_ERROR']) {
+    assert.equal(viewModel.shouldClosePlanActionModal({ ok: false, error: { code } }), false);
+  }
+});
+
+test('a plan-action modal stays open for a non-version 409 (e.g. another plan already scheduled)', () => {
+  assert.equal(viewModel.shouldClosePlanActionModal({
+    ok: false, error: { code: 'TRAINING_SCHEDULE_CONFLICT' },
+  }), false);
+  assert.equal(viewModel.shouldClosePlanActionModal({
+    ok: false, error: { code: 'TRAINING_PLAN_STATUS_CONFLICT' },
+  }), false);
+});

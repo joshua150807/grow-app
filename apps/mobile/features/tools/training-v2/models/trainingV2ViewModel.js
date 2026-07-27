@@ -27,6 +27,43 @@ export function getTrainingV2HubRedirect({ plans, loading, error }) {
   return '/tools/training-v2-plans';
 }
 
+// Mirrors the API's own status gates in trainingPlanRepository.ts exactly (activate:
+// draft/scheduled only, schedule: anything but active, archive: anything but active/
+// archived, reactivate: archived only) so the UI never offers an action the server
+// would reject with a status conflict. Weekly-goal has no server-side status gate,
+// but is deliberately curated to hide once a plan is archived.
+export function getAvailableTrainingV2PlanActions(status) {
+  switch (status) {
+    case 'draft':
+    case 'scheduled':
+      return {
+        canActivate: true, canSchedule: true, canArchive: true, canReactivate: false, canEditWeeklyGoal: true,
+      };
+    case 'active':
+      return {
+        canActivate: false, canSchedule: false, canArchive: false, canReactivate: false, canEditWeeklyGoal: true,
+      };
+    case 'archived':
+      return {
+        canActivate: false, canSchedule: false, canArchive: false, canReactivate: true, canEditWeeklyGoal: false,
+      };
+    default:
+      return {
+        canActivate: false, canSchedule: false, canArchive: false, canReactivate: false, canEditWeeklyGoal: false,
+      };
+  }
+}
+
+// A plan-action modal (schedule / weekly goal) closes on success, and also on a
+// stale-version conflict — so the existing screen-level conflict banner and its
+// "reload current server state" button become reachable again. Any other failure
+// (400/404/network/contract, or a non-version 409 like another plan already being
+// scheduled) keeps the modal open so its own in-modal error text stays visible and
+// the user's input is preserved for a retry.
+export function shouldClosePlanActionModal(outcome) {
+  return outcome.ok === true || outcome.error?.code === 'TRAINING_PLAN_VERSION_CONFLICT';
+}
+
 export function mapTrainingV2PlanDetail(plan, exerciseNames) {
   return {
     ...plan,
