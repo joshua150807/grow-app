@@ -286,5 +286,33 @@ export const styles = StyleSheet.create({
   },
   actionButtonDangerText: { color: COLORS.error, fontSize: sf(13), fontWeight: '800' },
   actionButtonDisabled: { opacity: 0.5 },
+
+  // Hub (three tappable cards: Mein Training / Trainingspläne / Übungsbibliothek)
+  hubCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(10, 9, 17, 0.72)',
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: s(20),
+    padding: s(16),
+    marginBottom: sv(14),
+    gap: s(14),
+  },
+  hubIconWrap: {
+    width: s(56),
+    height: s(56),
+    borderRadius: s(28),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.035)',
+    borderWidth: 1,
+    borderColor: COLORS.goldBorderLight,
+  },
+  hubIconImage: { width: s(32), height: s(32) },
+  hubCardTextWrap: { flex: 1 },
+  hubCardTitle: { color: COLORS.textPrimary, fontSize: sf(17), fontWeight: '850' },
+  hubCardDescription: { color: COLORS.textMuted, fontSize: sf(12.5), lineHeight: sf(18), marginTop: sv(4) },
+  hubCardChevron: { color: COLORS.softGold, fontSize: sf(22), fontWeight: '700' },
 });
 

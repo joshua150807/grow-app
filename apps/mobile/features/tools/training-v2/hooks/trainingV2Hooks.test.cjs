@@ -17,7 +17,24 @@ async function flush() {
   await new Promise((resolve) => setImmediate(resolve));
 }
 
-function createPlansHookHarness(listPlans) {
+// A minimal stand-in for trainingV2PlansCache.js's contract, so hook tests can drive the
+// "who is signed in" axis directly (`__setOwner`) without going through the real module's
+// own supabase.auth.onAuthStateChange wiring — that wiring is covered on its own in
+// trainingV2PlansCache.test.cjs. Defaulting to no owner (null) keeps the pre-existing tests
+// below (which don't care about user-scoping at all) working unchanged: with no owner, both
+// cache reads and writes are simply no-ops, exactly like a hook used while signed out.
+function createTestPlansCache(initialOwnerId = null) {
+  const store = new Map();
+  let ownerId = initialOwnerId;
+  return {
+    getTrainingV2PlansOwnerId: () => ownerId,
+    getCachedTrainingV2Plans: (userId) => (userId ? store.get(userId) ?? null : null),
+    setCachedTrainingV2Plans: (userId, plans) => { if (userId) store.set(userId, plans); },
+    __setOwner: (nextOwnerId) => { ownerId = nextOwnerId; },
+  };
+}
+
+function createPlansHookHarness(listPlans, cache = createTestPlansCache()) {
   const state = [];
   const refs = [];
   let stateIndex = 0;
@@ -48,6 +65,7 @@ function createPlansHookHarness(listPlans) {
       },
     },
     '../services/trainingV2Api': { listTrainingV2Plans: listPlans },
+    '../services/trainingV2PlansCache': cache,
   });
   const render = () => {
     stateIndex = 0;
@@ -60,6 +78,8 @@ function createPlansHookHarness(listPlans) {
     get plans() { return state[0]; },
     get loading() { return state[1]; },
     get refreshing() { return state[2]; },
+    get error() { return state[3]; },
+    get fetching() { return state[4]; },
     refresh: result.refresh,
     refocus() {
       cleanup?.();
@@ -117,6 +137,79 @@ test('unmount prevents a late state update', async () => {
   request.resolve([{ id: 'late' }]);
   await flush();
   assert.deepEqual(harness.plans, []);
+});
+
+test('initial load with an empty cache still shows the loading state', () => {
+  const cache = createTestPlansCache('user-a');
+  const harness = createPlansHookHarness(() => new Promise(() => {}), cache);
+  assert.equal(harness.loading, true);
+  assert.deepEqual(harness.plans, []);
+});
+
+test('a fresh hook mount for the SAME signed-in user (simulating a remount across an interactive iOS swipe-back) seeds plans from the cache, never re-shows the first-load spinner, and only flags a quiet background fetch', async () => {
+  const cache = createTestPlansCache('user-a');
+  const harnessA = createPlansHookHarness(async () => [{ id: 'p1' }], cache);
+  assert.equal(harnessA.loading, true);
+  await flush();
+  assert.deepEqual(harnessA.plans, [{ id: 'p1' }]);
+  assert.equal(harnessA.loading, false);
+
+  // harnessA is now "gone" (e.g. the Hub was torn down mid swipe-back); harnessB is a brand
+  // new instance of the same hook, for the same user, exactly what such a remount produces.
+  const harnessB = createPlansHookHarness(async () => [{ id: 'p1' }], cache);
+  assert.equal(harnessB.loading, false, 'a remount for the same user must not show the fullscreen first-load spinner once a cache exists');
+  assert.deepEqual(harnessB.plans, [{ id: 'p1' }], 'a remount must start from the cached plans, never an empty list');
+  assert.equal(harnessB.fetching, true, 'a remount still quietly refetches in the background');
+});
+
+test('a fresh hook mount for a DIFFERENT signed-in user never sees the previous user\'s cached plans and runs a genuine first load', async () => {
+  const cache = createTestPlansCache('user-a');
+  const harnessA = createPlansHookHarness(async () => [{ id: 'plan-a' }], cache);
+  await flush();
+  assert.deepEqual(harnessA.plans, [{ id: 'plan-a' }]);
+
+  cache.__setOwner('user-b');
+
+  const harnessB = createPlansHookHarness(async () => [{ id: 'plan-b' }], cache);
+  assert.equal(harnessB.loading, true, 'user B has no cache yet and must see a genuine first load, never a stale one from user A');
+  assert.deepEqual(harnessB.plans, [], 'user B must never receive user A\'s plans as an initial state');
+  await flush();
+  assert.deepEqual(harnessB.plans, [{ id: 'plan-b' }]);
+});
+
+test('a fresh hook mount with no signed-in user (e.g. after logout) never serves a previous user\'s cached plans', async () => {
+  const cache = createTestPlansCache('user-a');
+  const harnessA = createPlansHookHarness(async () => [{ id: 'plan-a' }], cache);
+  await flush();
+  assert.deepEqual(harnessA.plans, [{ id: 'plan-a' }]);
+
+  cache.__setOwner(null);
+
+  const harnessB = createPlansHookHarness(async () => [], cache);
+  assert.equal(harnessB.loading, true);
+  assert.deepEqual(harnessB.plans, []);
+});
+
+test('a successful refetch updates only the current user\'s cache entry', async () => {
+  const cache = createTestPlansCache('user-a');
+  createPlansHookHarness(async () => [{ id: 'plan-a-v2' }], cache);
+  await flush();
+  assert.deepEqual(cache.getCachedTrainingV2Plans('user-a'), [{ id: 'plan-a-v2' }]);
+});
+
+test('a response that resolves after the signed-in user changed mid-flight is neither applied nor cached for either user', async () => {
+  const cache = createTestPlansCache('user-a');
+  const pending = deferred();
+  const harness = createPlansHookHarness(() => pending.promise, cache);
+
+  // The user switches while the request for user-a is still in flight.
+  cache.__setOwner('user-b');
+  pending.resolve([{ id: 'plan-a' }]);
+  await flush();
+
+  assert.deepEqual(harness.plans, [], 'a response for a user who is no longer signed in must not be applied');
+  assert.equal(cache.getCachedTrainingV2Plans('user-a'), null, 'a stale response must not be cached under the user it started for');
+  assert.equal(cache.getCachedTrainingV2Plans('user-b'), null, 'a stale response must not be cached under the new user either');
 });
 
 test('archive visibility is initially closed and toggles through the interaction callback', () => {

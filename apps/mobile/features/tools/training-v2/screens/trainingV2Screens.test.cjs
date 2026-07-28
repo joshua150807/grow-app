@@ -37,11 +37,58 @@ test('feature flag keeps the legacy hub default and selects V2 only for exact tr
   assert.equal(loadModule(__dirname, routePath, mocks).default, V2Screen);
 });
 
-test('V2 hub replaces to the plan list only after a successful load without an active plan', () => {
+test('V2 hub shows three tappable cards and never auto-redirects', () => {
   const hub = read('./TrainingV2HubScreen.jsx');
-  assert.match(hub, /getTrainingV2HubRedirect/);
-  assert.match(hub, /router\.replace\(redirect\)/);
+  assert.doesNotMatch(hub, /router\.replace/);
+  assert.doesNotMatch(hub, /getTrainingV2HubRedirect/);
+  assert.match(hub, /Trainingsplan/);
+  assert.match(hub, /Wähle deinen Bereich/);
   assert.match(hub, /Mein Training/);
+  assert.match(hub, /Trainingspläne/);
+  assert.match(hub, /Übungsbibliothek/);
+  assert.match(hub, /TRAINING_V2_HUB_ICONS/);
+  assert.match(hub, /onPress=\{openMyTraining\}/);
+  assert.match(hub, /onPress=\{openPlans\}/);
+  assert.match(hub, /onPress=\{openLibrary\}/);
+  assert.match(hub, /pathname:\s*'\/tools\/training-v2-plan-detail'/);
+  assert.match(hub, /pathname:\s*'\/tools\/training-v2-plans'/);
+  assert.match(hub, /pathname:\s*'\/tools\/training-v2-library'/);
+});
+
+test('the hub only shows the fullscreen state view for a genuine first load or an error with no data yet, and stays mounted with cached data across a focus refetch (including one triggered by an interactive swipe-back remount)', () => {
+  const hub = read('./TrainingV2HubScreen.jsx');
+  // useTrainingV2Plans refetches on every focus (e.g. returning from a card, including via
+  // an interactive iOS swipe-back that can tear down and recreate this screen's own state).
+  // A `plans.length === 0` proxy on the old `loading` flag did not survive an actual
+  // component remount, since a fresh instance's local state starts empty again — that is
+  // what still left the cards untappable after a swipe-back. The hook's own module-level
+  // cache now seeds a fresh mount's `plans` and keeps `initialLoading` false whenever that
+  // cache already has data, so the hub never needs to special-case a remount itself.
+  assert.doesNotMatch(hub, /if \(loading \|\| error\)/);
+  assert.doesNotMatch(hub, /\(loading && plans\.length === 0\)/);
+  assert.match(hub, /initialLoading/);
+  assert.match(hub, /if \(initialLoading \|\| \(error && !hasPlans\)\)/);
+  // A refetch failure with plans already showing must never replace the hub, so the error
+  // view is only ever handed a real error when there is nothing else to show — but it is
+  // still handed one then, so it can never be silently swallowed.
+  assert.match(hub, /error=\{hasPlans \? null : error\}/);
+  assert.match(hub, /onRetry=\{retry\}/);
+});
+
+test('the library route delegates to the isolated library screen, which is an honest placeholder with no muscle-group coupling and no legacy redirect', () => {
+  const route = read('../../../../app/(tabs)/tools/training-v2-library.jsx');
+  assert.match(route, /features\/tools\/training-v2\/screens\/TrainingV2LibraryScreen/);
+  // The route now lives as a flat sibling directly under app/(tabs)/tools/ (not inside the
+  // nested (training) group) — see the "single flat training-v2 stack" test below for why —
+  // so it wraps itself with the shared background instead of inheriting one from a layout.
+  assert.match(route, /TrainingV2Background/);
+
+  const library = read('./TrainingV2LibraryScreen.jsx');
+  assert.match(library, /Übungsbibliothek/);
+  assert.match(library, /router\.back\(\)/);
+  assert.doesNotMatch(library, /MUSCLE_GROUP_EXERCISES/);
+  assert.doesNotMatch(library, /training-muscle-group/);
+  assert.doesNotMatch(library, /fetch\(|\.from\(/);
 });
 
 test('plan list covers empty, status sections, raw schedule and collapsed archive', () => {
@@ -174,8 +221,9 @@ test('schedule modal sends a local YYYY-MM-DD date and the device IANA zone with
 });
 
 test('the editor route delegates to the isolated editor screen and is reachable from list and detail', () => {
-  const route = read('../../../../app/(tabs)/tools/(training)/training-v2-plan-editor.jsx');
+  const route = read('../../../../app/(tabs)/tools/training-v2-plan-editor.jsx');
   assert.match(route, /features\/tools\/training-v2\/screens\/TrainingV2PlanEditorScreen/);
+  assert.match(route, /TrainingV2Background/);
 
   const list = read('./TrainingV2PlansScreen.jsx');
   const detail = read('./TrainingV2PlanDetailScreen.jsx');

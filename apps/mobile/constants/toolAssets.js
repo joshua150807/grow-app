@@ -32,6 +32,12 @@ export const NOTES_PAGE_BG = require('../assets/tool-icons/backgrounds/notes-pag
 export const JOURNAL_PAGE_BG = require('../assets/tool-icons/backgrounds/journal-page-bg.webp')
 export const LEITFRAGEN_PAGE_BG = require('../assets/tool-icons/backgrounds/leitfragen-page-bg.webp')
 
+export const TRAINING_V2_HUB_ICONS = {
+  myTraining: require('../assets/tool-icons/training-v2/training-hub-my-training.webp'),
+  plans: require('../assets/tool-icons/training-v2/training-hub-plans.webp'),
+  library: require('../assets/tool-icons/training-v2/training-hub-library.webp'),
+};
+
 export const TOOL_OVERVIEW_IMAGE_ASSETS = [
   ...Object.values(TOOL_IMAGES),
   MENTOR_BG,

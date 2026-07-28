@@ -22,11 +22,6 @@ export function findActiveTrainingV2Plan(plans) {
   return plans.find((plan) => plan.status === 'active') ?? null;
 }
 
-export function getTrainingV2HubRedirect({ plans, loading, error }) {
-  if (loading || error || findActiveTrainingV2Plan(plans)) return null;
-  return '/tools/training-v2-plans';
-}
-
 // Mirrors the API's own status gates in trainingPlanRepository.ts exactly (activate:
 // draft/scheduled only, schedule: anything but active, archive: anything but active/
 // archived, reactivate: archived only) so the UI never offers an action the server

@@ -19,21 +19,10 @@ test('preserves API order while grouping active, scheduled, draft and archived p
   assert.deepEqual(groups.draft.map(({ id }) => id), ['draft-1', 'draft-2']);
   assert.deepEqual(groups.archived.map(({ id }) => id), ['archived-1']);
   assert.equal(viewModel.findActiveTrainingV2Plan(plans).id, 'active-1');
-  assert.equal(viewModel.getTrainingV2HubRedirect({
-    plans,
-    loading: false,
-    error: null,
-  }), null);
-  assert.equal(viewModel.getTrainingV2HubRedirect({
-    plans: plans.filter((plan) => plan.status !== 'active'),
-    loading: false,
-    error: null,
-  }), '/tools/training-v2-plans');
-  assert.equal(viewModel.getTrainingV2HubRedirect({
-    plans: [],
-    loading: true,
-    error: null,
-  }), null);
+  assert.equal(
+    viewModel.findActiveTrainingV2Plan(plans.filter((plan) => plan.status !== 'active')),
+    null,
+  );
 });
 
 test('maps ordered units, exercise names and individual target sets without mutation logic', () => {
