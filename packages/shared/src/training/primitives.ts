@@ -6,6 +6,9 @@ export const planIdSchema = uuidSchema;
 export const planRevisionIdSchema = uuidSchema;
 export const unitIdSchema = uuidSchema;
 export const exerciseIdSchema = uuidSchema;
+export const templateIdSchema = uuidSchema;
+export const templateRevisionIdSchema = uuidSchema;
+export const templateUnitIdSchema = uuidSchema;
 export const systemExerciseKeySchema = z.string()
   .min(1)
   .max(120)
@@ -41,6 +44,9 @@ export type PlanId = z.infer<typeof planIdSchema>;
 export type PlanRevisionId = z.infer<typeof planRevisionIdSchema>;
 export type UnitId = z.infer<typeof unitIdSchema>;
 export type ExerciseId = z.infer<typeof exerciseIdSchema>;
+export type TemplateId = z.infer<typeof templateIdSchema>;
+export type TemplateRevisionId = z.infer<typeof templateRevisionIdSchema>;
+export type TemplateUnitId = z.infer<typeof templateUnitIdSchema>;
 export type SystemExerciseKey = z.infer<typeof systemExerciseKeySchema>;
 export type ExerciseEquipmentValue = z.infer<typeof exerciseEquipmentValueSchema>;
 export type ExerciseEquipmentList = z.infer<typeof exerciseEquipmentListSchema>;

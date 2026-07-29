@@ -1,22 +1,34 @@
 import { z } from 'zod';
 import {
   personalPlanStatusSchema,
+  setTypeSchema,
+  trainingTemplateStatusSchema,
   trainingUnitTypeSchema,
 } from './enums.js';
 import {
+  descriptionSchema,
   exerciseIdSchema,
   ianaTimeZoneSchema,
   isoDateTimeSchema,
   localDateSchema,
   logicalTargetExerciseKeySchema,
+  logicalTargetSetKeySchema,
   logicalUnitKeySchema,
   nameSchema,
   orderIndexSchema,
   planIdSchema,
   planRevisionIdSchema,
+  repRangeSchema,
+  restSecondsSchema,
+  rirSchema,
   shortNoteSchema,
+  templateIdSchema,
+  templateRevisionIdSchema,
+  templateUnitIdSchema,
   unitIdSchema,
+  uuidSchema,
   versionSchema,
+  weightKgSchema,
 } from './primitives.js';
 import {
   persistedTargetSetSchema,
@@ -135,6 +147,13 @@ export const planRevisionSchema = z.object({
   id: planRevisionIdSchema,
   revisionNumber: z.number().int().positive(),
   createdAt: isoDateTimeSchema,
+  // Set only when this revision's initial content was copied from a Grow template
+  // revision (see training_plan_revisions_v2.source_template_revision_id) — null for a
+  // hand-authored plan revision. `.default(null)` (not just `.nullable()`): the repository
+  // does not populate this field yet, so a missing key must still parse — but the *output*
+  // is always normalized to `null`, never left as `undefined` — see the matching note on
+  // sourceTemplateId below.
+  sourceTemplateRevisionId: templateRevisionIdSchema.nullable().default(null),
   units: z.array(planUnitSchema),
 }).strict();
 
@@ -156,6 +175,25 @@ const trainingPlanSummaryShape = {
   activatedAt: isoDateTimeSchema.nullable(),
   archivedAt: isoDateTimeSchema.nullable(),
   schedule: trainingPlanScheduleSchema.nullable(),
+  // Grow-template provenance — always null for a hand-authored own plan. A plan saved from
+  // the Grow catalog carries the originating template's id; savedAt only ever exists
+  // alongside a sourceTemplateId (see the matching DB check on training_plans_v2).
+  //
+  // All three use `.default(null)` rather than a bare `.nullable()`: the repository's own
+  // trainingPlanSummarySchema.safeParse(...)/trainingPlanSchema.safeParse(...) calls
+  // (trainingPlanRepository.ts) do not supply these keys at all yet (no repository change
+  // in this step), so a missing key must still parse successfully. A bare `.nullable()`
+  // would reject a missing key outright and break every existing plan list/get call the
+  // moment this package is rebuilt. `.default(null)` accepts the missing key *and*
+  // normalizes the parsed output to `null` — so every caller of this schema only ever sees
+  // `null | value`, never `undefined`, regardless of whether the source object supplied an
+  // explicit `null` or omitted the key entirely.
+  sourceTemplateId: templateIdSchema.nullable().default(null),
+  savedAt: isoDateTimeSchema.nullable().default(null),
+  // Denormalized at save time from the template's own imageReference, so a plan card can
+  // render it without a separate template lookup and without depending on the template
+  // still existing or being unchanged later.
+  sourceTemplateImageReference: z.string().nullable().default(null),
 };
 
 function validateScheduleStatus(
@@ -171,14 +209,40 @@ function validateScheduleStatus(
   }
 }
 
+function validateTemplateProvenance(
+  plan: {
+    sourceTemplateId: string | null;
+    savedAt: string | null;
+    sourceTemplateImageReference: string | null;
+  },
+  context: z.RefinementCtx,
+) {
+  const hasSourceTemplateId = plan.sourceTemplateId !== null;
+  if (plan.savedAt !== null && !hasSourceTemplateId) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'savedAt requires a sourceTemplateId.',
+      path: ['savedAt'],
+    });
+  }
+  if (plan.sourceTemplateImageReference !== null && !hasSourceTemplateId) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'sourceTemplateImageReference requires a sourceTemplateId.',
+      path: ['sourceTemplateImageReference'],
+    });
+  }
+}
+
 export const trainingPlanSummarySchema = z.object(trainingPlanSummaryShape)
   .strict()
-  .superRefine(validateScheduleStatus);
+  .superRefine(validateScheduleStatus)
+  .superRefine(validateTemplateProvenance);
 
 export const trainingPlanSchema = z.object({
   ...trainingPlanSummaryShape,
   revision: planRevisionSchema,
-}).strict().superRefine(validateScheduleStatus);
+}).strict().superRefine(validateScheduleStatus).superRefine(validateTemplateProvenance);
 
 export const listTrainingPlansResponseSchema = z.object({
   plans: z.array(trainingPlanSummarySchema),
@@ -187,6 +251,116 @@ export const listTrainingPlansResponseSchema = z.object({
 export const trainingPlanDetailResponseSchema = z.object({
   plan: trainingPlanSchema,
 }).strict();
+
+// --- Grow template catalog (read-only shape; no create/update input schemas here — Grow
+// templates are not authored through this API in this step, only read). Structurally
+// mirrors the plan contracts above, since a template is exactly what a plan looks like
+// before any user has copied it. Template target sets have no importedFromLegacyPlan flag
+// (training_template_target_sets_v2 has no such column — that field only ever applies to a
+// user's own plan history).
+
+export const templateTargetSetSchema = z.object({
+  id: uuidSchema,
+  logicalTargetSetKey: logicalTargetSetKeySchema,
+  orderIndex: orderIndexSchema,
+  setType: setTypeSchema,
+  targetWeightKg: weightKgSchema.nullable(),
+  targetReps: repRangeSchema.nullable(),
+  targetRir: rirSchema,
+  plannedRestSeconds: restSecondsSchema,
+}).strict();
+
+export const templateTargetExerciseSchema = z.object({
+  id: uuidSchema,
+  logicalTargetExerciseKey: logicalTargetExerciseKeySchema,
+  exerciseId: exerciseIdSchema,
+  orderIndex: orderIndexSchema,
+  note: shortNoteSchema.nullable(),
+  targetSets: z.array(templateTargetSetSchema),
+}).strict();
+
+export const templateUnitSchema = z.object({
+  id: templateUnitIdSchema,
+  logicalUnitKey: logicalUnitKeySchema,
+  name: nameSchema,
+  unitType: trainingUnitTypeSchema,
+  orderIndex: orderIndexSchema,
+  exercises: z.array(templateTargetExerciseSchema),
+}).strict();
+
+export const templateRevisionSchema = z.object({
+  id: templateRevisionIdSchema,
+  revisionNumber: z.number().int().positive(),
+  createdAt: isoDateTimeSchema,
+  defaultWeeklyGoal: z.number().int().positive().nullable(),
+  units: z.array(templateUnitSchema),
+}).strict();
+
+const trainingTemplateSummaryShape = {
+  id: templateIdSchema,
+  name: nameSchema,
+  description: descriptionSchema.nullable(),
+  status: trainingTemplateStatusSchema,
+  version: versionSchema,
+  currentRevisionId: templateRevisionIdSchema.nullable(),
+  imageReference: z.string().nullable(),
+  createdAt: isoDateTimeSchema,
+  updatedAt: isoDateTimeSchema,
+};
+
+export const trainingTemplateSummarySchema = z.object(trainingTemplateSummaryShape).strict();
+
+export const trainingTemplateSchema = z.object({
+  ...trainingTemplateSummaryShape,
+  revision: templateRevisionSchema,
+}).strict();
+
+export const listTrainingTemplatesResponseSchema = z.object({
+  templates: z.array(trainingTemplateSummarySchema),
+}).strict();
+
+export const trainingTemplateDetailResponseSchema = z.object({
+  template: trainingTemplateSchema,
+}).strict();
+
+// How a specific signed-in user relates to a given template — not part of the template's
+// own identity, so it stays a separate, composable shape rather than folded into the
+// template contracts above. Field is `userPlanId`, never `savedPlanId`: it identifies
+// whichever training_plans_v2 row belongs to this user for this template, regardless of
+// that plan's own status (draft/scheduled/active/archived).
+//
+// userPlanId is one-directional evidence, not a biconditional: a plan can exist for this
+// user+template (e.g. created straight from the template, never explicitly saved) without
+// isSaved being true, and it can be the user's active plan without ever having been saved
+// either. So neither isSaved nor isActive being true is required for userPlanId to be set,
+// but a userPlanId is required whenever isSaved or isActive is true — either flag claiming a
+// user-plan relationship that doesn't have a userPlanId to back it up is the only invalid
+// shape.
+function validateTemplateUserProjection(
+  projection: { isSaved: boolean; isActive: boolean; userPlanId: string | null },
+  context: z.RefinementCtx,
+) {
+  if (projection.isSaved && projection.userPlanId === null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'isSaved requires a userPlanId.',
+      path: ['userPlanId'],
+    });
+  }
+  if (projection.isActive && projection.userPlanId === null) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'isActive requires a userPlanId.',
+      path: ['userPlanId'],
+    });
+  }
+}
+
+export const trainingTemplateUserProjectionSchema = z.object({
+  isSaved: z.boolean(),
+  isActive: z.boolean(),
+  userPlanId: planIdSchema.nullable(),
+}).strict().superRefine(validateTemplateUserProjection);
 
 export type PlanTargetExerciseInput = z.infer<typeof planTargetExerciseInputSchema>;
 export type PlanUnitInput = z.infer<typeof planUnitInputSchema>;
@@ -204,3 +378,12 @@ export type TrainingPlanSummary = z.infer<typeof trainingPlanSummarySchema>;
 export type TrainingPlan = z.infer<typeof trainingPlanSchema>;
 export type ListTrainingPlansResponse = z.infer<typeof listTrainingPlansResponseSchema>;
 export type TrainingPlanDetailResponse = z.infer<typeof trainingPlanDetailResponseSchema>;
+export type TemplateTargetSet = z.infer<typeof templateTargetSetSchema>;
+export type TemplateTargetExercise = z.infer<typeof templateTargetExerciseSchema>;
+export type TemplateUnit = z.infer<typeof templateUnitSchema>;
+export type TemplateRevision = z.infer<typeof templateRevisionSchema>;
+export type TrainingTemplateSummary = z.infer<typeof trainingTemplateSummarySchema>;
+export type TrainingTemplate = z.infer<typeof trainingTemplateSchema>;
+export type ListTrainingTemplatesResponse = z.infer<typeof listTrainingTemplatesResponseSchema>;
+export type TrainingTemplateDetailResponse = z.infer<typeof trainingTemplateDetailResponseSchema>;
+export type TrainingTemplateUserProjection = z.infer<typeof trainingTemplateUserProjectionSchema>;

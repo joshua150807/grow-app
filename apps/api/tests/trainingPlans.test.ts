@@ -24,8 +24,10 @@ const record = {
   createdAt: '2026-07-26T10:00:00.000Z', updatedAt: '2026-07-26T10:00:00.000Z',
   activatedAt: null, archivedAt: null,
   schedule: null,
+  sourceTemplateId: null, savedAt: null, sourceTemplateImageReference: null,
   revision: {
     id: revisionId, revisionNumber: 1, createdAt: '2026-07-26T10:00:00.000Z',
+    sourceTemplateRevisionId: null,
     units: [{ id: unitId, logicalUnitKey, name: 'Day 1', unitType: 'rest' as const, orderIndex: 0, exercises: [] }],
   },
 };

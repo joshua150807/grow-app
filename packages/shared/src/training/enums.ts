@@ -70,6 +70,9 @@ export type SystemExerciseEquipment = z.infer<typeof systemExerciseEquipmentSche
 export const personalPlanStatusSchema = z.enum(['draft', 'scheduled', 'active', 'archived']);
 export type PersonalPlanStatus = z.infer<typeof personalPlanStatusSchema>;
 
+export const trainingTemplateStatusSchema = z.enum(['active', 'archived', 'unpublished']);
+export type TrainingTemplateStatus = z.infer<typeof trainingTemplateStatusSchema>;
+
 export const planActivationStatusSchema = z.enum(['pending', 'applied', 'cancelled']);
 export type PlanActivationStatus = z.infer<typeof planActivationStatusSchema>;
 

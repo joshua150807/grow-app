@@ -7,6 +7,7 @@ import {
   trainingPlanScheduleSchema,
   trainingPlanSchema,
   trainingPlanSummarySchema,
+  trainingTemplateUserProjectionSchema,
   updateTrainingPlanInputSchema,
   updateWeeklyGoalInputSchema,
 } from '../index.js';
@@ -166,9 +167,136 @@ describe('training plan API contracts', () => {
       },
     };
 
-    expect(listTrainingPlansResponseSchema.parse({ plans: [summary] })).toEqual({ plans: [summary] });
-    expect(trainingPlanDetailResponseSchema.parse({ plan })).toEqual({ plan });
+    const normalizedProvenance = {
+      sourceTemplateId: null,
+      savedAt: null,
+      sourceTemplateImageReference: null,
+    };
+
+    expect(listTrainingPlansResponseSchema.parse({ plans: [summary] })).toEqual({
+      plans: [{ ...summary, ...normalizedProvenance }],
+    });
+    expect(trainingPlanDetailResponseSchema.parse({ plan })).toEqual({
+      plan: { ...plan, ...normalizedProvenance, revision: { ...plan.revision, sourceTemplateRevisionId: null } },
+    });
     expect(listTrainingPlansResponseSchema.safeParse({ plans: [summary], legacy: [] }).success).toBe(false);
     expect(trainingPlanDetailResponseSchema.safeParse({ plan: { ...plan, schedule: {} } }).success).toBe(false);
+  });
+
+  it('parses legacy plan objects that predate template provenance and normalizes the new fields to null', () => {
+    const legacySummary = {
+      id: ids[4],
+      name: 'Legacy plan',
+      status: 'draft',
+      version: 1,
+      currentRevisionId: ids[5],
+      weeklyGoal: 3,
+      createdAt: '2026-07-27T00:00:00.000Z',
+      updatedAt: '2026-07-27T00:00:00.000Z',
+      activatedAt: null,
+      archivedAt: null,
+      schedule: null,
+    };
+
+    const parsed = trainingPlanSummarySchema.parse(legacySummary);
+    expect(parsed.sourceTemplateId).toBeNull();
+    expect(parsed.savedAt).toBeNull();
+    expect(parsed.sourceTemplateImageReference).toBeNull();
+    expect('sourceTemplateId' in parsed).toBe(true);
+    expect('savedAt' in parsed).toBe(true);
+    expect('sourceTemplateImageReference' in parsed).toBe(true);
+
+    const legacyPlan = {
+      ...legacySummary,
+      revision: {
+        id: ids[5],
+        revisionNumber: 1,
+        createdAt: '2026-07-27T00:00:00.000Z',
+        units: [],
+      },
+    };
+    const parsedPlan = trainingPlanSchema.parse(legacyPlan);
+    expect(parsedPlan.revision.sourceTemplateRevisionId).toBeNull();
+    expect('sourceTemplateRevisionId' in parsedPlan.revision).toBe(true);
+  });
+
+  it('preserves concrete template provenance values when supplied', () => {
+    const summary = {
+      id: ids[4],
+      name: 'Saved plan',
+      status: 'draft',
+      version: 1,
+      currentRevisionId: ids[5],
+      weeklyGoal: 3,
+      createdAt: '2026-07-27T00:00:00.000Z',
+      updatedAt: '2026-07-27T00:00:00.000Z',
+      activatedAt: null,
+      archivedAt: null,
+      schedule: null,
+      sourceTemplateId: ids[6],
+      savedAt: '2026-07-27T00:00:00.000Z',
+      sourceTemplateImageReference: 'templates/strength.png',
+    };
+
+    const parsed = trainingPlanSummarySchema.parse(summary);
+    expect(parsed.sourceTemplateId).toBe(ids[6]);
+    expect(parsed.savedAt).toBe('2026-07-27T00:00:00.000Z');
+    expect(parsed.sourceTemplateImageReference).toBe('templates/strength.png');
+
+    const plan = {
+      ...summary,
+      revision: {
+        id: ids[5],
+        revisionNumber: 1,
+        createdAt: '2026-07-27T00:00:00.000Z',
+        sourceTemplateRevisionId: ids[7],
+        units: [],
+      },
+    };
+    expect(trainingPlanSchema.parse(plan).revision.sourceTemplateRevisionId).toBe(ids[7]);
+
+    expect(trainingPlanSummarySchema.safeParse({ ...summary, sourceTemplateId: null }).success).toBe(false);
+    expect(trainingPlanSummarySchema.safeParse({
+      ...summary, savedAt: null, sourceTemplateImageReference: null,
+    }).success).toBe(true);
+  });
+
+  it('yields null template/save fields for a hand-authored own plan', () => {
+    const ownPlan = {
+      id: ids[4],
+      name: 'My own plan',
+      status: 'active',
+      version: 1,
+      currentRevisionId: ids[5],
+      weeklyGoal: 4,
+      createdAt: '2026-07-27T00:00:00.000Z',
+      updatedAt: '2026-07-27T00:00:00.000Z',
+      activatedAt: '2026-07-27T00:00:00.000Z',
+      archivedAt: null,
+      schedule: null,
+      sourceTemplateId: null,
+      savedAt: null,
+      sourceTemplateImageReference: null,
+    };
+    const parsed = trainingPlanSummarySchema.parse(ownPlan);
+    expect(parsed.sourceTemplateId).toBeNull();
+    expect(parsed.savedAt).toBeNull();
+    expect(parsed.sourceTemplateImageReference).toBeNull();
+  });
+});
+
+describe('training template user projection contract', () => {
+  it.each([
+    [null, false, false, true],
+    [ids[4], false, false, true],
+    [ids[4], true, false, true],
+    [ids[4], false, true, true],
+    [ids[4], true, true, true],
+    [null, true, false, false],
+    [null, false, true, false],
+  ])('userPlanId=%s isSaved=%s isActive=%s -> valid=%s', (userPlanId, isSaved, isActive, valid) => {
+    expect(trainingTemplateUserProjectionSchema.safeParse({
+      isSaved, isActive, userPlanId,
+    }).success).toBe(valid);
   });
 });
