@@ -9,6 +9,7 @@ import type { DeepWorkSessionService } from '../../modules/profileStats/deepWork
 import type { HabitCollectionService } from '../../modules/habitCollections/habitCollectionService.js';
 import type { TrainingPlanService } from '../../modules/trainingPlans/trainingPlanService.js';
 import type { TrainingExerciseService } from '../../modules/trainingExercises/trainingExerciseService.js';
+import type { TrainingTemplateService } from '../../modules/trainingTemplates/trainingTemplateService.js';
 import { authRoutes } from './auth.js';
 import { creatorRoutes } from './creator.js';
 import { healthRoutes } from './health.js';
@@ -26,6 +27,7 @@ export type V1RoutesOptions = {
   habitCollectionService?: HabitCollectionService;
   trainingPlanService?: TrainingPlanService;
   trainingExerciseService?: TrainingExerciseService;
+  trainingTemplateService?: TrainingTemplateService;
 };
 
 export const v1Routes: FastifyPluginAsync<V1RoutesOptions> = async (app, options) => {
@@ -48,5 +50,6 @@ export const v1Routes: FastifyPluginAsync<V1RoutesOptions> = async (app, options
   await app.register(trainingRoutes, {
     trainingPlanService: options.trainingPlanService,
     trainingExerciseService: options.trainingExerciseService,
+    trainingTemplateService: options.trainingTemplateService,
   });
 };

@@ -315,12 +315,8 @@ export const trainingTemplateSchema = z.object({
   revision: templateRevisionSchema,
 }).strict();
 
-export const listTrainingTemplatesResponseSchema = z.object({
-  templates: z.array(trainingTemplateSummarySchema),
-}).strict();
-
-export const trainingTemplateDetailResponseSchema = z.object({
-  template: trainingTemplateSchema,
+export const trainingTemplateIdParamsSchema = z.object({
+  templateId: templateIdSchema,
 }).strict();
 
 // How a specific signed-in user relates to a given template — not part of the template's
@@ -362,6 +358,25 @@ export const trainingTemplateUserProjectionSchema = z.object({
   userPlanId: planIdSchema.nullable(),
 }).strict().superRefine(validateTemplateUserProjection);
 
+// Wire-level composition: the template's own identity (trainingTemplateSummarySchema /
+// trainingTemplateSchema) stays user-independent, and the per-user relationship
+// (trainingTemplateUserProjectionSchema) stays a sibling rather than being folded into it —
+// see the comment on validateTemplateUserProjection above. These are the only two places that
+// join the two shapes for a response body.
+export const trainingTemplateListItemSchema = z.object({
+  template: trainingTemplateSummarySchema,
+  userPlan: trainingTemplateUserProjectionSchema,
+}).strict();
+
+export const listTrainingTemplatesResponseSchema = z.object({
+  templates: z.array(trainingTemplateListItemSchema),
+}).strict();
+
+export const trainingTemplateDetailResponseSchema = z.object({
+  template: trainingTemplateSchema,
+  userPlan: trainingTemplateUserProjectionSchema,
+}).strict();
+
 export type PlanTargetExerciseInput = z.infer<typeof planTargetExerciseInputSchema>;
 export type PlanUnitInput = z.infer<typeof planUnitInputSchema>;
 export type PlanTreeInput = z.infer<typeof planTreeInputSchema>;
@@ -384,6 +399,8 @@ export type TemplateUnit = z.infer<typeof templateUnitSchema>;
 export type TemplateRevision = z.infer<typeof templateRevisionSchema>;
 export type TrainingTemplateSummary = z.infer<typeof trainingTemplateSummarySchema>;
 export type TrainingTemplate = z.infer<typeof trainingTemplateSchema>;
+export type TrainingTemplateIdParams = z.infer<typeof trainingTemplateIdParamsSchema>;
+export type TrainingTemplateUserProjection = z.infer<typeof trainingTemplateUserProjectionSchema>;
+export type TrainingTemplateListItem = z.infer<typeof trainingTemplateListItemSchema>;
 export type ListTrainingTemplatesResponse = z.infer<typeof listTrainingTemplatesResponseSchema>;
 export type TrainingTemplateDetailResponse = z.infer<typeof trainingTemplateDetailResponseSchema>;
-export type TrainingTemplateUserProjection = z.infer<typeof trainingTemplateUserProjectionSchema>;
