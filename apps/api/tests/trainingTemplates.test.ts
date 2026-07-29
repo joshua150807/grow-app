@@ -2,6 +2,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
 import type { AuthTokenVerifier } from '../src/auth/types.js';
 import type { TrainingTemplateRepository } from '../src/modules/trainingTemplates/trainingTemplateRepository.js';
+import type {
+  TrainingTemplateSaveOutcome,
+  TrainingTemplateSaveRepository,
+} from '../src/modules/trainingTemplates/trainingTemplateSaveRepository.js';
 import { createTrainingTemplateService } from '../src/modules/trainingTemplates/trainingTemplateService.js';
 
 const user = { id: '11111111-1111-4111-8111-111111111111', email: null, role: 'authenticated' };
@@ -51,21 +55,44 @@ function repository(overrides: Partial<TrainingTemplateRepository> = {}): Traini
   };
 }
 
-function app(value: TrainingTemplateRepository) {
-  return buildApp({ authTokenVerifier: verify, trainingTemplateService: createTrainingTemplateService(value) });
+const okOutcome: TrainingTemplateSaveOutcome = {
+  outcome: 'ok', userPlan: { isSaved: true, isActive: false, userPlanId },
+};
+
+function saveRepository(overrides: Partial<TrainingTemplateSaveRepository> = {}): TrainingTemplateSaveRepository {
+  return {
+    save: vi.fn(async () => okOutcome),
+    unsave: vi.fn(async () => okOutcome),
+    activate: vi.fn(async () => okOutcome),
+    ...overrides,
+  };
+}
+
+function app(value: TrainingTemplateRepository, saveValue: TrainingTemplateSaveRepository = saveRepository()) {
+  return buildApp({
+    authTokenVerifier: verify,
+    trainingTemplateService: createTrainingTemplateService(value, saveValue),
+  });
 }
 
 describe('training template API', () => {
   it.each([
     ['GET', '/v1/training/templates'],
     ['GET', `/v1/training/templates/${templateId}`],
+    ['PUT', `/v1/training/templates/${templateId}/save`],
+    ['DELETE', `/v1/training/templates/${templateId}/save`],
+    ['POST', `/v1/training/templates/${templateId}/activate`],
   ])('requires auth for %s %s', async (method, url) => {
     const value = repository();
-    const server = app(value);
+    const save = saveRepository();
+    const server = app(value, save);
     const response = await server.inject({ method: method as 'GET', url });
     expect(response.statusCode).toBe(401);
     expect(value.list).not.toHaveBeenCalled();
     expect(value.find).not.toHaveBeenCalled();
+    expect(save.save).not.toHaveBeenCalled();
+    expect(save.unsave).not.toHaveBeenCalled();
+    expect(save.activate).not.toHaveBeenCalled();
     await server.close();
   });
 
@@ -137,5 +164,116 @@ describe('training template API', () => {
     });
     expect(value.list).toHaveBeenCalledWith(user.id);
     expect(value.find).toHaveBeenCalledWith(user.id, templateId);
+  });
+});
+
+describe('training template save/unsave/activate API', () => {
+  it('PUT save calls the owner-scoped save repository and returns only the userPlan envelope', async () => {
+    const save = saveRepository();
+    const server = app(repository(), save);
+    const response = await server.inject({
+      method: 'PUT', url: `/v1/training/templates/${templateId}/save`, headers,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ userPlan: okOutcome.userPlan });
+    expect(save.save).toHaveBeenCalledWith(user.id, templateId);
+    expect(save.unsave).not.toHaveBeenCalled();
+    expect(save.activate).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it('DELETE save calls the owner-scoped unsave repository and returns only the userPlan envelope', async () => {
+    const save = saveRepository({ unsave: vi.fn(async () => ({ outcome: 'ok' as const, userPlan: noInstance })) });
+    const server = app(repository(), save);
+    const response = await server.inject({
+      method: 'DELETE', url: `/v1/training/templates/${templateId}/save`, headers,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ userPlan: noInstance });
+    expect(save.unsave).toHaveBeenCalledWith(user.id, templateId);
+    expect(save.save).not.toHaveBeenCalled();
+    expect(save.activate).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it('POST activate calls the owner-scoped activate repository and returns only the userPlan envelope', async () => {
+    const activeOutcome: TrainingTemplateSaveOutcome = {
+      outcome: 'ok', userPlan: { isSaved: false, isActive: true, userPlanId },
+    };
+    const save = saveRepository({ activate: vi.fn(async () => activeOutcome) });
+    const server = app(repository(), save);
+    const response = await server.inject({
+      method: 'POST', url: `/v1/training/templates/${templateId}/activate`, headers,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ userPlan: activeOutcome.userPlan });
+    expect(save.activate).toHaveBeenCalledWith(user.id, templateId);
+    await server.close();
+  });
+
+  it.each([
+    ['PUT', `/v1/training/templates/${templateId}/save`, 'save'],
+    ['DELETE', `/v1/training/templates/${templateId}/save`, 'unsave'],
+    ['POST', `/v1/training/templates/${templateId}/activate`, 'activate'],
+  ] as const)('%s %s returns 404 without leaking template existence when the repository reports not_found', async (method, url, key) => {
+    const save = saveRepository({ [key]: vi.fn(async () => ({ outcome: 'not_found' })) } as never);
+    const server = app(repository(), save);
+    const response = await server.inject({ method, url, headers });
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('TRAINING_TEMPLATE_NOT_FOUND');
+    await server.close();
+  });
+
+  it.each([
+    ['PUT', `/v1/training/templates/not-a-uuid/save`, 'save'],
+    ['DELETE', `/v1/training/templates/not-a-uuid/save`, 'unsave'],
+    ['POST', `/v1/training/templates/not-a-uuid/activate`, 'activate'],
+  ] as const)('%s %s rejects a malformed templateId without calling the repository', async (method, url, key) => {
+    const save = saveRepository();
+    const server = app(repository(), save);
+    const response = await server.inject({ method, url, headers });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('TRAINING_TEMPLATE_VALIDATION_ERROR');
+    expect(save[key]).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it.each([
+    ['PUT', `/v1/training/templates/${templateId}/save`, 'save'],
+    ['POST', `/v1/training/templates/${templateId}/activate`, 'activate'],
+  ] as const)('%s %s maps an unavailable copied exercise to TRAINING_EXERCISE_NOT_AVAILABLE', async (method, url, key) => {
+    const save = saveRepository({
+      [key]: vi.fn(async () => {
+        const error = new Error('One or more exercises are unavailable.');
+        error.name = 'TrainingExerciseNotAvailableError';
+        throw error;
+      }),
+    } as never);
+    const server = app(repository(), save);
+    const response = await server.inject({ method, url, headers });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('TRAINING_EXERCISE_NOT_AVAILABLE');
+    await server.close();
+  });
+
+  it('never forwards a client-supplied user id for save/unsave/activate', async () => {
+    const save = saveRepository();
+    const server = app(repository(), save);
+    await server.inject({
+      method: 'PUT', url: `/v1/training/templates/${templateId}/save`, headers,
+      payload: { userId: 'someone-else' },
+    });
+    await server.inject({
+      method: 'DELETE', url: `/v1/training/templates/${templateId}/save`, headers,
+      payload: { userId: 'someone-else' },
+    });
+    await server.inject({
+      method: 'POST', url: `/v1/training/templates/${templateId}/activate`, headers,
+      payload: { userId: 'someone-else' },
+    });
+    expect(save.save).toHaveBeenCalledWith(user.id, templateId);
+    expect(save.unsave).toHaveBeenCalledWith(user.id, templateId);
+    expect(save.activate).toHaveBeenCalledWith(user.id, templateId);
+    await server.close();
   });
 });

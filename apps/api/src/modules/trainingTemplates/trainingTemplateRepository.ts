@@ -79,7 +79,7 @@ function throwContractError(): never {
   throw error;
 }
 
-async function loadTemplateDetail(
+export async function loadTemplateDetail(
   db: Queryable,
   userId: string,
   templateId: string,

@@ -6,6 +6,11 @@ import {
   createTrainingTemplateRepository,
   type TrainingTemplateRepository,
 } from './trainingTemplateRepository.js';
+import {
+  createTrainingTemplateSaveRepository,
+  type TrainingTemplateSaveOutcome,
+  type TrainingTemplateSaveRepository,
+} from './trainingTemplateSaveRepository.js';
 
 export type TrainingTemplateService = ReturnType<typeof createTrainingTemplateService>;
 
@@ -27,8 +32,27 @@ function parseClientInput<T>(parse: () => T): T {
   }
 }
 
+function requireOutcome(outcome: TrainingTemplateSaveOutcome) {
+  if (outcome.outcome === 'not_found') {
+    throw new AppError(404, 'TRAINING_TEMPLATE_NOT_FOUND', 'Training template was not found.');
+  }
+  return { userPlan: outcome.userPlan };
+}
+
+async function runSaveMutation(operation: () => Promise<TrainingTemplateSaveOutcome>) {
+  try {
+    return requireOutcome(await operation());
+  } catch (error) {
+    if (error instanceof Error && error.name === 'TrainingExerciseNotAvailableError') {
+      throw new AppError(400, 'TRAINING_EXERCISE_NOT_AVAILABLE', 'One or more exercises are not available.');
+    }
+    throw error;
+  }
+}
+
 export function createTrainingTemplateService(
   repository: TrainingTemplateRepository = createTrainingTemplateRepository(),
+  saveRepository: TrainingTemplateSaveRepository = createTrainingTemplateSaveRepository(),
 ) {
   return {
     list(user: AuthUser) {
@@ -44,6 +68,27 @@ export function createTrainingTemplateService(
         throw new AppError(404, 'TRAINING_TEMPLATE_NOT_FOUND', 'Training template was not found.');
       }
       return result;
+    },
+
+    async save(user: AuthUser, paramsValue: unknown) {
+      const { templateId } = parseClientInput(
+        () => trainingTemplateIdParamsSchema.parse(paramsValue),
+      );
+      return runSaveMutation(() => saveRepository.save(user.id, templateId));
+    },
+
+    async unsave(user: AuthUser, paramsValue: unknown) {
+      const { templateId } = parseClientInput(
+        () => trainingTemplateIdParamsSchema.parse(paramsValue),
+      );
+      return runSaveMutation(() => saveRepository.unsave(user.id, templateId));
+    },
+
+    async activate(user: AuthUser, paramsValue: unknown) {
+      const { templateId } = parseClientInput(
+        () => trainingTemplateIdParamsSchema.parse(paramsValue),
+      );
+      return runSaveMutation(() => saveRepository.activate(user.id, templateId));
     },
   };
 }

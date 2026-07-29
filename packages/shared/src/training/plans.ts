@@ -377,6 +377,15 @@ export const trainingTemplateDetailResponseSchema = z.object({
   userPlan: trainingTemplateUserProjectionSchema,
 }).strict();
 
+// Response envelope for the save/unsave/activate mutations below — deliberately just the
+// projection, not the template or the plan itself: none of these three actions change the
+// template's own identity, and the plan content is already reachable through the plan reads
+// (which now also surface sourceTemplateId/savedAt/sourceTemplateImageReference/
+// sourceTemplateRevisionId — see trainingPlanSummaryShape and planRevisionSchema above).
+export const templateUserPlanResponseSchema = z.object({
+  userPlan: trainingTemplateUserProjectionSchema,
+}).strict();
+
 export type PlanTargetExerciseInput = z.infer<typeof planTargetExerciseInputSchema>;
 export type PlanUnitInput = z.infer<typeof planUnitInputSchema>;
 export type PlanTreeInput = z.infer<typeof planTreeInputSchema>;
@@ -404,3 +413,4 @@ export type TrainingTemplateUserProjection = z.infer<typeof trainingTemplateUser
 export type TrainingTemplateListItem = z.infer<typeof trainingTemplateListItemSchema>;
 export type ListTrainingTemplatesResponse = z.infer<typeof listTrainingTemplatesResponseSchema>;
 export type TrainingTemplateDetailResponse = z.infer<typeof trainingTemplateDetailResponseSchema>;
+export type TemplateUserPlanResponse = z.infer<typeof templateUserPlanResponseSchema>;

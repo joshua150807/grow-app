@@ -8,8 +8,8 @@ import {
 import type pg from 'pg';
 import { getPgPool } from '../../db/client.js';
 
-type Database = Pick<pg.Pool, 'query' | 'connect'>;
-type Client = pg.PoolClient;
+export type Database = Pick<pg.Pool, 'query' | 'connect'>;
+export type Client = pg.PoolClient;
 export type MutationResult =
   | { outcome: 'ok'; planId: string }
   | { outcome: 'not_found' | 'version_conflict' | 'status_conflict' | 'schedule_conflict' };
@@ -39,6 +39,9 @@ export type PlanRow = {
   schedule_start_date: string | null;
   schedule_timezone: string | null;
   schedule_effective_at: Date | string | null;
+  source_template_id: string | null;
+  saved_at: Date | string | null;
+  template_image_reference: string | null;
 };
 type ExerciseRow = { id: string; scope: 'system' | 'user'; owner_user_id: string | null };
 
@@ -47,6 +50,7 @@ const nullableIso = (value: Date | string | null) => value === null ? null : iso
 const planSummarySelect = `
   select plan.id,plan.name,plan.status,plan.version,plan.current_revision_id,
     plan.created_at,plan.updated_at,plan.activated_at,plan.archived_at,
+    plan.source_template_id,plan.saved_at,template.image_reference as template_image_reference,
     schedule.start_date as schedule_start_date,
     schedule.timezone as schedule_timezone,
     schedule.effective_at as schedule_effective_at,
@@ -54,6 +58,7 @@ const planSummarySelect = `
      where goal.plan_id=plan.id and goal.user_id=plan.user_id
      order by goal.effective_from desc limit 1) as weekly_goal
   from public.training_plans_v2 plan
+  left join public.training_templates_v2 template on template.id=plan.source_template_id
   left join lateral (
     select activation.start_date::text as start_date,activation.timezone,activation.effective_at
     from public.training_plan_activations_v2 activation
@@ -78,6 +83,9 @@ export function mapTrainingPlanSummary(row: PlanRow): TrainingPlanSummary {
       timeZone: String(row.schedule_timezone),
       effectiveAt: iso(row.schedule_effective_at!),
     } : null,
+    sourceTemplateId: row.source_template_id === null ? null : String(row.source_template_id),
+    savedAt: nullableIso(row.saved_at),
+    sourceTemplateImageReference: row.template_image_reference,
   });
   if (!parsed.success) {
     const error = new Error('Internal training plan contract violation.');
@@ -87,7 +95,7 @@ export function mapTrainingPlanSummary(row: PlanRow): TrainingPlanSummary {
   return parsed.data;
 }
 
-async function transaction<T>(db: Database, operation: (client: Client) => Promise<T>): Promise<T> {
+export async function transaction<T>(db: Database, operation: (client: Client) => Promise<T>): Promise<T> {
   const client = await db.connect();
   try {
     await client.query('begin');
@@ -102,8 +110,9 @@ async function transaction<T>(db: Database, operation: (client: Client) => Promi
   }
 }
 
-async function insertTree(
+export async function insertTree(
   client: Client, userId: string, planId: string, revisionNumber: number, input: PlanTreeInput,
+  sourceTemplateRevisionId: string | null = null,
 ) {
   const requestedIds = [...new Set(input.units.flatMap((unit) => unit.exercises.map((item) => item.exerciseId)))];
   const available = requestedIds.length === 0 ? { rows: [] as ExerciseRow[] } : await client.query<ExerciseRow>(`
@@ -119,8 +128,8 @@ async function insertTree(
     throw error;
   }
   const revision = await client.query<{ id: string }>(`
-    insert into public.training_plan_revisions_v2(plan_id,user_id,revision_number)
-    values ($1,$2,$3) returning id`, [planId, userId, revisionNumber]);
+    insert into public.training_plan_revisions_v2(plan_id,user_id,revision_number,source_template_revision_id)
+    values ($1,$2,$3,$4) returning id`, [planId, userId, revisionNumber, sourceTemplateRevisionId]);
   const revisionId = String(revision.rows[0].id);
   const units: Array<{ id: string; logicalKey: string; orderIndex: number }> = [];
   for (const unit of [...input.units].sort((a, b) => a.orderIndex - b.orderIndex)) {
@@ -158,6 +167,27 @@ async function insertTree(
   return { revisionId, units };
 }
 
+// Shared by the plan-level activate()/reactivate() below and by the template-driven
+// save/activate flow (trainingTemplateSaveRepository.ts) — the archive-old-active-plan,
+// cancel-pending-activation and set-active-then-reset-cycle sequence must stay identical
+// for both callers, since a template-derived plan is otherwise an ordinary training_plans_v2
+// row and must obey the exact same one-active-plan-per-user invariant.
+export async function applyPlanActivation(
+  client: Client, userId: string, planId: string, currentRevisionId: string, reactivation: boolean,
+): Promise<void> {
+  await client.query(`update public.training_plans_v2
+    set status='archived',archived_at=now(),version=version+1
+    where user_id=$1 and status='active' and id<>$2`, [userId, planId]);
+  await client.query(`update public.training_plan_activations_v2
+    set status='cancelled',cancelled_at=now()
+    where user_id=$1 and plan_id=$2 and status='pending'`, [userId, planId]);
+  await client.query(`update public.training_plans_v2
+    set status='active',activated_at=now(),archived_at=null,version=version+1
+    where id=$1 and user_id=$2`, [planId, userId]);
+  await resetCycle(client, userId, planId, currentRevisionId,
+    reactivation ? 'plan_reactivated' : 'plan_activated');
+}
+
 async function resetCycle(
   client: Client, userId: string, planId: string, revisionId: string,
   trigger: 'plan_activated' | 'plan_reactivated',
@@ -183,8 +213,11 @@ async function loadPlan(db: Pick<pg.Pool | Client, 'query'>, userId: string, pla
     where plan.user_id=$1 and plan.id=$2 and plan.current_revision_id is not null`, [userId, planId]);
   const plan = plans.rows[0];
   if (!plan?.current_revision_id) return null;
-  const revisions = await db.query<{ id: string; revision_number: number; created_at: Date | string }>(`
-    select id,revision_number,created_at from public.training_plan_revisions_v2
+  const revisions = await db.query<{
+    id: string; revision_number: number; created_at: Date | string;
+    source_template_revision_id: string | null;
+  }>(`
+    select id,revision_number,created_at,source_template_revision_id from public.training_plan_revisions_v2
     where id=$1 and plan_id=$2 and user_id=$3
   `, [plan.current_revision_id, planId, userId]);
   const revision = revisions.rows[0];
@@ -217,6 +250,8 @@ async function loadPlan(db: Pick<pg.Pool | Client, 'query'>, userId: string, pla
     revision: {
       id: String(revision.id), revisionNumber: Number(revision.revision_number),
       createdAt: iso(revision.created_at),
+      sourceTemplateRevisionId: revision.source_template_revision_id === null
+        ? null : String(revision.source_template_revision_id),
       units: units.rows.map((unit) => ({
         id: String(unit.id), logicalUnitKey: String(unit.logical_unit_key), name: String(unit.name),
         unitType: unit.unit_type, orderIndex: Number(unit.order_index),
@@ -286,7 +321,9 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
       return transaction(db, async (client): Promise<MutationResult> => {
         const currentRows = await client.query<{
           version: number; current_revision_id: string; revision_number: number;
-        }>(`select plan.version,plan.current_revision_id,revision.revision_number
+          source_template_revision_id: string | null;
+        }>(`select plan.version,plan.current_revision_id,revision.revision_number,
+              revision.source_template_revision_id
             from public.training_plans_v2 plan join public.training_plan_revisions_v2 revision
               on revision.id=plan.current_revision_id and revision.plan_id=plan.id
               and revision.user_id=plan.user_id
@@ -304,7 +341,10 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
           select logical_unit_key,order_index from public.training_plan_units_v2
           where revision_id=$1 and plan_id=$2 and user_id=$3 order by order_index`,
         [current.current_revision_id, planId, userId]);
-        const tree = await insertTree(client, userId, planId, Number(current.revision_number) + 1, input);
+        const tree = await insertTree(
+          client, userId, planId, Number(current.revision_number) + 1, input,
+          current.source_template_revision_id,
+        );
         await client.query(`update public.training_plans_v2
           set name=$1,current_revision_id=$2,version=version+1 where id=$3 and user_id=$4`,
         [input.name, tree.revisionId, planId, userId]);
@@ -341,17 +381,7 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
         ) {
           return { outcome: 'status_conflict' };
         }
-        await client.query(`update public.training_plans_v2
-          set status='archived',archived_at=now(),version=version+1
-          where user_id=$1 and status='active' and id<>$2`, [userId, planId]);
-        await client.query(`update public.training_plan_activations_v2
-          set status='cancelled',cancelled_at=now()
-          where user_id=$1 and plan_id=$2 and status='pending'`, [userId, planId]);
-        await client.query(`update public.training_plans_v2
-          set status='active',activated_at=now(),archived_at=null,version=version+1
-          where id=$1 and user_id=$2`, [planId, userId]);
-        await resetCycle(client, userId, planId, plan.current_revision_id,
-          reactivation ? 'plan_reactivated' : 'plan_activated');
+        await applyPlanActivation(client, userId, planId, plan.current_revision_id, reactivation);
         return { outcome: 'ok', planId };
       });
     },

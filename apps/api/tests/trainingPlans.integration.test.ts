@@ -75,6 +75,11 @@ describe('training plan API PostgreSQL integration', () => {
       'utf8',
     );
     await pool.query(activationMigration);
+    const provenanceMigration = await readFile(
+      new URL('../../../supabase/migrations/20260728210635_training_v2_template_provenance.sql', import.meta.url),
+      'utf8',
+    );
+    await pool.query(provenanceMigration);
     server = buildApp({
       authTokenVerifier: verify,
       trainingPlanService: createTrainingPlanService(createTrainingPlanRepository(pool)),

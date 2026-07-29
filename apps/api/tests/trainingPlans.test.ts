@@ -204,6 +204,9 @@ describe('training plan read repository', () => {
     schedule_start_date: '2026-10-25',
     schedule_timezone: 'Europe/Berlin',
     schedule_effective_at: '2026-10-24T22:00:00.000Z',
+    source_template_id: null,
+    saved_at: null,
+    template_image_reference: null,
   };
 
   it('maps the persisted local schedule without reconstructing it from UTC', () => {

@@ -44,6 +44,15 @@ export const trainingRoutes: FastifyPluginAsync<TrainingRoutesOptions> = async (
     const result = await templateService().get(request.auth.user!, request.params);
     return { template: result.template, userPlan: result.userPlan };
   });
+  app.put('/training/templates/:templateId/save', { preHandler: [app.requireAuth] }, async (request) => (
+    templateService().save(request.auth.user!, request.params)
+  ));
+  app.delete('/training/templates/:templateId/save', { preHandler: [app.requireAuth] }, async (request) => (
+    templateService().unsave(request.auth.user!, request.params)
+  ));
+  app.post('/training/templates/:templateId/activate', { preHandler: [app.requireAuth] }, async (request) => (
+    templateService().activate(request.auth.user!, request.params)
+  ));
 
   app.get('/training/plans', { preHandler: [app.requireAuth] }, async (request) => ({
     plans: await service().list(request.auth.user!),
