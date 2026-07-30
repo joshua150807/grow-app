@@ -45,6 +45,8 @@ async function dropSchema(pool: Pool) {
   await pool.query(`drop table if exists ${tables.map((table) => `public.${table}`).join(',')} cascade`);
   await pool.query('drop function if exists public.set_training_v2_updated_at()');
   await pool.query('drop function if exists public.prevent_training_v2_revision_update()');
+  await pool.query('drop function if exists public.is_training_v2_clean_text_array(text[]) cascade');
+  await pool.query('drop function if exists public.prevent_training_v2_exercise_identity_update() cascade');
 }
 
 describe('training plan API PostgreSQL integration', () => {
@@ -70,6 +72,19 @@ describe('training plan API PostgreSQL integration', () => {
       'utf8',
     );
     await pool.query(migration);
+    // Only the schema/column additions (system_key, equipment, the identity-immutability
+    // trigger) are needed here — trainingExerciseRepository's create() (reused by
+    // resolveExerciseDraft below) selects and returns those columns. The system-catalog seed
+    // migration (20260726200000) is deliberately not loaded: these tests never rely on the
+    // seeded 90-row catalog, only on manually inserted system/user rows.
+    const exerciseCatalogFoundationMigration = await readFile(
+      new URL(
+        '../../../supabase/migrations/20260726190000_training_v2_exercise_catalog_foundation.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await pool.query(exerciseCatalogFoundationMigration);
     const activationMigration = await readFile(
       new URL('../../../supabase/migrations/20260726210000_training_v2_activation_start_date.sql', import.meta.url),
       'utf8',
@@ -80,6 +95,14 @@ describe('training plan API PostgreSQL integration', () => {
       'utf8',
     );
     await pool.query(provenanceMigration);
+    const privateExerciseUniquenessMigration = await readFile(
+      new URL(
+        '../../../supabase/migrations/20260729060000_training_v2_private_exercise_name_uniqueness.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await pool.query(privateExerciseUniquenessMigration);
     server = buildApp({
       authTokenVerifier: verify,
       trainingPlanService: createTrainingPlanService(createTrainingPlanRepository(pool)),
@@ -91,11 +114,11 @@ describe('training plan API PostgreSQL integration', () => {
     await pool.query('truncate auth.users cascade');
     await pool.query('insert into auth.users(id) values ($1),($2)', [userA, userB]);
     const result = await pool.query(`
-      insert into public.training_exercises_v2(scope,owner_user_id,status,category,load_type,name)
+      insert into public.training_exercises_v2(scope,owner_user_id,status,category,load_type,name,system_key)
       values
-        ('system',null,'active','strength','total_weight','System'),
-        ('user',$1,'active','strength','total_weight','Own'),
-        ('user',$2,'active','strength','total_weight','Foreign')
+        ('system',null,'active','strength','total_weight','System','system'),
+        ('user',$1,'active','strength','total_weight','Own',null),
+        ('user',$2,'active','strength','total_weight','Foreign',null)
       returning id,owner_user_id
     `, [userA, userB]);
     foreignExercise = String(result.rows.find((row) => row.owner_user_id === userB).id);
@@ -125,6 +148,57 @@ describe('training plan API PostgreSQL integration', () => {
     };
   }
 
+  function targetExerciseDraft(
+    draft: { logicalKey: string; name: string; mainMuscle?: string; category?: string },
+    orderIndex: number,
+  ) {
+    return {
+      logicalTargetExerciseKey: randomUUID(),
+      exerciseDraft: {
+        logicalKey: draft.logicalKey, name: draft.name,
+        mainMuscle: draft.mainMuscle ?? 'other', category: draft.category ?? 'strength',
+      },
+      orderIndex,
+      note: null,
+      targetSets: [{
+        logicalTargetSetKey: randomUUID(), orderIndex: 0, setType: 'work',
+        targetWeightKg: 80, targetReps: { minimum: 8, maximum: 10 }, targetRir: 2,
+        plannedRestSeconds: 120, importedFromLegacyPlan: false,
+      }],
+    };
+  }
+
+  function singleUnitPayload(exercises: unknown[], options: { expectedVersion?: number } = {}) {
+    const units = [{ logicalUnitKey: randomUUID(), name: 'Strength', unitType: 'strength', orderIndex: 0, exercises }];
+    return options.expectedVersion === undefined
+      ? { name: 'Plan', weeklyGoal: 3, activateImmediately: false, units }
+      : { name: 'Plan', expectedVersion: options.expectedVersion, units };
+  }
+
+  async function ownPrivateExerciseByName(ownerId: string, name: string) {
+    const result = await pool.query<{ id: string; main_muscle: string | null; status: string }>(`
+      select id, main_muscle, status from public.training_exercises_v2
+      where owner_user_id = $1 and scope = 'user'
+        and lower(regexp_replace(btrim(name), '\\s+', ' ', 'g'))
+          = lower(regexp_replace(btrim($2), '\\s+', ' ', 'g'))
+    `, [ownerId, name]);
+    return result.rows[0] ?? null;
+  }
+
+  async function insertExercise(options: {
+    scope: 'system' | 'user'; ownerId?: string; name: string; mainMuscle?: string | null; category?: string;
+  }) {
+    const systemKey = options.scope === 'system' ? `system_${randomUUID().replaceAll('-', '')}` : null;
+    const result = await pool.query<{ id: string }>(`
+      insert into public.training_exercises_v2(scope,owner_user_id,status,category,load_type,name,main_muscle,system_key)
+      values ($1,$2,'active',$3,'total_weight',$4,$5,$6) returning id
+    `, [
+      options.scope, options.ownerId ?? null, options.category ?? 'strength',
+      options.name, options.mainMuscle ?? null, systemKey,
+    ]);
+    return String(result.rows[0].id);
+  }
+
   function payload(options: { active?: boolean; twoUnits?: boolean; exerciseIds?: string[] } = {}) {
     const firstKey = randomUUID();
     const units = [{
@@ -141,7 +215,7 @@ describe('training plan API PostgreSQL integration', () => {
     return { name: 'Plan', weeklyGoal: 3, activateImmediately: options.active ?? false, units };
   }
 
-  async function create(input = payload()) {
+  async function create(input: Record<string, unknown> = payload()) {
     return server.inject({ method: 'POST', url: '/v1/training/plans', headers: headersA, payload: input });
   }
 
@@ -386,5 +460,253 @@ describe('training plan API PostgreSQL integration', () => {
     expect((await pool.query(
       'select count(*)::int count from public.training_plan_revisions_v2 where plan_id=$1', [plan.id],
     )).rows[0].count).toBe(1);
+  });
+
+  describe('private exercise draft resolution', () => {
+    it('legacy exerciseId-only input stays green after the additive schema change', async () => {
+      const response = await create();
+      expect(response.statusCode).toBe(201);
+      expect(response.json().plan.revision.units[0].exercises).toHaveLength(2);
+    });
+
+    it('creates an unknown draft exercise atomically together with plan create', async () => {
+      const draft = { logicalKey: randomUUID(), name: 'Kabelrudern eng', mainMuscle: 'back', category: 'strength' };
+      const response = await create(singleUnitPayload([targetExerciseDraft(draft, 0)]));
+      expect(response.statusCode).toBe(201);
+      const exercise = await ownPrivateExerciseByName(userA, draft.name);
+      expect(exercise).toMatchObject({ main_muscle: 'back', status: 'active' });
+      expect(response.json().plan.revision.units[0].exercises[0].exerciseId).toBe(exercise!.id);
+      const loadType = await pool.query('select load_type,category from public.training_exercises_v2 where id=$1', [exercise!.id]);
+      expect(loadType.rows[0]).toEqual({ load_type: 'total_weight', category: 'strength' });
+    });
+
+    it('creates an unknown draft exercise atomically together with plan update', async () => {
+      const created = (await create()).json().plan;
+      const draft = { logicalKey: randomUUID(), name: 'Neue Zugübung', mainMuscle: 'legs', category: 'mobility' };
+      const response = await server.inject({
+        method: 'PATCH', url: `/v1/training/plans/${created.id}`, headers: headersA,
+        payload: singleUnitPayload([targetExerciseDraft(draft, 0)], { expectedVersion: 1 }),
+      });
+      expect(response.statusCode).toBe(200);
+      const exercise = await ownPrivateExerciseByName(userA, draft.name);
+      expect(exercise).toMatchObject({ main_muscle: 'legs' });
+      const loadType = await pool.query('select load_type from public.training_exercises_v2 where id=$1', [exercise!.id]);
+      expect(loadType.rows[0].load_type).toBe('no_weight_tracking');
+    });
+
+    it('resolves several plan rows sharing one draft logicalKey to the exact same exercise id', async () => {
+      const draft = { logicalKey: randomUUID(), name: 'Geteilte Übung', mainMuscle: 'chest', category: 'strength' };
+      const units = [
+        { logicalUnitKey: randomUUID(), name: 'Tag 1', unitType: 'strength', orderIndex: 0, exercises: [targetExerciseDraft(draft, 0)] },
+        { logicalUnitKey: randomUUID(), name: 'Tag 2', unitType: 'strength', orderIndex: 1, exercises: [targetExerciseDraft(draft, 0)] },
+      ];
+      const response = await create({ name: 'Plan', weeklyGoal: 3, activateImmediately: false, units });
+      expect(response.statusCode).toBe(201);
+      const [first, second] = response.json().plan.revision.units;
+      expect(first.exercises[0].exerciseId).toBe(second.exercises[0].exerciseId);
+      const count = await pool.query(
+        `select count(*)::int count from public.training_exercises_v2
+         where owner_user_id=$1 and scope='user'
+           and lower(regexp_replace(btrim(name),'\\s+',' ','g')) = 'geteilte übung'`,
+        [userA],
+      );
+      expect(count.rows[0].count).toBe(1);
+    });
+
+    it('reuses a normalized-equal draft instead of creating a duplicate', async () => {
+      const first = await create(singleUnitPayload([
+        targetExerciseDraft({ logicalKey: randomUUID(), name: 'Kabel  Rudern', mainMuscle: 'back' }, 0),
+      ]));
+      expect(first.statusCode).toBe(201);
+      const firstId = first.json().plan.revision.units[0].exercises[0].exerciseId;
+
+      const second = await create(singleUnitPayload([
+        targetExerciseDraft({ logicalKey: randomUUID(), name: '  kabel rudern ', mainMuscle: 'back' }, 0),
+      ]));
+      expect(second.statusCode).toBe(201);
+      expect(second.json().plan.revision.units[0].exercises[0].exerciseId).toBe(firstId);
+
+      const count = await pool.query(
+        `select count(*)::int count from public.training_exercises_v2
+         where owner_user_id=$1 and scope='user'
+           and lower(regexp_replace(btrim(name),'\\s+',' ','g')) = 'kabel rudern'`,
+        [userA],
+      );
+      expect(count.rows[0].count).toBe(1);
+    });
+
+    it('reuses the system exercise id when a draft matches only a system exercise exactly (no private row created)', async () => {
+      const systemId = await insertExercise({
+        scope: 'system', name: 'Langhantelrudern', mainMuscle: 'upper_back', category: 'strength',
+      });
+      const before = await pool.query(
+        'select count(*)::int count from public.training_exercises_v2 where scope=\'user\' and owner_user_id=$1',
+        [userA],
+      );
+
+      // upper_back maps to the 'back' UI group (see FINE_SYSTEM_MUSCLE_TO_UI_GROUP) — the
+      // draft names that same UI group explicitly, matching the system exercise exactly.
+      const response = await create(singleUnitPayload([
+        targetExerciseDraft({ logicalKey: randomUUID(), name: 'Langhantelrudern', mainMuscle: 'back', category: 'strength' }, 0),
+      ]));
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json().plan.revision.units[0].exercises[0].exerciseId).toBe(systemId);
+      const after = await pool.query(
+        'select count(*)::int count from public.training_exercises_v2 where scope=\'user\' and owner_user_id=$1',
+        [userA],
+      );
+      expect(after.rows[0].count).toBe(before.rows[0].count);
+      const system = await pool.query('select name,main_muscle,category from public.training_exercises_v2 where id=$1', [systemId]);
+      expect(system.rows[0]).toEqual({ name: 'Langhantelrudern', main_muscle: 'upper_back', category: 'strength' });
+    });
+
+    it('reuses the system exercise id when the draft name is only normalized-equal (trim/case/whitespace) to it', async () => {
+      const systemId = await insertExercise({
+        scope: 'system', name: 'Beinpresse', mainMuscle: 'quadriceps', category: 'strength',
+      });
+      const response = await create(singleUnitPayload([
+        targetExerciseDraft({ logicalKey: randomUUID(), name: '  BEINPRESSE  ', mainMuscle: 'legs', category: 'strength' }, 0),
+      ]));
+      expect(response.statusCode).toBe(201);
+      expect(response.json().plan.revision.units[0].exercises[0].exerciseId).toBe(systemId);
+    });
+
+    it('creates an independent private copy when the draft category differs from a same-named, same-muscle system exercise (system untouched)', async () => {
+      const systemId = await insertExercise({
+        scope: 'system', name: 'Ausfallschritte', mainMuscle: 'quadriceps', category: 'strength',
+      });
+      const response = await create(singleUnitPayload([
+        targetExerciseDraft({ logicalKey: randomUUID(), name: 'Ausfallschritte', mainMuscle: 'legs', category: 'mobility' }, 0),
+      ]));
+      expect(response.statusCode).toBe(201);
+      const created = response.json().plan.revision.units[0].exercises[0].exerciseId;
+      expect(created).not.toBe(systemId);
+      const system = await pool.query('select category,main_muscle from public.training_exercises_v2 where id=$1', [systemId]);
+      expect(system.rows[0]).toEqual({ category: 'strength', main_muscle: 'quadriceps' });
+      const own = await ownPrivateExerciseByName(userA, 'Ausfallschritte');
+      expect(own).toMatchObject({ id: created, main_muscle: 'legs' });
+      const ownCategory = await pool.query('select category from public.training_exercises_v2 where id=$1', [created]);
+      expect(ownCategory.rows[0].category).toBe('mobility');
+    });
+
+    it('prefers the caller\'s own private exercise over a same-named system exercise', async () => {
+      const systemId = await insertExercise({ scope: 'system', name: 'Kabelrudern eng', mainMuscle: 'lats' });
+      const ownId = await insertExercise({ scope: 'user', ownerId: userA, name: 'Kabelrudern eng', mainMuscle: 'back' });
+
+      const response = await create(singleUnitPayload([
+        targetExerciseDraft({ logicalKey: randomUUID(), name: 'Kabelrudern eng', mainMuscle: 'back' }, 0),
+      ]));
+      expect(response.statusCode).toBe(201);
+      expect(response.json().plan.revision.units[0].exercises[0].exerciseId).toBe(ownId);
+      expect(response.json().plan.revision.units[0].exercises[0].exerciseId).not.toBe(systemId);
+      const count = await pool.query(
+        `select count(*)::int count from public.training_exercises_v2
+         where owner_user_id=$1 and scope='user'
+           and lower(regexp_replace(btrim(name),'\\s+',' ','g')) = 'kabelrudern eng'`,
+        [userA],
+      );
+      expect(count.rows[0].count).toBe(1);
+    });
+
+    it('creates an independent private copy when the draft name differs from a similarly themed system exercise (system untouched)', async () => {
+      const systemId = await insertExercise({ scope: 'system', name: 'Kniebeuge', mainMuscle: 'quadriceps' });
+      const response = await create(singleUnitPayload([
+        targetExerciseDraft({ logicalKey: randomUUID(), name: 'Kniebeuge Variante', mainMuscle: 'legs' }, 0),
+      ]));
+      expect(response.statusCode).toBe(201);
+      const created = response.json().plan.revision.units[0].exercises[0].exerciseId;
+      expect(created).not.toBe(systemId);
+      const system = await pool.query('select name,main_muscle from public.training_exercises_v2 where id=$1', [systemId]);
+      expect(system.rows[0]).toEqual({ name: 'Kniebeuge', main_muscle: 'quadriceps' });
+    });
+
+    it('creates an independent private copy when the draft muscle group differs from a same-named system exercise (system untouched)', async () => {
+      const systemId = await insertExercise({ scope: 'system', name: 'Schulterdrücken', mainMuscle: 'front_delts' });
+      const response = await create(singleUnitPayload([
+        targetExerciseDraft({ logicalKey: randomUUID(), name: 'Schulterdrücken', mainMuscle: 'chest' }, 0),
+      ]));
+      expect(response.statusCode).toBe(201);
+      const created = response.json().plan.revision.units[0].exercises[0].exerciseId;
+      expect(created).not.toBe(systemId);
+      const system = await pool.query('select main_muscle from public.training_exercises_v2 where id=$1', [systemId]);
+      expect(system.rows[0].main_muscle).toBe('front_delts');
+      const own = await ownPrivateExerciseByName(userA, 'Schulterdrücken');
+      expect(own).toMatchObject({ id: created, main_muscle: 'chest' });
+    });
+
+    it('changing a draft to a new name creates an independent private exercise and leaves the previously used one untouched', async () => {
+      const oldOwn = await insertExercise({ scope: 'user', ownerId: userA, name: 'Altes Rudern', mainMuscle: 'back' });
+      const response = await create(singleUnitPayload([
+        targetExerciseDraft({ logicalKey: randomUUID(), name: 'Neues Rudern', mainMuscle: 'back' }, 0),
+      ]));
+      expect(response.statusCode).toBe(201);
+      const created = response.json().plan.revision.units[0].exercises[0].exerciseId;
+      expect(created).not.toBe(oldOwn);
+      const old = await pool.query('select name from public.training_exercises_v2 where id=$1', [oldOwn]);
+      expect(old.rows[0].name).toBe('Altes Rudern');
+    });
+
+    it('an explicitly changed muscle group for the same private exercise name updates the canonical mapping in place', async () => {
+      const ownId = await insertExercise({ scope: 'user', ownerId: userA, name: 'Bankdrücken eng', mainMuscle: 'chest' });
+      const response = await create(singleUnitPayload([
+        targetExerciseDraft({ logicalKey: randomUUID(), name: 'Bankdrücken eng', mainMuscle: 'triceps' }, 0),
+      ]));
+      expect(response.statusCode).toBe(201);
+      expect(response.json().plan.revision.units[0].exercises[0].exerciseId).toBe(ownId);
+      const updated = await pool.query('select main_muscle from public.training_exercises_v2 where id=$1', [ownId]);
+      expect(updated.rows[0].main_muscle).toBe('triceps');
+      const count = await pool.query(
+        `select count(*)::int count from public.training_exercises_v2
+         where owner_user_id=$1 and scope='user'
+           and lower(regexp_replace(btrim(name),'\\s+',' ','g')) = 'bankdrücken eng'`,
+        [userA],
+      );
+      expect(count.rows[0].count).toBe(1);
+    });
+
+    it('still rejects a foreign private exercise referenced by exerciseId', async () => {
+      const response = await create(singleUnitPayload([targetExercise(foreignExercise, 0)]));
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error.code).toBe('TRAINING_EXERCISE_NOT_AVAILABLE');
+    });
+
+    it('lets two truly concurrent saves resolve the same draft name without creating a duplicate exercise', async () => {
+      const [first, second] = await Promise.all([
+        create(singleUnitPayload([
+          targetExerciseDraft({ logicalKey: randomUUID(), name: 'Parallele Übung', mainMuscle: 'abs' }, 0),
+        ])),
+        create(singleUnitPayload([
+          targetExerciseDraft({ logicalKey: randomUUID(), name: 'parallele  übung', mainMuscle: 'abs' }, 0),
+        ])),
+      ]);
+      expect(first.statusCode).toBe(201);
+      expect(second.statusCode).toBe(201);
+      expect(first.json().plan.revision.units[0].exercises[0].exerciseId)
+        .toBe(second.json().plan.revision.units[0].exercises[0].exerciseId);
+      const count = await pool.query(
+        `select count(*)::int count from public.training_exercises_v2
+         where owner_user_id=$1 and scope='user'
+           and lower(regexp_replace(btrim(name),'\\s+',' ','g')) = 'parallele übung'`,
+        [userA],
+      );
+      expect(count.rows[0].count).toBe(1);
+    });
+
+    it('a forced failure after exercise-draft resolution leaves neither the new exercise nor a partial plan behind', async () => {
+      const draft = { logicalKey: randomUUID(), name: 'Rollback Übung', mainMuscle: 'biceps', category: 'strength' };
+      const bogusExerciseId = randomUUID();
+      const units = [
+        { logicalUnitKey: randomUUID(), name: 'Tag 1', unitType: 'strength', orderIndex: 0, exercises: [targetExerciseDraft(draft, 0)] },
+        { logicalUnitKey: randomUUID(), name: 'Tag 2', unitType: 'strength', orderIndex: 1, exercises: [targetExercise(bogusExerciseId, 0)] },
+      ];
+      const plansBefore = await pool.query('select count(*)::int count from public.training_plans_v2');
+      const response = await create({ name: 'Plan', weeklyGoal: 3, activateImmediately: false, units });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error.code).toBe('TRAINING_EXERCISE_NOT_AVAILABLE');
+      const plansAfter = await pool.query('select count(*)::int count from public.training_plans_v2');
+      expect(plansAfter.rows[0].count).toBe(plansBefore.rows[0].count);
+      expect(await ownPrivateExerciseByName(userA, draft.name)).toBeNull();
+    });
   });
 });

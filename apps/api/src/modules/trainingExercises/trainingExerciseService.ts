@@ -1,4 +1,5 @@
 import {
+  createTrainingExerciseInputSchema,
   listTrainingExercisesQuerySchema,
   listTrainingExercisesResponseSchema,
   trainingExerciseDetailResponseSchema,
@@ -76,6 +77,21 @@ export function createTrainingExerciseService(
       }
       return validateInternalContract(
         () => trainingExerciseDetailResponseSchema.parse({ exercise }),
+      );
+    },
+
+    async create(user: AuthUser, bodyValue: unknown) {
+      const input = parseClientInput(() => createTrainingExerciseInputSchema.parse(bodyValue));
+      const result = await validateInternalContract(() => repository.create(user.id, input));
+      if (result.outcome === 'conflict') {
+        throw new AppError(
+          409,
+          'TRAINING_EXERCISE_CONFLICT',
+          'You already have an exercise with this name.',
+        );
+      }
+      return validateInternalContract(
+        () => trainingExerciseDetailResponseSchema.parse({ exercise: result.exercise }),
       );
     },
   };

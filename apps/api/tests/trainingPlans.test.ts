@@ -108,6 +108,85 @@ describe('training plan API', () => {
     await server.close();
   });
 
+  it('accepts an exerciseDraft row in place of exerciseId and passes it through to the repository unchanged', async () => {
+    const value = repository();
+    const server = app(value);
+    const draftInput = {
+      ...createInput,
+      units: [{
+        ...createInput.units[0],
+        unitType: 'strength',
+        exercises: [{
+          logicalTargetExerciseKey: '77777777-7777-4777-8777-777777777777',
+          exerciseDraft: { logicalKey: '88888888-8888-4888-8888-888888888888', name: 'Kabelrudern eng' },
+          orderIndex: 0,
+          note: null,
+          targetSets: [{
+            logicalTargetSetKey: '99999999-9999-4999-8999-999999999999',
+            orderIndex: 0, setType: 'work', targetWeightKg: 50,
+            targetReps: { minimum: 8, maximum: 10 }, targetRir: null,
+            plannedRestSeconds: 0, importedFromLegacyPlan: false,
+          }],
+        }],
+      }],
+    };
+    const response = await server.inject({
+      method: 'POST', url: '/v1/training/plans', headers, payload: draftInput,
+    });
+    expect(response.statusCode).toBe(201);
+    expect(value.create).toHaveBeenCalledWith(user.id, expect.objectContaining({
+      units: [expect.objectContaining({
+        exercises: [expect.objectContaining({
+          exerciseDraft: {
+            logicalKey: '88888888-8888-4888-8888-888888888888',
+            name: 'Kabelrudern eng',
+            mainMuscle: 'other',
+            category: 'strength',
+          },
+        })],
+      })],
+    }));
+    const [, passedInput] = (value.create as ReturnType<typeof vi.fn>).mock.calls[0] as [string, {
+      units: Array<{ exercises: Array<{ exerciseId?: string }> }>;
+    }];
+    expect(passedInput.units[0].exercises[0].exerciseId).toBeUndefined();
+    await server.close();
+  });
+
+  it('rejects a row with both exerciseId and exerciseDraft, and a row with neither', async () => {
+    const server = app(repository());
+    const baseExercise = {
+      logicalTargetExerciseKey: '77777777-7777-4777-8777-777777777777',
+      orderIndex: 0,
+      note: null,
+      targetSets: [{
+        logicalTargetSetKey: '99999999-9999-4999-8999-999999999999',
+        orderIndex: 0, setType: 'work', targetWeightKg: 50,
+        targetReps: { minimum: 8, maximum: 10 }, targetRir: null,
+        plannedRestSeconds: 0, importedFromLegacyPlan: false,
+      }],
+    };
+    const unitFor = (exercise: Record<string, unknown>) => ({
+      logicalUnitKey: logicalUnitKey, name: 'Day 1', unitType: 'strength', orderIndex: 0, exercises: [exercise],
+    });
+    const both = {
+      ...createInput,
+      units: [unitFor({
+        ...baseExercise,
+        exerciseId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        exerciseDraft: { logicalKey: '88888888-8888-4888-8888-888888888888', name: 'X' },
+      })],
+    };
+    const neither = { ...createInput, units: [unitFor(baseExercise)] };
+    const responseBoth = await server.inject({ method: 'POST', url: '/v1/training/plans', headers, payload: both });
+    const responseNeither = await server.inject({ method: 'POST', url: '/v1/training/plans', headers, payload: neither });
+    expect(responseBoth.statusCode).toBe(400);
+    expect(responseBoth.json().error.code).toBe('TRAINING_PLAN_VALIDATION_ERROR');
+    expect(responseNeither.statusCode).toBe(400);
+    expect(responseNeither.json().error.code).toBe('TRAINING_PLAN_VALIDATION_ERROR');
+    await server.close();
+  });
+
   it('maps version, status, schedule and exercise conflicts to stable codes', async () => {
     const cases = [
       ['version_conflict', 'TRAINING_PLAN_VERSION_CONFLICT'],

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createTrainingPlanInputSchema,
   listTrainingPlansResponseSchema,
+  planTargetExerciseInputSchema,
   scheduleTrainingPlanInputSchema,
   trainingPlanDetailResponseSchema,
   trainingPlanScheduleSchema,
@@ -45,9 +46,98 @@ function planInput() {
   };
 }
 
+function exerciseDraft(overrides: Partial<{ logicalKey: string; name: string; mainMuscle: string; category: string }> = {}) {
+  return { logicalKey: ids[6], name: 'Kabelrudern eng', mainMuscle: 'back', category: 'strength', ...overrides };
+}
+
 describe('training plan API contracts', () => {
   it('accepts a complete plan and defaults immediate activation to false', () => {
     expect(createTrainingPlanInputSchema.parse(planInput()).activateImmediately).toBe(false);
+  });
+
+  it('still accepts a plain exerciseId row exactly as before (legacy input stays green)', () => {
+    const row = planInput().units[0].exercises[0];
+    expect(planTargetExerciseInputSchema.parse(row)).toEqual(row);
+    expect(createTrainingPlanInputSchema.safeParse(planInput()).success).toBe(true);
+  });
+
+  it('accepts an exerciseDraft row in place of exerciseId, defaulting mainMuscle and category', () => {
+    const row = {
+      logicalTargetExerciseKey: ids[1],
+      exerciseDraft: { logicalKey: ids[6], name: 'Neue Übung' },
+      orderIndex: 0,
+      note: null,
+      targetSets: planInput().units[0].exercises[0].targetSets,
+    };
+    const parsed = planTargetExerciseInputSchema.parse(row);
+    expect(parsed.exerciseId).toBeUndefined();
+    expect(parsed.exerciseDraft).toEqual({
+      logicalKey: ids[6], name: 'Neue Übung', mainMuscle: 'other', category: 'strength',
+    });
+  });
+
+  it('rejects a row with both exerciseId and exerciseDraft, and a row with neither', () => {
+    const base = planInput().units[0].exercises[0];
+    expect(planTargetExerciseInputSchema.safeParse({
+      ...base, exerciseDraft: exerciseDraft(),
+    }).success).toBe(false);
+    const { exerciseId: _exerciseId, ...withoutId } = base;
+    expect(planTargetExerciseInputSchema.safeParse(withoutId).success).toBe(false);
+  });
+
+  it('rejects an exerciseDraft with an unknown muscle group or category', () => {
+    expect(planTargetExerciseInputSchema.safeParse({
+      logicalTargetExerciseKey: ids[1],
+      exerciseDraft: exerciseDraft({ mainMuscle: 'quads' }),
+      orderIndex: 0, note: null, targetSets: planInput().units[0].exercises[0].targetSets,
+    }).success).toBe(false);
+    expect(planTargetExerciseInputSchema.safeParse({
+      logicalTargetExerciseKey: ids[1],
+      exerciseDraft: exerciseDraft({ category: 'yoga' }),
+      orderIndex: 0, note: null, targetSets: planInput().units[0].exercises[0].targetSets,
+    }).success).toBe(false);
+  });
+
+  it('allows several rows to share one draft logicalKey only when the draft is identical, rejecting a mismatch', () => {
+    const secondTargetSets = [{ ...planInput().units[0].exercises[0].targetSets[0], logicalTargetSetKey: ids[7] }];
+
+    const plan = planInput();
+    plan.units[0].exercises = [
+      {
+        ...plan.units[0].exercises[0],
+        logicalTargetExerciseKey: ids[1],
+        exerciseId: undefined,
+        exerciseDraft: exerciseDraft(),
+      },
+      {
+        ...plan.units[0].exercises[0],
+        logicalTargetExerciseKey: ids[4],
+        exerciseId: undefined,
+        exerciseDraft: exerciseDraft(),
+        orderIndex: 1,
+        targetSets: secondTargetSets,
+      },
+    ] as never;
+    expect(createTrainingPlanInputSchema.safeParse(plan).success).toBe(true);
+
+    const mismatched = planInput();
+    mismatched.units[0].exercises = [
+      {
+        ...mismatched.units[0].exercises[0],
+        logicalTargetExerciseKey: ids[1],
+        exerciseId: undefined,
+        exerciseDraft: exerciseDraft(),
+      },
+      {
+        ...mismatched.units[0].exercises[0],
+        logicalTargetExerciseKey: ids[4],
+        exerciseId: undefined,
+        exerciseDraft: exerciseDraft({ mainMuscle: 'chest' }),
+        orderIndex: 1,
+        targetSets: secondTargetSets,
+      },
+    ] as never;
+    expect(createTrainingPlanInputSchema.safeParse(mismatched).success).toBe(false);
   });
 
   it.each([

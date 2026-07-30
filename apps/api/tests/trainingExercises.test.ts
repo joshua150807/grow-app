@@ -37,10 +37,25 @@ const exercise = {
   updatedAt: '2026-07-26T10:00:00.000Z',
 };
 
+const privateExercise = {
+  ...exercise,
+  id: '22222222-2222-4222-8222-222222222222',
+  systemKey: null,
+  scope: 'user' as const,
+  name: 'Kabelrudern eng',
+  mainMuscle: 'back',
+  supportingMuscles: [],
+  difficulty: null,
+  equipment: [],
+  isGym: false,
+  executionInstructions: null,
+};
+
 function repository(overrides: Partial<TrainingExerciseRepository> = {}): TrainingExerciseRepository {
   return {
     list: vi.fn(async () => ({ exercises: [exercise], hasMore: false })),
     findVisible: vi.fn(async () => exercise),
+    create: vi.fn(async () => ({ outcome: 'created' as const, exercise: privateExercise })),
     ...overrides,
   };
 }
@@ -175,11 +190,130 @@ describe('training exercise API', () => {
     await server.close();
   });
 
-  it.each(['POST', 'PUT', 'PATCH', 'DELETE'] as const)('exposes no %s write endpoint', async (method) => {
+  it.each(['POST', 'PUT', 'PATCH', 'DELETE'] as const)('exposes no %s endpoint for a single exercise', async (method) => {
     const server = app(repository());
     expect((await server.inject({
       method, url: `/v1/training/exercises/${exerciseId}`, headers, payload: {},
     })).statusCode).toBe(404);
+    await server.close();
+  });
+
+  it.each(['PUT', 'PATCH', 'DELETE'] as const)('exposes no %s write endpoint on the collection', async (method) => {
+    const server = app(repository());
+    expect((await server.inject({
+      method, url: '/v1/training/exercises', headers, payload: {},
+    })).statusCode).toBe(404);
+    await server.close();
+  });
+});
+
+describe('training exercise create API', () => {
+  function post(payload: Record<string, unknown>, requestHeaders: Record<string, string> | undefined = headers) {
+    return app(repository()).inject({
+      method: 'POST', url: '/v1/training/exercises', headers: requestHeaders, payload,
+    });
+  }
+
+  it('requires authentication and never calls the repository', async () => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({
+      method: 'POST', url: '/v1/training/exercises', payload: { name: 'Neue Übung', mainMuscle: 'back' },
+    });
+    expect(response.statusCode).toBe(401);
+    expect(value.create).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it('creates a private exercise and returns it with 201', async () => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({
+      method: 'POST',
+      url: '/v1/training/exercises',
+      headers,
+      payload: { name: 'Kabelrudern eng', mainMuscle: 'back' },
+    });
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toEqual({ exercise: privateExercise });
+    expect(value.create).toHaveBeenCalledWith(
+      user.id,
+      { name: 'Kabelrudern eng', mainMuscle: 'back', category: 'strength' },
+    );
+    await server.close();
+  });
+
+  it('defaults the muscle group to other and the category to strength when omitted', async () => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({
+      method: 'POST', url: '/v1/training/exercises', headers, payload: { name: 'Neue Übung' },
+    });
+    expect(response.statusCode).toBe(201);
+    expect(value.create).toHaveBeenCalledWith(
+      user.id,
+      { name: 'Neue Übung', mainMuscle: 'other', category: 'strength' },
+    );
+    await server.close();
+  });
+
+  it.each([
+    'chest', 'back', 'legs', 'shoulders', 'biceps', 'triceps', 'abs', 'forearms', 'other',
+  ])('accepts the %s muscle group', async (mainMuscle) => {
+    const response = await post({ name: 'Übung', mainMuscle });
+    expect(response.statusCode).toBe(201);
+  });
+
+  it.each(['strength', 'cardio', 'mobility', 'stretching'])(
+    'accepts the %s category, matching the unit types that can reach the picker (plus cardio)',
+    async (category) => {
+      const value = repository();
+      const server = app(value);
+      const response = await server.inject({
+        method: 'POST', url: '/v1/training/exercises', headers, payload: { name: 'Übung', mainMuscle: 'back', category },
+      });
+      expect(response.statusCode).toBe(201);
+      expect(value.create).toHaveBeenCalledWith(user.id, { name: 'Übung', mainMuscle: 'back', category });
+      await server.close();
+    },
+  );
+
+  it('rejects an unknown category', async () => {
+    const response = await post({ name: 'Übung', mainMuscle: 'back', category: 'yoga' });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('TRAINING_EXERCISE_VALIDATION_ERROR');
+  });
+
+  it.each([
+    { name: '' },
+    { name: '   ' },
+    {},
+    { name: 'Übung', mainMuscle: 'quads' },
+    { name: 'Übung', mainMuscle: 'back', scope: 'system' },
+    { name: 'Übung', mainMuscle: 'back', systemKey: 'barbell_back_squat' },
+  ])('rejects invalid input %#', async (payload) => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({
+      method: 'POST', url: '/v1/training/exercises', headers, payload,
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('TRAINING_EXERCISE_VALIDATION_ERROR');
+    expect(value.create).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it('returns a conflict when the repository reports a duplicate owner-scoped name', async () => {
+    const value = repository({ create: vi.fn(async () => ({ outcome: 'conflict' as const })) });
+    const server = app(value);
+    const response = await server.inject({
+      method: 'POST',
+      url: '/v1/training/exercises',
+      headers,
+      payload: { name: 'Kabelrudern eng', mainMuscle: 'back' },
+    });
+    expect(response.statusCode).toBe(409);
+    expect(response.json().error).toMatchObject({ code: 'TRAINING_EXERCISE_CONFLICT' });
     await server.close();
   });
 });
@@ -255,5 +389,39 @@ describe('training exercise repository', () => {
     expect(parameters).toEqual([user.id, exerciseId]);
     expect(sql).not.toMatch(/\b(insert|update|delete)\b/i);
     expect(sql).not.toContain('public.exercises ');
+  });
+
+  it('inserts a scope=user row with the given category and an on-conflict target matching the partial unique index', async () => {
+    const query = vi.fn(async () => ({ rows: [row] }));
+    const value = createTrainingExerciseRepository({ query } as never);
+    const result = await value.create(user.id, { name: 'Kabelrudern eng', mainMuscle: 'back', category: 'mobility' });
+    const [sql, parameters] = query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(sql).toContain("values ('user', $1, 'active', $4, $5, $2, $3)");
+    expect(sql).toContain('on conflict (owner_user_id, (lower(regexp_replace(btrim(name)');
+    expect(sql).toContain("where scope = 'user' and status = 'active'");
+    expect(sql).toContain('do nothing');
+    expect(sql).toMatch(/\binsert\b/i);
+    expect(parameters).toEqual([user.id, 'Kabelrudern eng', 'back', 'mobility', 'no_weight_tracking']);
+    expect(result).toEqual({ outcome: 'created', exercise: mapTrainingExerciseRow(row) });
+  });
+
+  it.each([
+    ['strength', 'total_weight'],
+    ['cardio', 'no_weight_tracking'],
+    ['mobility', 'no_weight_tracking'],
+    ['stretching', 'no_weight_tracking'],
+  ] as const)('derives load_type %s -> %s from the system catalog convention for that category', async (category, expectedLoadType) => {
+    const query = vi.fn(async () => ({ rows: [row] }));
+    const value = createTrainingExerciseRepository({ query } as never);
+    await value.create(user.id, { name: 'Übung', mainMuscle: 'back', category });
+    const [, parameters] = query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(parameters).toEqual([user.id, 'Übung', 'back', category, expectedLoadType]);
+  });
+
+  it('reports a conflict when the on-conflict do-nothing branch suppresses the insert', async () => {
+    const query = vi.fn(async () => ({ rows: [] }));
+    const value = createTrainingExerciseRepository({ query } as never);
+    const result = await value.create(user.id, { name: 'Kabelrudern eng', mainMuscle: 'back', category: 'strength' });
+    expect(result).toEqual({ outcome: 'conflict' });
   });
 });

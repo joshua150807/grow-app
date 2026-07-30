@@ -1,12 +1,15 @@
 import type {
-  CreateTrainingPlanInput, PlanTreeInput, TrainingPlan, TrainingPlanSummary, UpdateTrainingPlanInput,
+  CreateTrainingPlanInput, PlanExerciseDraftInput, PlanTreeInput,
+  TrainingPlan, TrainingPlanSummary, UpdateTrainingPlanInput,
 } from '@grow/shared/src/training/plans.js';
 import {
   trainingPlanSchema,
   trainingPlanSummarySchema,
 } from '@grow/shared/src/training/plans.js';
+import { resolveUiMuscleGroup } from '@grow/shared/src/training/muscleGroups.js';
 import type pg from 'pg';
 import { getPgPool } from '../../db/client.js';
+import { createTrainingExerciseRepository } from '../trainingExercises/trainingExerciseRepository.js';
 
 export type Database = Pick<pg.Pool, 'query' | 'connect'>;
 export type Client = pg.PoolClient;
@@ -110,11 +113,104 @@ export async function transaction<T>(db: Database, operation: (client: Client) =
   }
 }
 
+export type ResolvedDraftExercise = { exerciseId: string; scope: 'system' | 'user'; ownerUserId: string | null };
+
+// Resolves one private-exercise draft to a concrete exercise id, in the mandatory order:
+//   1. an exact-normalized-name match among the caller's own active private exercises wins
+//      outright (updating its canonical main_muscle in place if the draft explicitly names a
+//      different one) — a same-named system exercise never overrides this;
+//   2. otherwise, an exact-normalized-name match among active system exercises is reused
+//      as-is, but only if the draft's category and its (20-to-9-mapped) muscle group both
+//      agree with that system exercise exactly — system exercises are never mutated and
+//      never silently duplicated into a needless private copy when the draft describes them
+//      exactly;
+//   3. otherwise a new private exercise is created (or, on a create race, the winner's row is
+//      reused) via trainingExerciseRepository's own create() — including its
+//      loadType-from-category derivation and its race-safe `on conflict ... do nothing`
+//      insert — against this same transactional client, so there is exactly one
+//      normalization/creation implementation, not a second one.
+async function resolveExerciseDraft(
+  client: Client, userId: string, draft: PlanExerciseDraftInput,
+): Promise<ResolvedDraftExercise> {
+  const findOwnExactMatch = () => client.query<{ id: string; main_muscle: string | null }>(`
+    select id, main_muscle from public.training_exercises_v2
+    where owner_user_id = $1 and scope = 'user' and status = 'active'
+      and lower(regexp_replace(btrim(name), '\\s+', ' ', 'g'))
+        = lower(regexp_replace(btrim($2), '\\s+', ' ', 'g'))
+    for update
+  `, [userId, draft.name]);
+
+  async function useOwnMatch(row: { id: string; main_muscle: string | null }): Promise<ResolvedDraftExercise> {
+    if (row.main_muscle !== draft.mainMuscle) {
+      await client.query(
+        'update public.training_exercises_v2 set main_muscle=$1 where id=$2',
+        [draft.mainMuscle, row.id],
+      );
+    }
+    return { exerciseId: String(row.id), scope: 'user', ownerUserId: userId };
+  }
+
+  const existingOwn = await findOwnExactMatch();
+  if (existingOwn.rows[0]) return useOwnMatch(existingOwn.rows[0]);
+
+  const systemMatch = await client.query<{ id: string; main_muscle: string | null; category: string }>(`
+    select id, main_muscle, category from public.training_exercises_v2
+    where scope = 'system' and status = 'active'
+      and lower(regexp_replace(btrim(name), '\\s+', ' ', 'g'))
+        = lower(regexp_replace(btrim($1), '\\s+', ' ', 'g'))
+  `, [draft.name]);
+  const system = systemMatch.rows[0];
+  if (
+    system
+    && system.category === draft.category
+    && resolveUiMuscleGroup(system.main_muscle) === draft.mainMuscle
+  ) {
+    return { exerciseId: String(system.id), scope: 'system', ownerUserId: null };
+  }
+
+  const created = await createTrainingExerciseRepository(client).create(userId, {
+    name: draft.name, mainMuscle: draft.mainMuscle, category: draft.category,
+  });
+  if (created.outcome === 'created') {
+    return { exerciseId: created.exercise.id, scope: 'user', ownerUserId: userId };
+  }
+
+  // Lost a create race against a concurrent request for the exact same normalized name
+  // (another row in this same plan submission already resolved it, or a fully separate
+  // concurrent save) — the winner's row exists now; reuse it exactly like an already-known
+  // match would be.
+  const afterConflict = await findOwnExactMatch();
+  if (!afterConflict.rows[0]) {
+    const error = new Error('Private exercise draft resolution raced without a winner.');
+    error.name = 'TrainingExerciseNotAvailableError';
+    throw error;
+  }
+  return useOwnMatch(afterConflict.rows[0]);
+}
+
 export async function insertTree(
   client: Client, userId: string, planId: string, revisionNumber: number, input: PlanTreeInput,
   sourceTemplateRevisionId: string | null = null,
 ) {
-  const requestedIds = [...new Set(input.units.flatMap((unit) => unit.exercises.map((item) => item.exerciseId)))];
+  // Every exercise row sharing a draft logicalKey must resolve to the exact same exercise id
+  // — resolve each unique key exactly once (not once per row) before validating direct
+  // exerciseId references below.
+  const draftsByLogicalKey = new Map<string, PlanExerciseDraftInput>();
+  for (const unit of input.units) {
+    for (const exercise of unit.exercises) {
+      if (exercise.exerciseDraft) draftsByLogicalKey.set(exercise.exerciseDraft.logicalKey, exercise.exerciseDraft);
+    }
+  }
+  const resolvedDrafts = new Map<string, ResolvedDraftExercise>();
+  for (const [logicalKey, draft] of draftsByLogicalKey) {
+    resolvedDrafts.set(logicalKey, await resolveExerciseDraft(client, userId, draft));
+  }
+
+  const requestedIds = [...new Set(
+    input.units.flatMap((unit) => unit.exercises)
+      .filter((exercise) => !exercise.exerciseDraft)
+      .map((exercise) => exercise.exerciseId!),
+  )];
   const available = requestedIds.length === 0 ? { rows: [] as ExerciseRow[] } : await client.query<ExerciseRow>(`
     select id,scope,owner_user_id from public.training_exercises_v2
     where id=any($1::uuid[]) and status='active'
@@ -141,13 +237,22 @@ export async function insertTree(
     const unitId = String(insertedUnit.rows[0].id);
     units.push({ id: unitId, logicalKey: unit.logicalUnitKey, orderIndex: unit.orderIndex });
     for (const exercise of [...unit.exercises].sort((a, b) => a.orderIndex - b.orderIndex)) {
-      const source = exercises.get(exercise.exerciseId)!;
+      let exerciseId: string;
+      let source: { scope: 'system' | 'user'; owner_user_id: string | null };
+      if (exercise.exerciseDraft) {
+        const resolved = resolvedDrafts.get(exercise.exerciseDraft.logicalKey)!;
+        exerciseId = resolved.exerciseId;
+        source = { scope: resolved.scope, owner_user_id: resolved.ownerUserId };
+      } else {
+        exerciseId = exercise.exerciseId!;
+        source = exercises.get(exercise.exerciseId!)!;
+      }
       const insertedExercise = await client.query<{ id: string }>(`
         insert into public.training_plan_exercises_v2
           (unit_id,revision_id,plan_id,user_id,exercise_id,exercise_scope,exercise_owner_user_id,
            logical_target_exercise_key,order_index,note)
         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id
-      `, [unitId, revisionId, planId, userId, exercise.exerciseId, source.scope,
+      `, [unitId, revisionId, planId, userId, exerciseId, source.scope,
         source.owner_user_id, exercise.logicalTargetExerciseKey, exercise.orderIndex, exercise.note]);
       const targetExerciseId = String(insertedExercise.rows[0].id);
       for (const set of [...exercise.targetSets].sort((a, b) => a.orderIndex - b.orderIndex)) {

@@ -1,9 +1,11 @@
 import { z } from 'zod';
 import {
+  exerciseCategorySchema,
   personalPlanStatusSchema,
   setTypeSchema,
   trainingTemplateStatusSchema,
   trainingUnitTypeSchema,
+  uiMuscleGroupSchema,
 } from './enums.js';
 import {
   descriptionSchema,
@@ -37,13 +39,37 @@ import {
 
 const uniqueBy = <T>(values: T[]) => new Set(values).size === values.length;
 
+// A row can reference an existing exercise directly (system or the caller's own — visibility
+// enforced the same way as before), or propose a local private-exercise draft instead. The
+// draft's own `logicalKey` is independent of `logicalTargetExerciseKey`: several exercise
+// rows across different units may share one logicalKey to mean "the same private exercise
+// I'm defining right now", and the server resolves that key to a single exercise id used by
+// every row that shares it (see resolveExerciseDraft in trainingPlanRepository.ts). Drafts
+// never create or reference a system exercise — only ever the caller's own private catalog.
+export const planExerciseDraftInputSchema = z.object({
+  logicalKey: uuidSchema,
+  name: nameSchema,
+  mainMuscle: uiMuscleGroupSchema.default('other'),
+  category: exerciseCategorySchema.default('strength'),
+}).strict();
+
 export const planTargetExerciseInputSchema = z.object({
   logicalTargetExerciseKey: logicalTargetExerciseKeySchema,
-  exerciseId: exerciseIdSchema,
+  exerciseId: exerciseIdSchema.optional(),
+  exerciseDraft: planExerciseDraftInputSchema.optional(),
   orderIndex: orderIndexSchema,
   note: shortNoteSchema.nullable(),
   targetSets: z.array(targetSetInputSchema).min(1),
 }).strict().superRefine((exercise, context) => {
+  const hasExerciseId = exercise.exerciseId !== undefined;
+  const hasExerciseDraft = exercise.exerciseDraft !== undefined;
+  if (hasExerciseId === hasExerciseDraft) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Exactly one of exerciseId or exerciseDraft is required.',
+      path: [hasExerciseId ? 'exerciseDraft' : 'exerciseId'],
+    });
+  }
   if (!uniqueBy(exercise.targetSets.map((set) => set.orderIndex))) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'Target-set positions must be unique.', path: ['targetSets'] });
   }
@@ -97,6 +123,29 @@ function validatePlanTree(
   }
   if (!uniqueBy(setKeys)) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'Target-set logical keys must be unique within a plan.', path: ['units'] });
+  }
+
+  // Two rows are allowed to share a draft logicalKey (that's how they end up resolved to the
+  // same exercise id), but only if they describe the exact same private exercise — otherwise
+  // "the same logical key" would be ambiguous about which name/muscle/category wins.
+  const draftsByLogicalKey = new Map<string, z.infer<typeof planExerciseDraftInputSchema>>();
+  for (const unit of plan.units) {
+    for (const exercise of unit.exercises) {
+      const draft = exercise.exerciseDraft;
+      if (!draft) continue;
+      const seen = draftsByLogicalKey.get(draft.logicalKey);
+      if (!seen) {
+        draftsByLogicalKey.set(draft.logicalKey, draft);
+      } else if (
+        seen.name !== draft.name || seen.mainMuscle !== draft.mainMuscle || seen.category !== draft.category
+      ) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Exercise drafts sharing a logicalKey must have identical name, mainMuscle and category.',
+          path: ['units'],
+        });
+      }
+    }
   }
 }
 
@@ -386,6 +435,7 @@ export const templateUserPlanResponseSchema = z.object({
   userPlan: trainingTemplateUserProjectionSchema,
 }).strict();
 
+export type PlanExerciseDraftInput = z.infer<typeof planExerciseDraftInputSchema>;
 export type PlanTargetExerciseInput = z.infer<typeof planTargetExerciseInputSchema>;
 export type PlanUnitInput = z.infer<typeof planUnitInputSchema>;
 export type PlanTreeInput = z.infer<typeof planTreeInputSchema>;

@@ -1,5 +1,6 @@
 import {
   trainingExerciseSchema,
+  type CreateTrainingExerciseInput,
   type ListTrainingExercisesQuery,
   type TrainingExercise,
 } from '@grow/shared/src/training/exercises.js';
@@ -32,12 +33,17 @@ export type TrainingExerciseRow = {
   updated_at: Date | string;
 };
 
+export type CreateTrainingExerciseResult =
+  | { outcome: 'created'; exercise: TrainingExercise }
+  | { outcome: 'conflict' };
+
 export type TrainingExerciseRepository = {
   list(
     userId: string,
     query: ListTrainingExercisesQuery,
   ): Promise<{ exercises: TrainingExercise[]; hasMore: boolean }>;
   findVisible(userId: string, exerciseId: string): Promise<TrainingExercise | null>;
+  create(userId: string, input: CreateTrainingExerciseInput): Promise<CreateTrainingExerciseResult>;
 };
 
 const exerciseSelect = `
@@ -88,6 +94,17 @@ function escapeLike(value: string): string {
     .replaceAll('\\', '\\\\')
     .replaceAll('%', '\\%')
     .replaceAll('_', '\\_');
+}
+
+// Derived from the system catalog itself (20260726200000_training_v2_system_exercise_
+// catalog.sql), the only source of truth for this convention: every mobility (6/6),
+// stretching (8/8) and cardio (6/6) system exercise uses 'no_weight_tracking' -- unanimous,
+// not a guess. Strength is the one category that actually varies by exercise (total_weight
+// 43/70, per_hand 13/70, per_side 4/70, bodyweight_only 4/70, added_weight_only 4/70,
+// no_weight_tracking 2/70); 'total_weight' is its clear plurality and the value already
+// used for every private exercise before category-awareness existed.
+function loadTypeForCategory(category: string): string {
+  return category === 'strength' ? 'total_weight' : 'no_weight_tracking';
 }
 
 export function createTrainingExerciseRepository(
@@ -156,6 +173,30 @@ export function createTrainingExerciseRepository(
         limit 1
       `, [userId, exerciseId]);
       return result.rows[0] ? mapTrainingExerciseRow(result.rows[0]) : null;
+    },
+
+    async create(userId, input) {
+      // training_exercises_v2_active_user_name_unique_idx (added in
+      // 20260729060000_training_v2_private_exercise_name_uniqueness.sql) is the real,
+      // race-safe guard: a partial unique index on (owner_user_id, normalized name) for
+      // active private exercises. `on conflict ... do nothing` relies on Postgres resolving
+      // the conflict at the database level, so two concurrent creates of the same
+      // normalized name can never both succeed, regardless of application-level timing.
+      const result = await db.query<TrainingExerciseRow>(`
+        insert into public.training_exercises_v2
+          (scope, owner_user_id, status, category, load_type, name, main_muscle)
+        values ('user', $1, 'active', $4, $5, $2, $3)
+        on conflict (owner_user_id, (lower(regexp_replace(btrim(name), '\\s+', ' ', 'g'))))
+          where scope = 'user' and status = 'active'
+        do nothing
+        returning id, system_key, scope, status, category, load_type, name, main_muscle,
+          supporting_muscles, difficulty, equipment, is_home, is_gym, is_bodyweight,
+          image_reference, execution_instructions, common_mistakes, safety_notes, version,
+          created_at, updated_at
+      `, [userId, input.name, input.mainMuscle, input.category, loadTypeForCategory(input.category)]);
+
+      if (result.rows.length === 0) return { outcome: 'conflict' };
+      return { outcome: 'created', exercise: mapTrainingExerciseRow(result.rows[0]) };
     },
   };
 }

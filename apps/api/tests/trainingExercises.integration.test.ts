@@ -24,6 +24,7 @@ const verify: AuthTokenVerifier = async (token) => token === 'user-a'
   ? { id: userA, email: null, role: 'authenticated' }
   : token === 'user-b' ? { id: userB, email: null, role: 'authenticated' } : null;
 const headersA = { authorization: 'Bearer user-a' };
+const headersB = { authorization: 'Bearer user-b' };
 const v2Tables = [
   'training_exercise_alternatives_v2', 'training_template_target_sets_v2',
   'training_template_exercises_v2', 'training_template_units_v2',
@@ -82,6 +83,7 @@ describe('training exercise read API PostgreSQL integration', () => {
       '20260726180000_training_v2_plan_core.sql',
       '20260726190000_training_v2_exercise_catalog_foundation.sql',
       '20260726200000_training_v2_system_exercise_catalog.sql',
+      '20260729060000_training_v2_private_exercise_name_uniqueness.sql',
     ]) {
       const migration = await readFile(
         new URL(`../../../supabase/migrations/${migrationName}`, import.meta.url),
@@ -314,5 +316,161 @@ describe('training exercise read API PostgreSQL integration', () => {
     expect((await list('search=untouched')).json().exercises).toEqual([]);
     expect((await pool.query('select value from public.exercises_legacy_b1_marker')).rows)
       .toEqual([{ value: 'untouched' }]);
+  });
+
+  async function create(requestHeaders: Record<string, string> | undefined, payload: Record<string, unknown>) {
+    return server.inject({
+      method: 'POST', url: '/v1/training/exercises', headers: requestHeaders, payload,
+    });
+  }
+
+  it('creates a private exercise scoped to the caller and it reappears in that user\'s search', async () => {
+    const response = await create(headersA, { name: 'Kabelrudern eng', mainMuscle: 'back' });
+    expect(response.statusCode).toBe(201);
+    const body = trainingExerciseDetailResponseSchema.parse(response.json());
+    expect(body.exercise).toMatchObject({
+      scope: 'user', systemKey: null, name: 'Kabelrudern eng', mainMuscle: 'back', status: 'active',
+    });
+
+    const found = listTrainingExercisesResponseSchema.parse(
+      (await list('search=Kabelrudern')).json(),
+    );
+    expect(found.exercises.map(({ id }) => id)).toEqual([body.exercise.id]);
+  });
+
+  it('requires authentication and persists nothing without it', async () => {
+    const before = await pool.query('select count(*) from public.training_exercises_v2 where scope = \'user\'');
+    const response = await create(undefined, { name: 'Ohne Auth', mainMuscle: 'back' });
+    expect(response.statusCode).toBe(401);
+    const after = await pool.query('select count(*) from public.training_exercises_v2 where scope = \'user\'');
+    expect(after.rows[0].count).toEqual(before.rows[0].count);
+  });
+
+  it('enforces owner isolation: a private exercise is invisible to and unfindable by another user', async () => {
+    const created = trainingExerciseDetailResponseSchema.parse(
+      (await create(headersA, { name: 'Nur für A', mainMuscle: 'legs' })).json(),
+    ).exercise;
+
+    const listedByB = listTrainingExercisesResponseSchema.parse(
+      (await server.inject({
+        method: 'GET', url: '/v1/training/exercises?search=Nur%20f%C3%BCr%20A', headers: headersB,
+      })).json(),
+    );
+    expect(listedByB.exercises).toEqual([]);
+
+    const detailByB = await server.inject({
+      method: 'GET', url: `/v1/training/exercises/${created.id}`, headers: headersB,
+    });
+    expect(detailByB.statusCode).toBe(404);
+
+    const detailByA = await server.inject({
+      method: 'GET', url: `/v1/training/exercises/${created.id}`, headers: headersA,
+    });
+    expect(detailByA.statusCode).toBe(200);
+  });
+
+  it('rejects an empty name without creating a row', async () => {
+    const before = await pool.query('select count(*) from public.training_exercises_v2 where scope = \'user\'');
+    const response = await create(headersA, { name: '   ', mainMuscle: 'legs' });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('TRAINING_EXERCISE_VALIDATION_ERROR');
+    const after = await pool.query('select count(*) from public.training_exercises_v2 where scope = \'user\'');
+    expect(after.rows[0].count).toEqual(before.rows[0].count);
+  });
+
+  it('defaults the muscle group to other and the category to strength when omitted', async () => {
+    const response = await create(headersA, { name: 'Ohne Muskelgruppe' });
+    expect(response.statusCode).toBe(201);
+    const body = trainingExerciseDetailResponseSchema.parse(response.json());
+    expect(body.exercise.mainMuscle).toBe('other');
+    expect(body.exercise.category).toBe('strength');
+    expect(body.exercise.loadType).toBe('total_weight');
+  });
+
+  it.each(['strength', 'mobility', 'stretching'])(
+    'accepts the %s category (the unit types that can reach the picker) and stores it as-is',
+    async (category) => {
+      const response = await create(headersA, { name: `Kontext Übung ${category}`, mainMuscle: 'legs', category });
+      expect(response.statusCode).toBe(201);
+      expect(trainingExerciseDetailResponseSchema.parse(response.json()).exercise.category).toBe(category);
+    },
+  );
+
+  it.each([
+    ['strength', 'total_weight'],
+    ['cardio', 'no_weight_tracking'],
+    ['mobility', 'no_weight_tracking'],
+    ['stretching', 'no_weight_tracking'],
+  ])(
+    'derives load_type %s -> %s, matching the unanimous/plurality system-catalog convention for that category',
+    async (category, expectedLoadType) => {
+      const response = await create(headersA, { name: `Load Type Übung ${category}`, mainMuscle: 'legs', category });
+      expect(response.statusCode).toBe(201);
+      expect(trainingExerciseDetailResponseSchema.parse(response.json()).exercise.loadType).toBe(expectedLoadType);
+    },
+  );
+
+  it.each([
+    'chest', 'back', 'legs', 'shoulders', 'biceps', 'triceps', 'abs', 'forearms', 'other',
+  ])('accepts the %s muscle group and stores it as-is', async (mainMuscle) => {
+    const response = await create(headersA, { name: `Übung ${mainMuscle}`, mainMuscle });
+    expect(response.statusCode).toBe(201);
+    expect(trainingExerciseDetailResponseSchema.parse(response.json()).exercise.mainMuscle).toBe(mainMuscle);
+  });
+
+  it('rejects a duplicate active name for the same owner but allows it for a different owner', async () => {
+    const first = await create(headersA, { name: 'Doppelte Übung', mainMuscle: 'chest' });
+    expect(first.statusCode).toBe(201);
+
+    const duplicate = await create(headersA, { name: 'doppelte übung', mainMuscle: 'back' });
+    expect(duplicate.statusCode).toBe(409);
+    expect(duplicate.json().error.code).toBe('TRAINING_EXERCISE_CONFLICT');
+
+    const otherOwner = await create(headersB, { name: 'Doppelte Übung', mainMuscle: 'back' });
+    expect(otherOwner.statusCode).toBe(201);
+  });
+
+  it('treats collapsible internal whitespace as the same name for the duplicate check', async () => {
+    const first = await create(headersA, { name: 'Kabel  Rudern', mainMuscle: 'back' });
+    expect(first.statusCode).toBe(201);
+
+    const duplicate = await create(headersA, { name: '  Kabel Rudern  ', mainMuscle: 'chest' });
+    expect(duplicate.statusCode).toBe(409);
+    expect(duplicate.json().error.code).toBe('TRAINING_EXERCISE_CONFLICT');
+  });
+
+  it('lets exactly one of two truly concurrent creates of the same normalized name win', async () => {
+    const [first, second] = await Promise.all([
+      create(headersA, { name: 'Gleichzeitige Übung', mainMuscle: 'chest' }),
+      create(headersA, { name: 'gleichzeitige  übung', mainMuscle: 'legs' }),
+    ]);
+    const statusCodes = [first.statusCode, second.statusCode].sort();
+    expect(statusCodes).toEqual([201, 409]);
+
+    const rows = await pool.query(`
+      select count(*) from public.training_exercises_v2
+      where scope = 'user' and owner_user_id = $1
+        and lower(regexp_replace(btrim(name), '\\s+', ' ', 'g')) = 'gleichzeitige übung'
+    `, [userA]);
+    expect(Number(rows.rows[0].count)).toBe(1);
+  });
+
+  it('never creates or mutates a system exercise through this endpoint', async () => {
+    const before = await pool.query(`
+      select id, name, main_muscle, status from public.training_exercises_v2 where id = $1
+    `, [systemId]);
+
+    const rejected = await create(headersA, { name: 'Sneaky', mainMuscle: 'chest', scope: 'system' });
+    expect(rejected.statusCode).toBe(400);
+
+    const systemCount = await pool.query(
+      `select count(*) from public.training_exercises_v2 where scope = 'system'`,
+    );
+    expect(Number(systemCount.rows[0].count)).toBe(90);
+
+    const after = await pool.query(`
+      select id, name, main_muscle, status from public.training_exercises_v2 where id = $1
+    `, [systemId]);
+    expect(after.rows[0]).toEqual(before.rows[0]);
   });
 });

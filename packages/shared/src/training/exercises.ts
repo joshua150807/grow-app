@@ -4,6 +4,7 @@ import {
   exerciseScopeSchema,
   exerciseStatusSchema,
   loadTypeSchema,
+  uiMuscleGroupSchema,
 } from './enums.js';
 import {
   exerciseEquipmentListSchema,
@@ -91,3 +92,15 @@ export const trainingExerciseDetailResponseSchema = z.object({
   exercise: trainingExerciseSchema,
 }).strict();
 export type TrainingExerciseDetailResponse = z.infer<typeof trainingExerciseDetailResponseSchema>;
+
+// Private (scope='user') exercises only. Creates a user's own, freely-named exercise;
+// it can never create or modify a system exercise. `category` defaults to 'strength' for
+// callers that don't derive it from context (see the mobile picker, which maps the
+// triggering unit's type — strength/mobility/stretching are the only unit types that can
+// ever reach the picker — directly onto this same category enum).
+export const createTrainingExerciseInputSchema = z.object({
+  name: nameSchema,
+  mainMuscle: uiMuscleGroupSchema.default('other'),
+  category: exerciseCategorySchema.default('strength'),
+}).strict();
+export type CreateTrainingExerciseInput = z.infer<typeof createTrainingExerciseInputSchema>;

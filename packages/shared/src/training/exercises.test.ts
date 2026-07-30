@@ -1,10 +1,12 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import {
+  createTrainingExerciseInputSchema,
   listTrainingExercisesQuerySchema,
   listTrainingExercisesResponseSchema,
   trainingExerciseDetailResponseSchema,
   trainingExerciseIdParamsSchema,
   trainingExerciseSchema,
+  type CreateTrainingExerciseInput,
   type ListTrainingExercisesQuery,
   type TrainingExercise,
 } from '../index.js';
@@ -157,5 +159,59 @@ describe('training exercise shared contracts', () => {
       pagination: { page: 0, limit: 50, hasMore: false },
     })).toBeDefined();
     expect(trainingExerciseDetailResponseSchema.parse({ exercise })).toBeDefined();
+  });
+});
+
+describe('create training exercise input contract', () => {
+  it('accepts a name with an explicit muscle group and category', () => {
+    const input: CreateTrainingExerciseInput = { name: 'Kabelrudern eng', mainMuscle: 'back', category: 'mobility' };
+    expect(createTrainingExerciseInputSchema.parse(input)).toEqual(input);
+  });
+
+  it('defaults the muscle group to other and the category to strength when omitted', () => {
+    expect(createTrainingExerciseInputSchema.parse({ name: 'Neue Übung' }))
+      .toEqual({ name: 'Neue Übung', mainMuscle: 'other', category: 'strength' });
+  });
+
+  it.each([
+    'chest', 'back', 'legs', 'shoulders', 'biceps', 'triceps', 'abs', 'forearms', 'other',
+  ])('accepts the %s muscle group', (mainMuscle) => {
+    expect(createTrainingExerciseInputSchema.safeParse({ name: 'Übung', mainMuscle }).success)
+      .toBe(true);
+  });
+
+  it.each(['strength', 'cardio', 'mobility', 'stretching'])('accepts the %s category', (category) => {
+    expect(createTrainingExerciseInputSchema.safeParse({ name: 'Übung', category }).success)
+      .toBe(true);
+  });
+
+  it('rejects an unknown category', () => {
+    expect(createTrainingExerciseInputSchema.safeParse({ name: 'Übung', category: 'yoga' }).success)
+      .toBe(false);
+  });
+
+  it('trims the name and rejects an empty or overlong one', () => {
+    expect(createTrainingExerciseInputSchema.parse({ name: '  Kniebeuge  ', mainMuscle: 'legs' }).name)
+      .toBe('Kniebeuge');
+    expect(createTrainingExerciseInputSchema.safeParse({ name: '', mainMuscle: 'legs' }).success)
+      .toBe(false);
+    expect(createTrainingExerciseInputSchema.safeParse({ name: '   ', mainMuscle: 'legs' }).success)
+      .toBe(false);
+    expect(createTrainingExerciseInputSchema.safeParse({ name: 'a'.repeat(121), mainMuscle: 'legs' }).success)
+      .toBe(false);
+  });
+
+  it('rejects an unknown muscle group and unknown/system-identity fields', () => {
+    expect(createTrainingExerciseInputSchema.safeParse({ name: 'Übung', mainMuscle: 'quads' }).success)
+      .toBe(false);
+    for (const extra of [
+      { scope: 'system' },
+      { systemKey: 'barbell_back_squat' },
+      { ownerUserId: '11111111-1111-4111-8111-111111111111' },
+      { id: '11111111-1111-4111-8111-111111111111' },
+    ]) {
+      expect(createTrainingExerciseInputSchema.safeParse({ name: 'Übung', mainMuscle: 'legs', ...extra }).success)
+        .toBe(false);
+    }
   });
 });

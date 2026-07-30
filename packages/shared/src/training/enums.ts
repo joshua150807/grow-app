@@ -43,6 +43,21 @@ export const systemExerciseMuscleSchema = z.enum([
 ]);
 export type SystemExerciseMuscle = z.infer<typeof systemExerciseMuscleSchema>;
 
+// The nine muscle groups shown in the UI (e.g. the private-exercise creation form).
+// Distinct from systemExerciseMuscleSchema's finer catalog taxonomy above.
+export const uiMuscleGroupSchema = z.enum([
+  'chest',
+  'back',
+  'legs',
+  'shoulders',
+  'biceps',
+  'triceps',
+  'abs',
+  'forearms',
+  'other',
+]);
+export type UiMuscleGroup = z.infer<typeof uiMuscleGroupSchema>;
+
 export const systemExerciseEquipmentSchema = z.enum([
   'barbell',
   'bench',
