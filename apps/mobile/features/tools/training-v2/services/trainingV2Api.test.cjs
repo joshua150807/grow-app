@@ -45,6 +45,13 @@ const weeklyGoalInputSchema = inputSchema((value) => (
   typeof value?.expectedVersion === 'number'
   && Number.isInteger(value?.weeklyGoal) && value.weeklyGoal > 0
 ));
+const UI_MUSCLE_GROUP_VALUES = [
+  'chest', 'back', 'legs', 'shoulders', 'biceps', 'triceps', 'abs', 'forearms', 'other',
+];
+const createExerciseInputSchema = inputSchema((value) => (
+  typeof value?.name === 'string' && value.name.trim().length > 0
+  && UI_MUSCLE_GROUP_VALUES.includes(value?.mainMuscle)
+));
 
 function loadApi() {
   return loadModule(__dirname, './trainingV2Api.js', {
@@ -58,6 +65,7 @@ function loadApi() {
       planVersionInputSchema: planVersionSchema,
       scheduleTrainingPlanInputSchema: scheduleInputSchema,
       updateWeeklyGoalInputSchema: weeklyGoalInputSchema,
+      createTrainingExerciseInputSchema: createExerciseInputSchema,
     },
     '../../../../services/supabaseClient': {
       supabase: {
@@ -161,6 +169,36 @@ test('deduplicates exercise-name requests within and across detail reloads using
   });
   await api.resolveTrainingV2ExerciseNames(plan, cache);
   assert.equal(calls.length, 2);
+});
+
+test('resolveTrainingV2ExerciseDetails resolves { name, mainMuscle } per exercise, reusing the same cache resolveTrainingV2ExerciseNames builds on', async (context) => {
+  const previousUrl = process.env.EXPO_PUBLIC_API_URL;
+  const previousFetch = global.fetch;
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.test';
+  context.after(() => {
+    process.env.EXPO_PUBLIC_API_URL = previousUrl;
+    global.fetch = previousFetch;
+  });
+  const calls = [];
+  global.fetch = async (url) => {
+    calls.push(url);
+    const id = decodeURIComponent(url.split('/').at(-1));
+    return response(200, { exercise: { id, name: `Name ${id}`, mainMuscle: 'chest' } });
+  };
+  const api = loadApi();
+  const plan = {
+    revision: {
+      units: [{ exercises: [{ exerciseId: 'exercise-1' }] }],
+    },
+  };
+  const cache = new Map();
+
+  assert.deepEqual(await api.resolveTrainingV2ExerciseDetails(plan, cache), {
+    'exercise-1': { name: 'Name exercise-1', mainMuscle: 'chest' },
+  });
+  // resolveTrainingV2ExerciseNames sharing the same cache must not re-fetch.
+  assert.deepEqual(await api.resolveTrainingV2ExerciseNames(plan, cache), { 'exercise-1': 'Name exercise-1' });
+  assert.equal(calls.length, 1);
 });
 
 test('keeps successful exercise names when one exercise returns 404', async (context) => {
@@ -392,6 +430,84 @@ test('create and update classify 400/404/409/network/contract failures distinctl
     api.createTrainingV2Plan(validCreateInput),
     (error) => error instanceof api.TrainingV2ContractError,
   );
+});
+
+test('createTrainingV2Exercise validates the request, then posts it and returns the created exercise', async (context) => {
+  const previousUrl = process.env.EXPO_PUBLIC_API_URL;
+  const previousFetch = global.fetch;
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.test';
+  context.after(() => {
+    process.env.EXPO_PUBLIC_API_URL = previousUrl;
+    global.fetch = previousFetch;
+  });
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(201, { exercise: { id: 'new-exercise', name: 'Kabelrudern eng', mainMuscle: 'back' } });
+  };
+  const api = loadApi();
+  const validInput = { name: 'Kabelrudern eng', mainMuscle: 'back', category: 'mobility' };
+
+  const exercise = await api.createTrainingV2Exercise(validInput);
+
+  assert.equal(exercise.id, 'new-exercise');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][1].method, 'POST');
+  assert.deepEqual(JSON.parse(calls[0][1].body), validInput);
+  assert.equal(calls[0][0].endsWith('/v1/training/exercises'), true);
+});
+
+test('createTrainingV2Exercise rejects an invalid request locally without ever calling fetch', async (context) => {
+  const previousUrl = process.env.EXPO_PUBLIC_API_URL;
+  const previousFetch = global.fetch;
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.test';
+  context.after(() => {
+    process.env.EXPO_PUBLIC_API_URL = previousUrl;
+    global.fetch = previousFetch;
+  });
+  let fetchCalls = 0;
+  global.fetch = async () => { fetchCalls += 1; return response(201, { exercise: {} }); };
+  const api = loadApi();
+
+  await assert.rejects(
+    api.createTrainingV2Exercise({ name: '', mainMuscle: 'back' }),
+    (error) => error instanceof api.TrainingV2ValidationError,
+  );
+  await assert.rejects(
+    api.createTrainingV2Exercise({ name: 'Übung', mainMuscle: 'quads' }),
+    (error) => error instanceof api.TrainingV2ValidationError,
+  );
+  assert.equal(fetchCalls, 0);
+});
+
+test('createTrainingV2Exercise classifies 400/409/network/contract failures distinctly', async (context) => {
+  const previousUrl = process.env.EXPO_PUBLIC_API_URL;
+  const previousFetch = global.fetch;
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.test';
+  context.after(() => {
+    process.env.EXPO_PUBLIC_API_URL = previousUrl;
+    global.fetch = previousFetch;
+  });
+  const api = loadApi();
+  const validInput = { name: 'Kabelrudern eng', mainMuscle: 'back' };
+
+  global.fetch = async () => response(400, {
+    error: { code: 'TRAINING_EXERCISE_VALIDATION_ERROR', details: { fieldErrors: { name: ['too short'] } } },
+  });
+  await assert.rejects(api.createTrainingV2Exercise(validInput), (error) => (
+    error instanceof api.TrainingV2ValidationError && error.fieldErrors.name?.[0] === 'too short'
+  ));
+
+  global.fetch = async () => response(409, { error: { code: 'TRAINING_EXERCISE_CONFLICT' } });
+  await assert.rejects(api.createTrainingV2Exercise(validInput), (error) => (
+    error instanceof api.TrainingV2ConflictError && error.code === 'TRAINING_EXERCISE_CONFLICT'
+  ));
+
+  global.fetch = async () => { throw new Error('offline'); };
+  await assert.rejects(api.createTrainingV2Exercise(validInput), (error) => error instanceof api.TrainingV2NetworkError);
+
+  global.fetch = async () => response(200, { exercise: { invalid: true } });
+  await assert.rejects(api.createTrainingV2Exercise(validInput), (error) => error instanceof api.TrainingV2ContractError);
 });
 
 function withEnv(context) {

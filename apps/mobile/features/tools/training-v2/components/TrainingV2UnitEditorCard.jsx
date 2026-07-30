@@ -21,7 +21,6 @@ export function TrainingV2UnitEditorCard({
   index,
   canMoveUp,
   canMoveDown,
-  onPickExercise,
 }) {
   const logicalUnitKey = unit.logicalUnitKey;
   const allowsExercises = unitTypeAllowsExercises(unit.unitType);
@@ -97,7 +96,6 @@ export function TrainingV2UnitEditorCard({
               exercise={exercise}
               index={exerciseIndex}
               logicalUnitKey={logicalUnitKey}
-              onPickExercise={onPickExercise}
             />
           ))}
           <Pressable

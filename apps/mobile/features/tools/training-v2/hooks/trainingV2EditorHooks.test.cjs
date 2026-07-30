@@ -77,7 +77,7 @@ function fakeApi(overrides = {}) {
   return {
     TrainingV2ConflictError,
     getTrainingV2Plan: async () => { throw new Error('not mocked'); },
-    resolveTrainingV2ExerciseNames: async () => ({}),
+    resolveTrainingV2ExerciseDetails: async () => ({}),
     createTrainingV2Plan: async () => { throw new Error('not mocked'); },
     updateTrainingV2Plan: async () => { throw new Error('not mocked'); },
     ...overrides,
@@ -146,7 +146,7 @@ test('edit mode loads the plan, hydrates state with stable keys and captures the
   };
   const harness = createEditorHookHarness('plan-1', fakeApi({
     getTrainingV2Plan: async (id) => { assert.equal(id, 'plan-1'); return plan; },
-    resolveTrainingV2ExerciseNames: async () => ({ 'exercise-1': 'Bankdrücken' }),
+    resolveTrainingV2ExerciseDetails: async () => ({ 'exercise-1': { name: 'Bankdrücken', mainMuscle: 'chest' } }),
   }));
 
   assert.equal(harness.loading, true);

@@ -45,6 +45,7 @@ function createPickerHarness(listExercises) {
     get results() { return state[0]; },
     get loading() { return state[1]; },
     get error() { return state[2]; },
+    get exactMatch() { return state[3]; },
   };
 }
 
@@ -93,4 +94,125 @@ test('a failed search clears results and surfaces the error', async () => {
   assert.deepEqual(harness.results, []);
   assert.ok(harness.error);
   assert.equal(harness.loading, false);
+});
+
+test('resolves an exact normalized match (trim/case/whitespace-insensitive) from the filtered results', async () => {
+  const harness = createPickerHarness(async () => ({
+    exercises: [
+      { id: 'similar', name: 'Bankdrücken schräg' },
+      { id: 'exact', name: '  bankdrücken  ' },
+    ],
+  }));
+
+  await harness.result.search({ search: 'Bankdrücken' });
+
+  assert.deepEqual(harness.exactMatch, { id: 'exact', name: '  bankdrücken  ' });
+  assert.equal(harness.results.length, 2);
+});
+
+test('reports no exact match when only similar (non-exact) results exist', async () => {
+  const harness = createPickerHarness(async () => ({
+    exercises: [{ id: 'similar', name: 'Bankdrücken schräg' }],
+  }));
+
+  await harness.result.search({ search: 'Bankdrücken' });
+
+  assert.equal(harness.exactMatch, null);
+});
+
+test('clears the exact match for an empty query', async () => {
+  const harness = createPickerHarness(async () => ({ exercises: [] }));
+
+  await harness.result.search({ search: undefined });
+
+  assert.equal(harness.exactMatch, null);
+});
+
+test('re-checks without an active category filter before ruling out an exact match', async () => {
+  const calls = [];
+  const harness = createPickerHarness(async (query) => {
+    calls.push(query);
+    if (query.category === 'cardio') return { exercises: [{ id: 'unrelated', name: 'Laufen' }] };
+    return { exercises: [{ id: 'exact', name: 'Bankdrücken' }] };
+  });
+
+  await harness.result.search({ search: 'Bankdrücken', category: 'cardio' });
+
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[0], { search: 'Bankdrücken', category: 'cardio' });
+  assert.deepEqual(calls[1], { search: 'Bankdrücken' });
+  assert.deepEqual(harness.exactMatch, { id: 'exact', name: 'Bankdrücken' });
+  // The filtered, category-scoped results are still what gets displayed.
+  assert.deepEqual(harness.results, [{ id: 'unrelated', name: 'Laufen' }]);
+});
+
+test('skips the second lookup entirely when no category filter is active', async () => {
+  let calls = 0;
+  const harness = createPickerHarness(async () => {
+    calls += 1;
+    return { exercises: [{ id: 'exact', name: 'Bankdrücken' }] };
+  });
+
+  await harness.result.search({ search: 'Bankdrücken' });
+
+  assert.equal(calls, 1);
+  assert.deepEqual(harness.exactMatch, { id: 'exact', name: 'Bankdrücken' });
+});
+
+test('prefers a private (scope=user) exact match over a same-named system exercise', async () => {
+  const harness = createPickerHarness(async () => ({
+    exercises: [
+      { id: 'system-copy', name: 'Bankdrücken', scope: 'system' },
+      { id: 'own-copy', name: 'Bankdrücken', scope: 'user' },
+    ],
+  }));
+
+  await harness.result.search({ search: 'Bankdrücken' });
+
+  assert.equal(harness.exactMatch.id, 'own-copy');
+});
+
+test('falls back to whichever match comes first when no candidate is scope=user (e.g. only system matches exist)', async () => {
+  const harness = createPickerHarness(async () => ({
+    exercises: [{ id: 'system-copy', name: 'Bankdrücken', scope: 'system' }],
+  }));
+
+  await harness.result.search({ search: 'Bankdrücken' });
+
+  assert.equal(harness.exactMatch.id, 'system-copy');
+});
+
+test('reset clears the exact match alongside results and error', async () => {
+  const harness = createPickerHarness(async () => ({
+    exercises: [{ id: 'exact', name: 'Bankdrücken' }],
+  }));
+  await harness.result.search({ search: 'Bankdrücken' });
+  assert.ok(harness.exactMatch);
+
+  harness.result.reset();
+
+  assert.equal(harness.exactMatch, null);
+});
+
+test('search resolves the fresh { results, exactMatch } directly, not just via state — so a caller never has to trust stale debounced state', async () => {
+  const harness = createPickerHarness(async () => ({
+    exercises: [{ id: 'exact', name: 'Bankdrücken' }],
+  }));
+
+  const resolved = await harness.result.search({ search: 'Bankdrücken' });
+
+  assert.deepEqual(resolved, {
+    results: [{ id: 'exact', name: 'Bankdrücken' }],
+    exactMatch: { id: 'exact', name: 'Bankdrücken' },
+  });
+});
+
+test('a failed search still resolves (not throws) with an empty exactMatch, so a confirm caller can safely proceed to create', async () => {
+  const harness = createPickerHarness(async () => { throw new Error('offline'); });
+
+  const resolved = await harness.result.search({ search: 'Bankdrücken' });
+
+  assert.equal(resolved.exactMatch, null);
+  assert.deepEqual(resolved.results, []);
+  assert.ok(resolved.error);
 });

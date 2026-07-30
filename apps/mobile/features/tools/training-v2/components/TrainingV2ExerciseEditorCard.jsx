@@ -1,6 +1,7 @@
 import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { styles } from '../styles/trainingV2Styles';
+import { TrainingV2InlineExercisePicker } from './TrainingV2InlineExercisePicker';
 import { TrainingV2TargetSetEditorRow } from './TrainingV2TargetSetEditorRow';
 
 export function TrainingV2ExerciseEditorCard({
@@ -10,7 +11,6 @@ export function TrainingV2ExerciseEditorCard({
   index,
   canMoveUp,
   canMoveDown,
-  onPickExercise,
 }) {
   const logicalTargetExerciseKey = exercise.logicalTargetExerciseKey;
 
@@ -45,11 +45,12 @@ export function TrainingV2ExerciseEditorCard({
         </View>
       </View>
 
-      <Pressable accessibilityRole="button" onPress={() => onPickExercise(logicalUnitKey, logicalTargetExerciseKey)} style={styles.exercisePickButton}>
-        <Text style={exercise.exerciseId ? styles.exercisePickButtonText : [styles.exercisePickButtonText, styles.exercisePickPlaceholder]}>
-          {exercise.exerciseId ? exercise.exerciseName : 'Übung auswählen …'}
-        </Text>
-      </Pressable>
+      <TrainingV2InlineExercisePicker
+        dispatch={dispatch}
+        exercise={exercise}
+        logicalTargetExerciseKey={logicalTargetExerciseKey}
+        logicalUnitKey={logicalUnitKey}
+      />
 
       <TextInput
         multiline

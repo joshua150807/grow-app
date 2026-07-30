@@ -188,16 +188,22 @@ export const styles = StyleSheet.create({
     borderTopColor: COLORS.borderDeep,
   },
   targetSetLabel: { color: COLORS.textDim, fontSize: sf(11), fontWeight: '800', width: s(48) },
+  // Only two fields remain per set (kg, Wiederholungen), so each gets its own visible
+  // caption above the input instead of relying on a placeholder that could clip inside a
+  // narrow box — the previous 5-field row's placeholders ("Wdh. min"/"Wdh. max") truncated
+  // to the same "Wd…" prefix at this width, which is exactly what made them look identical.
+  targetSetFieldGroup: { alignItems: 'flex-start' },
+  targetSetFieldLabel: { color: COLORS.textDim, fontSize: sf(10), fontWeight: '800', marginBottom: sv(4) },
   targetSetInput: {
     backgroundColor: 'rgba(10, 9, 17, 0.72)',
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     borderRadius: s(9),
-    paddingHorizontal: s(9),
-    paddingVertical: sv(6),
+    paddingHorizontal: s(10),
+    paddingVertical: sv(7),
     color: COLORS.textPrimary,
-    fontSize: sf(12),
-    width: s(56),
+    fontSize: sf(13),
+    width: s(76),
   },
 
   saveBar: {
@@ -224,41 +230,80 @@ export const styles = StyleSheet.create({
   },
   conflictBannerText: { color: COLORS.errorLight, fontSize: sf(13), lineHeight: sf(19) },
 
-  modalRoot: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.55)' },
-  modalBackdrop: { flex: 1 },
-  modalSheet: {
-    backgroundColor: COLORS.darkCard,
-    borderTopLeftRadius: s(24),
-    borderTopRightRadius: s(24),
-    paddingHorizontal: s(20),
-    paddingTop: sv(18),
-    paddingBottom: sv(28),
-    maxHeight: '82%',
-  },
-  modalTitle: { color: COLORS.textPrimary, fontSize: sf(18), fontWeight: '900', marginBottom: sv(12) },
-  modalSearchInput: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+  datePicker: { alignSelf: 'stretch' },
+
+  // Inline exercise picker (TrainingV2InlineExercisePicker) — replaces the old full-screen
+  // picker modal: a text field in place of the exercise name/placeholder, an inline
+  // suggestion dropdown directly below it, and a compact muscle-group row once an exercise
+  // is confirmed.
+  inlineInputRow: { flexDirection: 'row', alignItems: 'center', gap: s(8) },
+  inlineInput: {
+    flex: 1,
+    backgroundColor: 'rgba(10, 9, 17, 0.72)',
     borderWidth: 1,
-    borderColor: COLORS.borderSubtle,
+    borderColor: COLORS.goldBorderLight,
     borderRadius: s(12),
     paddingHorizontal: s(14),
     paddingVertical: sv(10),
     color: COLORS.textPrimary,
     fontSize: sf(14),
-    marginBottom: sv(12),
   },
-  modalResultRow: {
-    paddingVertical: sv(12),
+  inlineClearButton: {
+    borderWidth: 1,
+    borderColor: 'rgba(212, 106, 106, 0.4)',
+    borderRadius: s(9),
+    paddingHorizontal: s(10),
+    paddingVertical: sv(9),
+  },
+  inlineClearButtonText: { color: COLORS.error, fontSize: sf(13), fontWeight: '800' },
+  inlineDropdown: {
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: s(12),
+    marginTop: sv(6),
+    maxHeight: sv(220),
+    overflow: 'hidden',
+  },
+  inlineDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: s(8),
+    paddingHorizontal: s(14),
+    paddingVertical: sv(10),
     borderBottomWidth: 1,
     borderBottomColor: COLORS.borderDeep,
   },
-  modalResultName: { color: COLORS.textPrimary, fontSize: sf(14), fontWeight: '750' },
-  modalResultMeta: { color: COLORS.textMuted, fontSize: sf(11), marginTop: sv(3) },
-  modalEmpty: { color: COLORS.textMuted, fontSize: sf(13), textAlign: 'center', paddingVertical: sv(24) },
-  modalClose: { alignSelf: 'flex-end', paddingVertical: sv(6), paddingHorizontal: s(4) },
-  modalCloseText: { color: COLORS.softGold, fontSize: sf(14), fontWeight: '800' },
-  modalPrimaryButtonWrap: { marginTop: sv(12) },
-  datePicker: { alignSelf: 'stretch' },
+  inlineDropdownItemName: { color: COLORS.textPrimary, fontSize: sf(14), fontWeight: '750', flex: 1 },
+  inlineDropdownBadge: {
+    borderRadius: s(999),
+    paddingHorizontal: s(9),
+    paddingVertical: sv(3),
+    borderWidth: 1,
+  },
+  inlineDropdownBadgeSystem: { borderColor: COLORS.goldBorderLight, backgroundColor: 'rgba(231,201,138,0.12)' },
+  inlineDropdownBadgeUser: { borderColor: COLORS.borderSubtle, backgroundColor: 'rgba(255,255,255,0.04)' },
+  inlineDropdownBadgeText: { color: COLORS.textSecondary, fontSize: sf(10.5), fontWeight: '800' },
+  inlineDropdownEmpty: { color: COLORS.textMuted, fontSize: sf(12.5), textAlign: 'center', paddingVertical: sv(16) },
+  inlineMuscleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: sv(8),
+    paddingHorizontal: s(14),
+    paddingVertical: sv(9),
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: s(12),
+  },
+  inlineMuscleLabel: { color: COLORS.textDim, fontSize: sf(11), fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  inlineMuscleValue: { color: COLORS.softGold, fontSize: sf(13), fontWeight: '800' },
+  inlineMuscleMenu: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: s(8),
+    marginTop: sv(8),
+  },
 
   // Plan actions (activate / schedule / archive / reactivate / weekly goal)
   actionsPanel: { flexDirection: 'row', flexWrap: 'wrap', gap: s(10), marginBottom: sv(18) },

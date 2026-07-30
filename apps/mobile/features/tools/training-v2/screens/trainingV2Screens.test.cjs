@@ -234,9 +234,56 @@ test('the editor route delegates to the isolated editor screen and is reachable 
 
 test('editor screen guards unsaved changes, deduplicates save and navigates to detail on success', () => {
   const editor = read('./TrainingV2PlanEditorScreen.jsx');
-  assert.match(editor, /beforeRemove/);
+  assert.match(editor, /usePreventRemove/);
   assert.match(editor, /Ungespeicherte Änderungen/);
   assert.match(editor, /disabled=\{saving\}/);
   assert.match(editor, /router\.replace\(\{\s*pathname:\s*'\/tools\/training-v2-plan-detail'/);
   assert.doesNotMatch(editor, /Aktivieren|Vormerken|Archivieren|Reaktivieren/);
 });
+
+test('an edit-mode version conflict uses a real native Alert dialog with the exact two required actions, not a dismissible banner', () => {
+  const editor = read('./TrainingV2PlanEditorScreen.jsx');
+  // No conditional JSX block rendering draft.draftConflict as a banner/View anymore (the
+  // negated draftRestored guard, "!draft.draftConflict ? (", is unrelated and must stay).
+  assert.doesNotMatch(editor, /\{draft\.draftConflict\s*\?\s*\(/);
+  // A real Alert.alert call, reacting to draft.draftConflict via an effect, with exactly the
+  // two required button texts wired to the hook's two decision callbacks.
+  assert.match(editor, /useEffect\(\(\) => \{\s*if \(!draft\.draftConflict\) return;\s*Alert\.alert\(/);
+  assert.match(editor, /text:\s*'Entwurf behalten',\s*onPress:\s*draft\.keepDraft/);
+  assert.match(editor, /text:\s*'Aktuellen Plan laden',\s*onPress:\s*draft\.loadCurrentPlanInstead/);
+  // Not cancelable — the user cannot dismiss it without picking an action, so neither the
+  // server state nor the draft can end up auto-selected by an accidental back-button tap.
+  assert.match(editor, /cancelable:\s*false/);
+});
+
+test('editor uses usePreventRemove instead of a manual beforeRemove listener, and its route disables the back-button history menu', () => {
+  const editor = read('./TrainingV2PlanEditorScreen.jsx');
+  // The manual `navigation.addListener('beforeRemove', ...)` + useFocusEffect flow raced
+  // with an interactive iOS swipe-back (native-stack pops the screen natively before the JS
+  // listener's preventDefault() can take effect) — usePreventRemove is the react-navigation
+  // primitive built specifically to avoid that race for native-stack.
+  assert.match(editor, /usePreventRemove\(dirty && !saving,/);
+  assert.match(editor, /from '@react-navigation\/native'/);
+  assert.doesNotMatch(editor, /addListener\(\s*['"]beforeRemove['"]/);
+  assert.doesNotMatch(editor, /useFocusEffect/);
+
+  const route = read('../../../../app/(tabs)/tools/training-v2-plan-editor.jsx');
+  // The long-press back-button menu can pop straight to an ancestor screen without going
+  // through usePreventRemove's guard, so it is disabled — only for this one route, not
+  // globally (the flat V2 tools stack and its shared gestureEnabled config stay untouched).
+  assert.match(route, /headerBackButtonMenuEnabled:\s*false/);
+});
+
+test('a target set only shows kg and Wiederholungen, with no RIR or rest-seconds field', () => {
+  const row = read('../components/TrainingV2TargetSetEditorRow.jsx');
+  assert.match(row, />kg</);
+  assert.match(row, />Wiederholungen</);
+  assert.doesNotMatch(row, /RIR/);
+  assert.doesNotMatch(row, /Pause|plannedRestSeconds/);
+  assert.doesNotMatch(row, /Wdh\./);
+  // A single reps field maps to both ends of the existing {minimum, maximum} contract range,
+  // so the API/DB target-set model does not need to change for this.
+  assert.match(row, /setField\('targetReps', value === null \? null : \{ minimum: value, maximum: value \}\)/);
+  assert.match(row, /targetSet\.targetReps === null \? '' : String\(targetSet\.targetReps\.minimum\)/);
+});
+

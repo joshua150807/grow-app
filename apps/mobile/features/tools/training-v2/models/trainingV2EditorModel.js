@@ -1,3 +1,5 @@
+import { resolveUiMuscleGroup } from '@grow/shared';
+
 import { createTrainingV2LogicalKey } from '../services/trainingV2LogicalId';
 
 export const TRAINING_V2_UNIT_TYPE_OPTIONS = ['strength', 'run', 'rest', 'mobility', 'stretching'];
@@ -5,6 +7,25 @@ export const TRAINING_V2_SET_TYPE_OPTIONS = ['warmup', 'work', 'drop'];
 
 export function unitTypeAllowsExercises(unitType) {
   return unitType === 'strength' || unitType === 'mobility' || unitType === 'stretching';
+}
+
+// A private exercise draft's category is always derived from the unit it lives in, never
+// asked for separately. The real, full unit-type enum (trainingUnitTypeSchema in
+// @grow/shared) is exactly ['strength', 'run', 'rest', 'mobility', 'stretching'] — there is
+// no 'cardio' unit type (only 'cardio' as an exercise *category*, tracked on 'run' units,
+// which never carry target exercises at all per unitTypeForbidsExercises). So the only unit
+// types that can ever reach this function (guarded by unitTypeAllowsExercises above) are
+// strength/mobility/stretching, mapping onto three of exerciseCategorySchema's four values.
+// Reusing unitTypeAllowsExercises here (rather than a second, hand-maintained list) means
+// this guard can never silently drift out of sync with it. Any other unit type — run, rest,
+// or a future/unrecognized value — has no exercise category by definition and must fail
+// loudly rather than being quietly filed under 'strength', since reaching this function for
+// one of them means the UI's own gating (unitTypeAllowsExercises) was bypassed upstream.
+export function categoryForUnitType(unitType) {
+  if (!unitTypeAllowsExercises(unitType)) {
+    throw new Error(`categoryForUnitType: unit type "${unitType}" is not exercise-enabled and has no exercise category.`);
+  }
+  return unitType === 'mobility' || unitType === 'stretching' ? unitType : 'strength';
 }
 
 export function unitTypeRequiresExercises(unitType) {
@@ -55,7 +76,15 @@ export function createEmptyTargetExercise() {
   return {
     logicalTargetExerciseKey: createTrainingV2LogicalKey(),
     exerciseId: null,
+    // Set instead of exerciseId once the row describes a not-yet-existing private exercise
+    // (typed name with no exact match, or a muscle-group edit on a previously bound
+    // exercise): { logicalKey, name, mainMuscle, category }, matching
+    // planExerciseDraftInputSchema in @grow/shared exactly so it can be sent as-is.
+    exerciseDraft: null,
     exerciseName: '',
+    // Always one of the nine UI groups; mirrors exerciseDraft.mainMuscle while a draft is
+    // active, and the resolved display group of the bound exercise otherwise.
+    muscleGroup: 'other',
     orderIndex: 0,
     note: '',
     targetSets: [{ ...createEmptyTargetSet(), orderIndex: 0 }],
@@ -80,7 +109,7 @@ export function createEmptyEditorState() {
   };
 }
 
-export function mapTrainingPlanToEditorState(plan, exerciseNames = {}) {
+export function mapTrainingPlanToEditorState(plan, exerciseDetails = {}) {
   const units = plan.revision.units
     .slice()
     .sort((a, b) => a.orderIndex - b.orderIndex)
@@ -102,10 +131,13 @@ export function mapTrainingPlanToEditorState(plan, exerciseNames = {}) {
               plannedRestSeconds: set.plannedRestSeconds,
               importedFromLegacyPlan: set.importedFromLegacyPlan,
             }));
+          const detail = exerciseDetails[exercise.exerciseId];
           return {
             logicalTargetExerciseKey: exercise.logicalTargetExerciseKey,
             exerciseId: exercise.exerciseId,
-            exerciseName: exerciseNames[exercise.exerciseId] ?? 'Unbekannte Übung',
+            exerciseDraft: null,
+            exerciseName: detail?.name ?? 'Unbekannte Übung',
+            muscleGroup: resolveUiMuscleGroup(detail?.mainMuscle),
             orderIndex: 0,
             note: exercise.note ?? '',
             targetSets,
@@ -136,21 +168,32 @@ function toTargetSetInput(set) {
     setType: set.setType,
     targetWeightKg: set.targetWeightKg,
     targetReps: set.targetReps,
-    targetRir: set.targetRir,
-    plannedRestSeconds: set.plannedRestSeconds,
+    // The editor no longer shows RIR/rest-seconds fields, so `set.targetRir`/
+    // `set.plannedRestSeconds` may still hold a stale non-neutral value carried through
+    // unedited from a plan loaded before this change (or from a template copy) — this is
+    // the one place that neutralizes them on every save, rather than leaving whatever the
+    // server last returned in place indefinitely.
+    targetRir: null,
+    plannedRestSeconds: 0,
     importedFromLegacyPlan: set.importedFromLegacyPlan,
   };
 }
 
 function toTargetExerciseInput(exercise) {
   const note = typeof exercise.note === 'string' ? exercise.note.trim() : '';
-  return {
+  const base = {
     logicalTargetExerciseKey: exercise.logicalTargetExerciseKey,
-    exerciseId: exercise.exerciseId,
     orderIndex: exercise.orderIndex,
     note: note.length > 0 ? note : null,
     targetSets: exercise.targetSets.map(toTargetSetInput),
   };
+  // planTargetExerciseInputSchema requires exactly one of exerciseId/exerciseDraft — a local
+  // draft (no exact match, or an edited muscle group/name) is never sent as an exerciseId, and
+  // the atomic server-side resolveExerciseDraft path is the only thing allowed to turn a draft
+  // into a real exercise row; the editor itself must never call POST /training/exercises.
+  return exercise.exerciseDraft
+    ? { ...base, exerciseDraft: exercise.exerciseDraft }
+    : { ...base, exerciseId: exercise.exerciseId };
 }
 
 function toUnitInput(unit) {
@@ -199,7 +242,8 @@ export function getEditorValidationIssues(state, { mode = 'create' } = {}) {
       issues.push({ path: `units.${unitIndex}.exercises`, message: 'Lauf- und Erholungseinheiten dürfen keine Übungen enthalten.' });
     }
     unit.exercises.forEach((exercise, exerciseIndex) => {
-      if (!exercise.exerciseId) {
+      const hasDraftName = Boolean(exercise.exerciseDraft?.name?.trim());
+      if (!exercise.exerciseId && !hasDraftName) {
         issues.push({
           path: `units.${unitIndex}.exercises.${exerciseIndex}.exerciseId`,
           message: 'Bitte eine Übung auswählen.',
@@ -293,6 +337,9 @@ export function trainingV2EditorReducer(state, action) {
       };
 
     case 'SET_EXERCISE_SELECTION':
+      // Binding to a known exercise (system or the user's own) always wins over any local
+      // draft in progress — this is the "confirmed suggestion" / "confirmed exact match" path,
+      // never the "no match, start a private draft" path.
       return {
         ...state,
         units: updateByKey(state.units, 'logicalUnitKey', action.logicalUnitKey, (unit) => ({
@@ -300,8 +347,64 @@ export function trainingV2EditorReducer(state, action) {
           exercises: updateByKey(unit.exercises, 'logicalTargetExerciseKey', action.logicalTargetExerciseKey, (exercise) => ({
             ...exercise,
             exerciseId: action.exerciseId,
+            exerciseDraft: null,
             exerciseName: action.exerciseName,
+            muscleGroup: resolveUiMuscleGroup(action.mainMuscle),
           })),
+        })),
+      };
+
+    case 'SET_EXERCISE_DRAFT':
+      // Confirmed typed text with no exact match. If the row was already a draft, its
+      // logicalKey and muscleGroup survive the rename unchanged (same private exercise, just
+      // renamed); otherwise a fresh logicalKey is minted and the group defaults to "Sonstiges"
+      // — this is what breaks the exerciseId binding for both an edited system name and an
+      // edited private name alike, since neither exact-matches anymore.
+      return {
+        ...state,
+        units: updateByKey(state.units, 'logicalUnitKey', action.logicalUnitKey, (unit) => ({
+          ...unit,
+          exercises: updateByKey(unit.exercises, 'logicalTargetExerciseKey', action.logicalTargetExerciseKey, (exercise) => {
+            const logicalKey = exercise.exerciseDraft?.logicalKey ?? createTrainingV2LogicalKey();
+            const muscleGroup = exercise.exerciseDraft?.mainMuscle ?? 'other';
+            return {
+              ...exercise,
+              exerciseId: null,
+              exerciseDraft: {
+                logicalKey,
+                name: action.name,
+                mainMuscle: muscleGroup,
+                category: categoryForUnitType(unit.unitType),
+              },
+              exerciseName: action.name,
+              muscleGroup,
+            };
+          }),
+        })),
+      };
+
+    case 'SET_EXERCISE_MUSCLE_GROUP':
+      // Changing the muscle group of an already-bound known exercise turns it into a private
+      // draft with a fresh logicalKey but the existing display name; changing it on a row
+      // that's already a draft just updates that same draft in place.
+      return {
+        ...state,
+        units: updateByKey(state.units, 'logicalUnitKey', action.logicalUnitKey, (unit) => ({
+          ...unit,
+          exercises: updateByKey(unit.exercises, 'logicalTargetExerciseKey', action.logicalTargetExerciseKey, (exercise) => {
+            const logicalKey = exercise.exerciseDraft?.logicalKey ?? createTrainingV2LogicalKey();
+            return {
+              ...exercise,
+              exerciseId: null,
+              exerciseDraft: {
+                logicalKey,
+                name: exercise.exerciseName,
+                mainMuscle: action.muscleGroup,
+                category: categoryForUnitType(unit.unitType),
+              },
+              muscleGroup: action.muscleGroup,
+            };
+          }),
         })),
       };
 

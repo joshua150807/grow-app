@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   createTrainingV2Plan,
   getTrainingV2Plan,
-  resolveTrainingV2ExerciseNames,
+  resolveTrainingV2ExerciseDetails,
   TrainingV2ConflictError,
   updateTrainingV2Plan,
 } from '../services/trainingV2Api';
@@ -39,8 +39,8 @@ export function useTrainingV2PlanEditor(planId) {
     setLoadError(null);
     try {
       const plan = await getTrainingV2Plan(planId);
-      const names = await resolveTrainingV2ExerciseNames(plan);
-      const hydrated = mapTrainingPlanToEditorState(plan, names);
+      const details = await resolveTrainingV2ExerciseDetails(plan);
+      const hydrated = mapTrainingPlanToEditorState(plan, details);
       setState(hydrated);
       setInitialState(hydrated);
       setExpectedVersion(plan.version);
@@ -99,6 +99,8 @@ export function useTrainingV2PlanEditor(planId) {
   return {
     mode,
     state,
+    initialState,
+    expectedVersion,
     dispatch,
     loading,
     loadError,

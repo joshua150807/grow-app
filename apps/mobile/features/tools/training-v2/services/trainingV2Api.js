@@ -1,4 +1,5 @@
 import {
+  createTrainingExerciseInputSchema,
   createTrainingPlanInputSchema,
   listTrainingExercisesResponseSchema,
   listTrainingPlansResponseSchema,
@@ -163,6 +164,15 @@ export async function getTrainingV2Exercise(exerciseId) {
   )).exercise;
 }
 
+export async function createTrainingV2Exercise(input) {
+  const body = parseTrainingV2Input(createTrainingExerciseInputSchema, input);
+  return (await callTrainingV2(
+    '/v1/training/exercises',
+    { method: 'POST', body },
+    trainingExerciseDetailResponseSchema,
+  )).exercise;
+}
+
 export async function listTrainingV2Exercises(query = {}) {
   const searchParams = new URLSearchParams();
   Object.entries(query).forEach(([key, value]) => {
@@ -252,7 +262,10 @@ export async function updateTrainingV2WeeklyGoal(planId, expectedVersion, weekly
   )).plan;
 }
 
-export async function resolveTrainingV2ExerciseNames(plan, cache = new Map()) {
+// Resolves each exercise id referenced by a plan to its full { name, mainMuscle } — the
+// editor needs mainMuscle too (to show the correct muscle-group chip for an already-bound
+// exercise), while the read-only detail view only ever needed the name.
+export async function resolveTrainingV2ExerciseDetails(plan, cache = new Map()) {
   const exerciseIds = [
     ...new Set(plan.revision.units.flatMap((unit) => (
       unit.exercises.map((exercise) => exercise.exerciseId)
@@ -272,6 +285,11 @@ export async function resolveTrainingV2ExerciseNames(plan, cache = new Map()) {
 
   return Object.fromEntries(await Promise.all(exerciseIds.map(async (exerciseId) => {
     const exercise = await cache.get(exerciseId);
-    return [exerciseId, exercise?.name];
+    return [exerciseId, exercise ? { name: exercise.name, mainMuscle: exercise.mainMuscle } : null];
   })));
+}
+
+export async function resolveTrainingV2ExerciseNames(plan, cache = new Map()) {
+  const details = await resolveTrainingV2ExerciseDetails(plan, cache);
+  return Object.fromEntries(Object.entries(details).map(([exerciseId, detail]) => [exerciseId, detail?.name]));
 }

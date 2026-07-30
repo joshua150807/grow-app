@@ -12,11 +12,6 @@ function numberOrNull(text) {
   return Number.isFinite(value) ? value : null;
 }
 
-function numberOrZero(text) {
-  const value = Number(text.trim());
-  return Number.isFinite(value) && value >= 0 ? value : 0;
-}
-
 export function TrainingV2TargetSetEditorRow({
   dispatch,
   logicalUnitKey,
@@ -54,57 +49,36 @@ export function TrainingV2TargetSetEditorRow({
         ))}
       </View>
 
-      <TextInput
-        accessibilityLabel="Gewicht in kg"
-        keyboardType="numeric"
-        onChangeText={(text) => setField('targetWeightKg', numberOrNull(text))}
-        placeholder="kg"
-        placeholderTextColor="#6F6A77"
-        style={styles.targetSetInput}
-        value={targetSet.targetWeightKg === null ? '' : String(targetSet.targetWeightKg)}
-      />
-      <TextInput
-        accessibilityLabel="Minimale Wiederholungen"
-        keyboardType="numeric"
-        onChangeText={(text) => setField('targetReps', {
-          minimum: numberOrNull(text) ?? 0,
-          maximum: targetSet.targetReps?.maximum ?? (numberOrNull(text) ?? 0),
-        })}
-        placeholder="Wdh. min"
-        placeholderTextColor="#6F6A77"
-        style={styles.targetSetInput}
-        value={targetSet.targetReps === null ? '' : String(targetSet.targetReps.minimum)}
-      />
-      <TextInput
-        accessibilityLabel="Maximale Wiederholungen"
-        keyboardType="numeric"
-        onChangeText={(text) => setField('targetReps', {
-          minimum: targetSet.targetReps?.minimum ?? (numberOrNull(text) ?? 0),
-          maximum: numberOrNull(text) ?? 0,
-        })}
-        placeholder="Wdh. max"
-        placeholderTextColor="#6F6A77"
-        style={styles.targetSetInput}
-        value={targetSet.targetReps === null ? '' : String(targetSet.targetReps.maximum)}
-      />
-      <TextInput
-        accessibilityLabel="RIR"
-        keyboardType="numeric"
-        onChangeText={(text) => setField('targetRir', numberOrNull(text))}
-        placeholder="RIR"
-        placeholderTextColor="#6F6A77"
-        style={styles.targetSetInput}
-        value={targetSet.targetRir === null ? '' : String(targetSet.targetRir)}
-      />
-      <TextInput
-        accessibilityLabel="Pause in Sekunden"
-        keyboardType="numeric"
-        onChangeText={(text) => setField('plannedRestSeconds', numberOrZero(text))}
-        placeholder="Pause (s)"
-        placeholderTextColor="#6F6A77"
-        style={styles.targetSetInput}
-        value={String(targetSet.plannedRestSeconds)}
-      />
+      <View style={styles.targetSetFieldGroup}>
+        <Text style={styles.targetSetFieldLabel}>kg</Text>
+        <TextInput
+          accessibilityLabel="Gewicht in kg"
+          keyboardType="decimal-pad"
+          onChangeText={(text) => setField('targetWeightKg', numberOrNull(text))}
+          placeholder="kg"
+          placeholderTextColor="#6F6A77"
+          style={styles.targetSetInput}
+          value={targetSet.targetWeightKg === null ? '' : String(targetSet.targetWeightKg)}
+        />
+      </View>
+      <View style={styles.targetSetFieldGroup}>
+        <Text style={styles.targetSetFieldLabel}>Wiederholungen</Text>
+        <TextInput
+          accessibilityLabel="Wiederholungen"
+          keyboardType="number-pad"
+          onChangeText={(text) => {
+            // Contract requires a {minimum, maximum} range even though only a single
+            // reps number is shown — a single visible field maps to both ends of the
+            // range, so the API/DB model does not need to change for this.
+            const value = numberOrNull(text);
+            setField('targetReps', value === null ? null : { minimum: value, maximum: value });
+          }}
+          placeholder="z. B. 10"
+          placeholderTextColor="#6F6A77"
+          style={styles.targetSetInput}
+          value={targetSet.targetReps === null ? '' : String(targetSet.targetReps.minimum)}
+        />
+      </View>
 
       <View style={styles.editorRowActions}>
         <Pressable

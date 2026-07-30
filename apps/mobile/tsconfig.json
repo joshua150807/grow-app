@@ -1,4 +1,14 @@
 {
-  "compilerOptions": {},
+  "compilerOptions": {
+    // @grow/shared's package.json points "main"/"types" at dist/, which is gitignored and
+    // does not exist until someone runs its own build script — Metro already sidesteps this
+    // via the package's "react-native" field (src/index.ts) plus a custom resolver in
+    // metro.config.js, but tsc does not read that field at all and would otherwise fail to
+    // resolve @grow/shared on a clean checkout. This mirrors the same "resolve straight to
+    // source" convention for typecheck, so neither tool depends on a pre-built dist.
+    "paths": {
+      "@grow/shared": ["../../packages/shared/src/index.ts"]
+    }
+  },
   "extends": "expo/tsconfig.base"
 }
