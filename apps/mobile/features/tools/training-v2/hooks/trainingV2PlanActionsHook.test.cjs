@@ -47,6 +47,7 @@ function fakeApi(overrides = {}) {
     reactivateTrainingV2Plan: async () => { throw new Error('not mocked'); },
     scheduleTrainingV2Plan: async () => { throw new Error('not mocked'); },
     updateTrainingV2WeeklyGoal: async () => { throw new Error('not mocked'); },
+    deleteTrainingV2Plan: async () => { throw new Error('not mocked'); },
     ...overrides,
   };
 }
@@ -155,6 +156,52 @@ test('400/404/network/contract failures surface as a plain error without setting
   assert.equal(outcome.ok, false);
   assert.equal(harness.conflict, false);
   assert.ok(harness.error);
+});
+
+test('remove calls deleteTrainingV2Plan with just planId and never calls onSuccess — there is no server plan left to apply', async () => {
+  const calls = [];
+  const successCalls = [];
+  const harness = createActionsHookHarness('plan-1', async (plan) => { successCalls.push(plan); }, fakeApi({
+    deleteTrainingV2Plan: async (planId) => { calls.push(planId); },
+  }));
+
+  const outcome = await harness.result.remove();
+
+  assert.equal(outcome.ok, true);
+  assert.deepEqual(calls, ['plan-1']);
+  assert.deepEqual(successCalls, []);
+  assert.equal(harness.pending, null);
+});
+
+test('remove shares the same single-flight guard as every other action', async () => {
+  let resolveDelete;
+  const harness = createActionsHookHarness('plan-1', async () => {}, fakeApi({
+    deleteTrainingV2Plan: async () => new Promise((resolve) => { resolveDelete = () => resolve(); }),
+  }));
+
+  const firstCall = harness.result.remove();
+  assert.equal(harness.pending, 'delete');
+  const secondOutcome = await harness.result.activate(1);
+  assert.equal(secondOutcome.ok, false);
+
+  resolveDelete();
+  const firstOutcome = await firstCall;
+  assert.equal(firstOutcome.ok, true);
+  assert.equal(harness.pending, null);
+});
+
+test('a failed remove surfaces the error, sets pending back to null, and never calls onSuccess', async () => {
+  let successCalled = false;
+  const harness = createActionsHookHarness('plan-1', async () => { successCalled = true; }, fakeApi({
+    deleteTrainingV2Plan: async () => { throw apiError('nope', { code: 'TRAINING_PLAN_NOT_FOUND', status: 404 }); },
+  }));
+
+  const outcome = await harness.result.remove();
+
+  assert.equal(outcome.ok, false);
+  assert.ok(harness.error);
+  assert.equal(harness.pending, null);
+  assert.equal(successCalled, false);
 });
 
 test('clearError resets both error and conflict', async () => {

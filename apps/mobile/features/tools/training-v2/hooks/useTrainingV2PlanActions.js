@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from 'react';
 import {
   activateTrainingV2Plan,
   archiveTrainingV2Plan,
+  deleteTrainingV2Plan,
   reactivateTrainingV2Plan,
   scheduleTrainingV2Plan,
   updateTrainingV2WeeklyGoal,
@@ -14,7 +15,10 @@ export function useTrainingV2PlanActions(planId, onSuccess) {
   const [conflict, setConflict] = useState(false);
   const pendingRef = useRef(false);
 
-  const runAction = useCallback(async (kind, task) => {
+  // `applyResult: false` is only for delete — there is no plan left to feed to onSuccess
+  // (applyServerPlan), and the screen navigates away on success instead of re-rendering
+  // content. Every other action still applies the real server response as before.
+  const runAction = useCallback(async (kind, task, { applyResult = true } = {}) => {
     if (pendingRef.current) return { ok: false };
     pendingRef.current = true;
     setPending(kind);
@@ -24,7 +28,7 @@ export function useTrainingV2PlanActions(planId, onSuccess) {
       const plan = await task();
       // No optimistic updates: only the actual server response is ever applied.
       setConflict(false);
-      await onSuccess(plan);
+      if (applyResult) await onSuccess(plan);
       return { ok: true, plan };
     } catch (caughtError) {
       // Only a stale-version conflict is reload-eligible; other 409s (e.g. another
@@ -59,6 +63,10 @@ export function useTrainingV2PlanActions(planId, onSuccess) {
     runAction('weeklyGoal', () => updateTrainingV2WeeklyGoal(planId, expectedVersion, weeklyGoal))
   ), [planId, runAction]);
 
+  const remove = useCallback(() => (
+    runAction('delete', () => deleteTrainingV2Plan(planId), { applyResult: false })
+  ), [planId, runAction]);
+
   const clearError = useCallback(() => {
     setError(null);
     setConflict(false);
@@ -73,6 +81,7 @@ export function useTrainingV2PlanActions(planId, onSuccess) {
     archive,
     reactivate,
     updateWeeklyGoal,
+    remove,
     clearError,
   };
 }

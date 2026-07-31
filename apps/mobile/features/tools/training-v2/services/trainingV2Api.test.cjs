@@ -613,6 +613,36 @@ test('updateTrainingV2WeeklyGoal sends a PUT with the expectedVersion and the ne
   assert.deepEqual(JSON.parse(calls[0][1].body), { expectedVersion: 5, weeklyGoal: 4 });
 });
 
+test('deleteTrainingV2Plan sends a DELETE with no body and resolves on the 204 No Content response', async (context) => {
+  withEnv(context);
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(204, undefined);
+  };
+  const api = loadApi();
+
+  await api.deleteTrainingV2Plan('plan/1');
+
+  assert.equal(calls[0][1].method, 'DELETE');
+  assert.equal('body' in calls[0][1], false);
+  assert.equal(calls[0][0].endsWith('/v1/training/plans/plan%2F1'), true);
+});
+
+test('deleteTrainingV2Plan classifies 401/404/network failures the same way every other plan mutation does', async (context) => {
+  withEnv(context);
+  const api = loadApi();
+
+  global.fetch = async () => response(401, { error: { code: 'UNAUTHORIZED' } });
+  await assert.rejects(api.deleteTrainingV2Plan('plan-1'), (error) => error instanceof api.TrainingV2AuthError);
+
+  global.fetch = async () => response(404, { error: { code: 'TRAINING_PLAN_NOT_FOUND' } });
+  await assert.rejects(api.deleteTrainingV2Plan('plan-1'), (error) => error instanceof api.TrainingV2NotFoundError);
+
+  global.fetch = async () => { throw new Error('offline'); };
+  await assert.rejects(api.deleteTrainingV2Plan('plan-1'), (error) => error instanceof api.TrainingV2NetworkError);
+});
+
 test('every plan-action mutation rejects locally on an invalid expectedVersion without calling fetch', async (context) => {
   withEnv(context);
   let fetchCalls = 0;

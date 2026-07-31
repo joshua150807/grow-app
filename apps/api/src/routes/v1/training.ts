@@ -84,4 +84,8 @@ export const trainingRoutes: FastifyPluginAsync<TrainingRoutesOptions> = async (
   app.put('/training/plans/:id/weekly-goal', { preHandler: [app.requireAuth] }, async (request) => ({
     plan: await service().updateWeeklyGoal(request.auth.user!, id(request), request.body),
   }));
+  app.delete('/training/plans/:id', { preHandler: [app.requireAuth] }, async (request, reply) => {
+    await service().delete(request.auth.user!, id(request));
+    return reply.code(204).send();
+  });
 };

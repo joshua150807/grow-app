@@ -47,6 +47,7 @@ function repository(overrides: Partial<TrainingPlanRepository> = {}): TrainingPl
     schedule: vi.fn(async () => ok),
     archive: vi.fn(async () => ok),
     updateWeeklyGoal: vi.fn(async () => ok),
+    delete: vi.fn(async () => ok),
     ...overrides,
   };
 }
@@ -66,6 +67,7 @@ describe('training plan API', () => {
     ['POST', `/v1/training/plans/${planId}/reactivate`],
     ['POST', `/v1/training/plans/${planId}/archive`],
     ['PUT', `/v1/training/plans/${planId}/weekly-goal`],
+    ['DELETE', `/v1/training/plans/${planId}`],
   ])('requires auth for %s %s', async (method, url) => {
     const value = repository();
     const server = app(value);
@@ -266,6 +268,25 @@ describe('training plan API', () => {
     expect(value.updateWeeklyGoal).toHaveBeenCalledWith(user.id, planId, 1, 4);
     await server.close();
   });
+
+  it('deletes an own plan with no request body and no expectedVersion, returning 204', async () => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({ method: 'DELETE', url: `/v1/training/plans/${planId}`, headers });
+    expect(response.statusCode).toBe(204);
+    expect(response.body).toBe('');
+    expect(value.delete).toHaveBeenCalledWith(user.id, planId);
+    await server.close();
+  });
+
+  it('rejects deleting a foreign or missing plan with owner-safe 404, never a 403', async () => {
+    const value = repository({ delete: vi.fn(async () => ({ outcome: 'not_found' as const })) });
+    const server = app(value);
+    const response = await server.inject({ method: 'DELETE', url: `/v1/training/plans/${planId}`, headers });
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('TRAINING_PLAN_NOT_FOUND');
+    await server.close();
+  });
 });
 
 describe('training plan read repository', () => {
@@ -322,5 +343,22 @@ describe('training plan read repository', () => {
     expect(sql).toContain("case when plan.status='scheduled' then schedule.effective_at end asc");
     expect(sql).toContain("case when plan.status<>'scheduled' then plan.updated_at end desc");
     expect(sql).toContain('plan.id asc');
+  });
+
+  it('delete() scopes the DELETE by id, user_id AND source_template_id is null in one statement, relying on cascading FKs for the whole tree', async () => {
+    const query = vi.fn(async () => ({ rowCount: 1 }));
+    const value = createTrainingPlanRepository({ query } as never);
+    expect(await value.delete(user.id, planId)).toEqual({ outcome: 'ok', planId });
+    expect(query).toHaveBeenCalledOnce();
+    const [sql, parameters] = query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(sql).toContain('delete from public.training_plans_v2');
+    expect(sql).toContain('where id=$1 and user_id=$2 and source_template_id is null');
+    expect(parameters).toEqual([planId, user.id]);
+  });
+
+  it('delete() reports not_found (not an error) when zero rows match — a foreign plan id, an already-deleted plan, or a Grow-sourced plan', async () => {
+    const query = vi.fn(async () => ({ rowCount: 0 }));
+    const value = createTrainingPlanRepository({ query } as never);
+    expect(await value.delete(user.id, planId)).toEqual({ outcome: 'not_found' });
   });
 });

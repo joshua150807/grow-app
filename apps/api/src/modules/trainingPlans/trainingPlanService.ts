@@ -206,5 +206,12 @@ export function createTrainingPlanService(
         throwRepositoryError(error);
       }
     },
+    async delete(user: AuthUser, idValue: unknown) {
+      const id = parse(planIdSchema, idValue);
+      const result = await repository.delete(user.id, id);
+      if (result.outcome === 'not_found') {
+        throw new AppError(404, 'TRAINING_PLAN_NOT_FOUND', 'Training plan was not found.');
+      }
+    },
   };
 }

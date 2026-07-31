@@ -293,6 +293,54 @@ test('own-plan detail has no Wochenziel, Vormerken or Archivieren left — only 
   assert.match(detail, /onPress=\{handleReload\}/);
 });
 
+test('the "Plan löschen" button only renders for an own plan (sourceTemplateId === null), never for a Grow-sourced plan, and is not gated on active/inactive status', () => {
+  const detail = read('./TrainingV2OwnPlanDetail.jsx');
+  assert.match(detail, /plan\.sourceTemplateId === null \? \(/);
+  assert.match(detail, />Plan löschen</);
+  assert.match(detail, /styles\.actionButtonDanger/);
+  // The delete panel's own JSX block must not additionally depend on `isActive` — a plan may
+  // be deleted whether or not it is currently active.
+  const deleteBlock = detail.slice(detail.indexOf('plan.sourceTemplateId === null'));
+  assert.doesNotMatch(deleteBlock.slice(0, deleteBlock.indexOf('</ScrollView>')), /isActive/);
+
+  // Never reachable on the Grow-template detail screen — Grow content is never deletable.
+  const growDetail = read('./TrainingV2GrowPlanDetail.jsx');
+  assert.doesNotMatch(growDetail, /Plan löschen/);
+  assert.doesNotMatch(growDetail, /actions\.remove/);
+});
+
+test('deleting a plan shows a confirm dialog with exactly Abbrechen/Plan löschen, only calls actions.remove() on the destructive confirm — Abbrechen has no onPress and deletes nothing', () => {
+  const detail = read('./TrainingV2OwnPlanDetail.jsx');
+  assert.match(detail, /Alert\.alert\(\s*'Plan löschen',/);
+  assert.match(detail, /\{ text: 'Abbrechen', style: 'cancel' \}/);
+  assert.match(detail, /\{ text: 'Plan löschen', style: 'destructive', onPress: runDelete \}/);
+  // The cancel entry is a plain object literal with only text/style — no onPress at all, so
+  // dismissing the dialog can never trigger any deletion path.
+  assert.doesNotMatch(detail, /\{ text: 'Abbrechen', style: 'cancel', onPress/);
+});
+
+test('a successful delete clears the edit draft and the owner\'s plans cache, then navigates back to the Overview exactly once via replace() — never back(), never more than once', () => {
+  const detail = read('./TrainingV2OwnPlanDetail.jsx');
+  assert.match(detail, /await actions\.remove\(\)|actions\.remove\(\)\.then/);
+  assert.match(detail, /clearTrainingV2Draft\(draftOwnerId, 'edit', planId\)/);
+  assert.match(detail, /setCachedTrainingV2Plans\(cacheOwnerId, cachedPlans\.filter/);
+  assert.match(detail, /router\.replace\(\{ pathname: '\/tools\/training-v2-plans' \}\)/);
+  // Exactly one replace() call site in the whole file, and it is the only navigation inside
+  // finishDelete — never router.back() for this flow.
+  assert.equal((detail.match(/router\.replace\(/g) ?? []).length, 1);
+  const finishDeleteBody = detail.slice(detail.indexOf('const finishDelete'), detail.indexOf('const runDelete'));
+  assert.doesNotMatch(finishDeleteBody, /router\.back\(\)/);
+});
+
+test('finishDelete (draft clear, cache update, navigation) only ever runs when the delete actually succeeded — a failed delete leaves the detail screen open with the action error visible', () => {
+  const detail = read('./TrainingV2OwnPlanDetail.jsx');
+  assert.match(detail, /if \(outcome\.ok\) void finishDelete\(\);/);
+  // The same actions.error banner used by every other action (activate, etc.) also covers a
+  // failed remove() — no separate/duplicate error UI was added for delete.
+  assert.match(detail, /actions\.error && !actions\.conflict/);
+  assert.match(detail, /\{actionErrorMessage\(actions\.error\)\}/);
+});
+
 test('Grow-plan detail has Speichern/Nicht mehr speichern and Jetzt aktivieren, an "Aktiv" badge, no edit flow, and activating never auto-saves while unsaving never deactivates', () => {
   const detail = read('./TrainingV2GrowPlanDetail.jsx');
   assert.match(detail, /Speichern/);

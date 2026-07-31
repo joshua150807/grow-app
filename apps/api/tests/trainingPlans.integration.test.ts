@@ -333,6 +333,125 @@ describe('training plan API PostgreSQL integration', () => {
     expect(cycle.rows[0]).toEqual({ next_order_index: 0, last_trigger: 'plan_reactivated' });
   });
 
+  it('deletes an active own plan and the entire dependent tree via cascading FKs, leaving no plan active afterwards', async () => {
+    const plan = (await create(payload({ active: true }))).json().plan;
+    // Immediate activation (activateImmediately on create) never inserts a
+    // training_plan_activations_v2 row — that table is only for a *pending* scheduled
+    // activation (see schedule()) — so it is asserted empty both before and after, while the
+    // rest are asserted non-empty before to prove there is really something to cascade-delete.
+    const populatedBeforeTables = [
+      'training_plan_revisions_v2', 'training_plan_units_v2', 'training_plan_exercises_v2',
+      'training_plan_target_sets_v2', 'training_plan_cycle_states_v2', 'training_weekly_goal_versions_v2',
+    ];
+    const dependentTables = [...populatedBeforeTables, 'training_plan_activations_v2'];
+    for (const table of populatedBeforeTables) {
+      const before = await pool.query(`select count(*)::int as count from public.${table} where plan_id=$1`, [plan.id]);
+      expect(before.rows[0].count).toBeGreaterThan(0);
+    }
+
+    const response = await server.inject({
+      method: 'DELETE', url: `/v1/training/plans/${plan.id}`, headers: headersA,
+    });
+
+    expect(response.statusCode).toBe(204);
+    expect(response.body).toBe('');
+    const remainingPlan = await pool.query('select id from public.training_plans_v2 where id=$1', [plan.id]);
+    expect(remainingPlan.rows).toHaveLength(0);
+    for (const table of dependentTables) {
+      const after = await pool.query(`select count(*)::int as count from public.${table} where plan_id=$1`, [plan.id]);
+      expect(after.rows[0].count).toBe(0);
+    }
+    const activePlans = await pool.query(
+      "select id from public.training_plans_v2 where user_id=$1 and status='active'", [userA],
+    );
+    expect(activePlans.rows).toHaveLength(0);
+  });
+
+  async function markAsGrowInstance(planId: string, { savedAt }: { savedAt: Date | null }) {
+    const template = await pool.query<{ id: string }>(
+      "insert into public.training_templates_v2(name,status) values ('Grow Plan','active') returning id",
+    );
+    await pool.query(
+      'update public.training_plans_v2 set source_template_id=$1,saved_at=$2 where id=$3',
+      [template.rows[0].id, savedAt, planId],
+    );
+  }
+
+  async function dependentCounts(planId: string) {
+    const tables = [
+      'training_plan_revisions_v2', 'training_plan_units_v2', 'training_plan_exercises_v2',
+      'training_plan_target_sets_v2', 'training_weekly_goal_versions_v2',
+    ];
+    const counts: Record<string, number> = {};
+    for (const table of tables) {
+      const result = await pool.query(`select count(*)::int as count from public.${table} where plan_id=$1`, [planId]);
+      counts[table] = result.rows[0].count;
+    }
+    return counts;
+  }
+
+  it('rejects deleting a saved Grow instance (source_template_id set, saved_at set) with owner-safe 404, changing nothing', async () => {
+    const plan = (await create()).json().plan;
+    await markAsGrowInstance(plan.id, { savedAt: new Date() });
+    const before = await dependentCounts(plan.id);
+    expect(Object.values(before).every((count) => count > 0)).toBe(true);
+
+    const response = await server.inject({
+      method: 'DELETE', url: `/v1/training/plans/${plan.id}`, headers: headersA,
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('TRAINING_PLAN_NOT_FOUND');
+    const row = await pool.query(
+      'select status,saved_at,source_template_id from public.training_plans_v2 where id=$1', [plan.id],
+    );
+    expect(row.rows).toHaveLength(1);
+    expect(row.rows[0].source_template_id).not.toBeNull();
+    expect(row.rows[0].saved_at).not.toBeNull();
+    expect(await dependentCounts(plan.id)).toEqual(before);
+  });
+
+  it('rejects deleting an active, unsaved Grow instance (source_template_id set, saved_at null) with owner-safe 404, changing nothing — it stays active', async () => {
+    const plan = (await create(payload({ active: true }))).json().plan;
+    await markAsGrowInstance(plan.id, { savedAt: null });
+    const before = await dependentCounts(plan.id);
+
+    const response = await server.inject({
+      method: 'DELETE', url: `/v1/training/plans/${plan.id}`, headers: headersA,
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('TRAINING_PLAN_NOT_FOUND');
+    const row = await pool.query(
+      'select status,saved_at,source_template_id from public.training_plans_v2 where id=$1', [plan.id],
+    );
+    expect(row.rows).toHaveLength(1);
+    expect(row.rows[0].status).toBe('active');
+    expect(row.rows[0].saved_at).toBeNull();
+    expect(row.rows[0].source_template_id).not.toBeNull();
+    expect(await dependentCounts(plan.id)).toEqual(before);
+  });
+
+  it('rejects deleting another user\'s plan with owner-safe 404 and leaves it fully intact', async () => {
+    const plan = (await create()).json().plan;
+    const response = await server.inject({
+      method: 'DELETE', url: `/v1/training/plans/${plan.id}`, headers: headersB,
+    });
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('TRAINING_PLAN_NOT_FOUND');
+    const stillThere = await pool.query('select id from public.training_plans_v2 where id=$1', [plan.id]);
+    expect(stillThere.rows).toHaveLength(1);
+  });
+
+  it('deleting a missing/already-deleted plan id returns the same owner-safe 404', async () => {
+    const plan = (await create()).json().plan;
+    const first = await server.inject({ method: 'DELETE', url: `/v1/training/plans/${plan.id}`, headers: headersA });
+    expect(first.statusCode).toBe(204);
+    const second = await server.inject({ method: 'DELETE', url: `/v1/training/plans/${plan.id}`, headers: headersA });
+    expect(second.statusCode).toBe(404);
+    expect(second.json().error.code).toBe('TRAINING_PLAN_NOT_FOUND');
+  });
+
   it('schedules local midnight and rejects a second scheduled plan', async () => {
     const first = (await create()).json().plan;
     const second = (await create()).json().plan;

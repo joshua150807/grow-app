@@ -9,6 +9,12 @@ import { useTrainingV2Plans } from '../hooks/useTrainingV2Plans';
 import { targetSetLabel } from '../models/trainingV2ViewModel';
 import { styles } from '../styles/trainingV2Styles';
 import { TrainingV2StateView } from '../components/TrainingV2StateView';
+import { clearTrainingV2Draft, getTrainingV2DraftOwnerId } from '../services/trainingV2DraftStorage';
+import {
+  getCachedTrainingV2Plans,
+  getTrainingV2PlansOwnerId,
+  setCachedTrainingV2Plans,
+} from '../services/trainingV2PlansCache';
 
 function actionErrorMessage(error) {
   if (!error) return null;
@@ -53,6 +59,41 @@ export default function TrainingV2OwnPlanDetail({ planId }) {
       ],
     );
   }, [allPlans, planId, runActivate]);
+
+  // Runs after a confirmed, successful delete: no server plan is left to apply (see the
+  // `applyResult: false` remove() call in useTrainingV2PlanActions.js), so this cleans up
+  // everything client-side instead — the local edit draft (if any), this owner's cached
+  // plans list (so the deleted plan can never flash back into "Gespeicherte Pläne" for an
+  // instant before the Overview's own focus-refetch completes), and then navigates back to
+  // the Overview exactly once via replace() (never back()), so the now-gone plan's detail
+  // screen can never be returned to via the hardware/gesture back action either.
+  const finishDelete = useCallback(async () => {
+    const draftOwnerId = getTrainingV2DraftOwnerId();
+    if (draftOwnerId) await clearTrainingV2Draft(draftOwnerId, 'edit', planId);
+    const cacheOwnerId = getTrainingV2PlansOwnerId();
+    const cachedPlans = getCachedTrainingV2Plans(cacheOwnerId);
+    if (cachedPlans) {
+      setCachedTrainingV2Plans(cacheOwnerId, cachedPlans.filter((cachedPlan) => cachedPlan.id !== planId));
+    }
+    router.replace({ pathname: '/tools/training-v2-plans' });
+  }, [planId]);
+
+  const runDelete = useCallback(() => {
+    void actions.remove().then((outcome) => {
+      if (outcome.ok) void finishDelete();
+    });
+  }, [actions, finishDelete]);
+
+  const handleDelete = useCallback(() => {
+    Alert.alert(
+      'Plan löschen',
+      'Der Plan wird endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.',
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        { text: 'Plan löschen', style: 'destructive', onPress: runDelete },
+      ],
+    );
+  }, [runDelete]);
 
   if (loading || error) {
     return <TrainingV2StateView loading={loading} error={error} onRetry={retry} />;
@@ -139,6 +180,19 @@ export default function TrainingV2OwnPlanDetail({ planId }) {
           ))}
         </View>
       ))}
+
+      {plan.sourceTemplateId === null ? (
+        <View style={styles.actionsPanel}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={actions.pending !== null}
+            onPress={handleDelete}
+            style={[styles.actionButtonDanger, actions.pending !== null && styles.actionButtonDisabled]}
+          >
+            <Text style={styles.actionButtonDangerText}>Plan löschen</Text>
+          </Pressable>
+        </View>
+      ) : null}
     </ScrollView>
   );
 }

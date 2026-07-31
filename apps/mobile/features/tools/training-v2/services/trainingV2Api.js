@@ -265,6 +265,19 @@ export async function updateTrainingV2WeeklyGoal(planId, expectedVersion, weekly
   )).plan;
 }
 
+// DELETE /training/plans/:id responds 204 No Content — there is no shared response schema
+// for an empty body, so this trivial pass-through stands in for one rather than inventing a
+// one-off schema in @grow/shared for a single endpoint with nothing to validate.
+const emptyResponseSchema = { safeParse: (value) => ({ success: true, data: value }) };
+
+export async function deleteTrainingV2Plan(planId) {
+  await callTrainingV2(
+    `/v1/training/plans/${encodeURIComponent(planId)}`,
+    { method: 'DELETE' },
+    emptyResponseSchema,
+  );
+}
+
 export async function listTrainingV2Templates() {
   return (await requestTrainingV2('/v1/training/templates', listTrainingTemplatesResponseSchema)).templates;
 }

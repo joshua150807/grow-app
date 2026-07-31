@@ -32,6 +32,7 @@ export type TrainingPlanRepository = {
   ): Promise<MutationResult>;
   archive(userId: string, planId: string, expectedVersion: number): Promise<MutationResult>;
   updateWeeklyGoal(userId: string, planId: string, expectedVersion: number, weeklyGoal: number): Promise<MutationResult>;
+  delete(userId: string, planId: string): Promise<MutationResult>;
 };
 
 export type PlanRow = {
@@ -547,6 +548,25 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
           where id=$1 and user_id=$2`, [planId, userId]);
         return { outcome: 'ok', planId };
       });
+    },
+    // Every dependent table (revisions, units, exercises, target sets, activations, cycle
+    // states, weekly-goal versions) has an `on delete cascade` FK back to
+    // training_plans_v2(id, user_id) — see training_v2_plan_core.sql — so one DELETE removes
+    // the whole tree atomically, including the active plan's own row (leaving no plan active
+    // at all, never promoting another one). Scoping by user_id in the same statement is both
+    // the ownership check and the delete: a foreign plan id matches zero rows and comes back
+    // as `not_found`, exactly like every other mutation in this file.
+    // source_template_id is not null excludes every Grow instance — saved, unsaved or active
+    // — from this path entirely: they are only ever created/removed via the template
+    // save/unsave/activate flow (trainingTemplateSaveRepository.ts), never hard-deleted, so a
+    // Grow-sourced plan id here matches zero rows and comes back as `not_found` exactly like a
+    // foreign plan id, never partially applying or otherwise touching that row.
+    async delete(userId, planId) {
+      const result = await db.query(
+        'delete from public.training_plans_v2 where id=$1 and user_id=$2 and source_template_id is null',
+        [planId, userId],
+      );
+      return result.rowCount === 0 ? { outcome: 'not_found' } : { outcome: 'ok', planId };
     },
   };
 }
