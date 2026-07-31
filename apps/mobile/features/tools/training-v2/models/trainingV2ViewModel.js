@@ -74,6 +74,35 @@ export function mapTrainingV2PlanDetail(plan, exerciseNames) {
   };
 }
 
+// Overview "Gespeicherte Pläne" merge: a plan belongs there when it is either the user's own
+// (never tied to a Grow template, so always considered saved, regardless of status) or an
+// explicitly saved Grow instance (sourceTemplateId set and savedAt set). No exception for an
+// active-but-unsaved Grow instance — that one is only ever shown in "Grow-Trainingspläne"
+// (with its own Aktiv badge there), never here. Unsaving an active Grow plan therefore drops
+// it out of this list immediately, without touching its activation at all.
+export function selectTrainingV2SavedPlans(plans) {
+  return plans.filter((plan) => (
+    plan.sourceTemplateId === null || plan.savedAt !== null
+  ));
+}
+
+export function mapTrainingV2TemplateDetail(template, userPlan, exerciseNames) {
+  return {
+    ...template,
+    isSaved: userPlan.isSaved,
+    isActive: userPlan.isActive,
+    userPlanId: userPlan.userPlanId,
+    units: template.revision.units.map((unit) => ({
+      ...unit,
+      unitTypeLabel: UNIT_TYPE_LABELS[unit.unitType],
+      exercises: unit.exercises.map((exercise) => ({
+        ...exercise,
+        exerciseName: exerciseNames[exercise.exerciseId] ?? 'Unbekannte Übung',
+      })),
+    })),
+  };
+}
+
 export function targetSetLabel(targetSet) {
   const parts = [];
   if (targetSet.targetReps) {

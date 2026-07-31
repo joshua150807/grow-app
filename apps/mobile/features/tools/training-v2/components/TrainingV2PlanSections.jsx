@@ -1,55 +1,46 @@
-import { useMemo } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
-import { groupTrainingV2Plans } from '../models/trainingV2ViewModel';
-import { useTrainingV2ArchiveVisibility } from '../hooks/useTrainingV2ArchiveVisibility';
+import { COLORS } from '../../../../constants/colors';
+import { s } from '../../../../constants/layout';
 import { styles } from '../styles/trainingV2Styles';
 import { TrainingV2PlanCard } from './TrainingV2PlanCard';
+import { TrainingV2TemplateCard } from './TrainingV2TemplateCard';
 
-const sections = [
-  ['active', 'Active'],
-  ['scheduled', 'Scheduled'],
-  ['draft', 'Drafts'],
-];
-
-export function TrainingV2PlanSections({ plans, onPlanPress }) {
-  const groups = useMemo(() => groupTrainingV2Plans(plans), [plans]);
-  const { archivesExpanded, toggleArchives } = useTrainingV2ArchiveVisibility();
-
-  if (plans.length === 0) {
-    return (
-      <View style={styles.emptyCard}>
-        <Text style={styles.emptyTitle}>Noch keine Trainingspläne</Text>
-        <Text style={styles.emptyText}>Sobald ein Plan vorhanden ist, erscheint er hier.</Text>
-      </View>
-    );
-  }
-
+// Two flat lists, in the server's own order, no status sections and no archive UI:
+// "Grow-Trainingspläne" always shows every active template regardless of saved/active state
+// (see TrainingV2PlansScreen and selectTrainingV2SavedPlans in trainingV2ViewModel.js), and
+// "Gespeicherte Pläne" is the caller's already-filtered savedPlans list — a self-created plan
+// must never disappear from it just because it was archived, so no further filtering happens
+// here.
+export function TrainingV2PlanSections({
+  templates, savedPlans, onTemplatePress, onPlanPress,
+}) {
   return (
     <>
-      {sections.map(([status, label]) => groups[status].length > 0 && (
-        <View key={status} style={styles.section}>
-          <Text style={styles.sectionTitle}>{label}</Text>
-          {groups[status].map((plan) => (
-            <TrainingV2PlanCard key={plan.id} plan={plan} onPress={onPlanPress} />
+      {templates.length > 0 ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Grow-Trainingspläne</Text>
+          {templates.map((item) => (
+            <TrainingV2TemplateCard key={item.template.id} item={item} onPress={onTemplatePress} />
           ))}
         </View>
-      ))}
-      {groups.archived.length > 0 ? (
-        <View style={styles.section}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={toggleArchives}
-            style={styles.archiveToggle}
-          >
-            <Text style={styles.archiveToggleText}>Archiv ({groups.archived.length})</Text>
-            <Text style={styles.archiveToggleText}>{archivesExpanded ? '−' : '+'}</Text>
-          </Pressable>
-          {archivesExpanded ? groups.archived.map((plan) => (
-            <TrainingV2PlanCard key={plan.id} plan={plan} onPress={onPlanPress} />
-          )) : null}
-        </View>
       ) : null}
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Gespeicherte Pläne</Text>
+        {savedPlans.length === 0 ? (
+          <View style={styles.plansEmptyCard}>
+            <Ionicons name="barbell-outline" size={s(28)} color={COLORS.goldBorderLight} />
+            <Text style={styles.plansEmptyTitle}>Noch keine gespeicherten Pläne</Text>
+            <Text style={styles.plansEmptyText}>
+              Speichere einen Grow-Trainingsplan oder erstelle deinen eigenen — er erscheint dann hier.
+            </Text>
+          </View>
+        ) : savedPlans.map((plan) => (
+          <TrainingV2PlanCard key={plan.id} plan={plan} onPress={onPlanPress} />
+        ))}
+      </View>
     </>
   );
 }

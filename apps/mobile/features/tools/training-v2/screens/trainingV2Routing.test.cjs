@@ -33,7 +33,11 @@ test('Tools -> Hub: the tools overview enters the training flow through exactly 
 test('Hub -> sub-page: training-v2 sub-pages are flat siblings of the hub in the single outer tools stack, not duplicated inside any nested training stack', () => {
   for (const name of FLAT_SUBPAGES) {
     const route = read(`../../../../app/(tabs)/tools/${name}`);
-    assert.match(route, /TrainingV2Background/, `${name} must render the flat-route background wrapper`);
+    // The plans list route uses its own, narrowly-scoped black background (per its
+    // reference mockup) instead of the shared cosmic TrainingV2Background used by the
+    // other flat sub-pages — see trainingV2Screens.test.cjs for that isolation in detail.
+    const expectedBackground = name === 'training-v2-plans.jsx' ? 'TrainingV2PlansBackground' : 'TrainingV2Background';
+    assert.match(route, new RegExp(expectedBackground), `${name} must render its background wrapper`);
   }
 
   // Registering the same route name in two different Stack navigators (the outer tools

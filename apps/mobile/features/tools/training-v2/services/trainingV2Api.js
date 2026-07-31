@@ -3,10 +3,13 @@ import {
   createTrainingPlanInputSchema,
   listTrainingExercisesResponseSchema,
   listTrainingPlansResponseSchema,
+  listTrainingTemplatesResponseSchema,
   planVersionInputSchema,
   scheduleTrainingPlanInputSchema,
+  templateUserPlanResponseSchema,
   trainingExerciseDetailResponseSchema,
   trainingPlanDetailResponseSchema,
+  trainingTemplateDetailResponseSchema,
   updateTrainingPlanInputSchema,
   updateWeeklyGoalInputSchema,
 } from '@grow/shared';
@@ -260,6 +263,42 @@ export async function updateTrainingV2WeeklyGoal(planId, expectedVersion, weekly
     { method: 'PUT', body },
     trainingPlanDetailResponseSchema,
   )).plan;
+}
+
+export async function listTrainingV2Templates() {
+  return (await requestTrainingV2('/v1/training/templates', listTrainingTemplatesResponseSchema)).templates;
+}
+
+export async function getTrainingV2Template(templateId) {
+  return callTrainingV2(
+    `/v1/training/templates/${encodeURIComponent(templateId)}`,
+    { method: 'GET' },
+    trainingTemplateDetailResponseSchema,
+  );
+}
+
+export async function saveTrainingV2Template(templateId) {
+  return (await callTrainingV2(
+    `/v1/training/templates/${encodeURIComponent(templateId)}/save`,
+    { method: 'PUT' },
+    templateUserPlanResponseSchema,
+  )).userPlan;
+}
+
+export async function unsaveTrainingV2Template(templateId) {
+  return (await callTrainingV2(
+    `/v1/training/templates/${encodeURIComponent(templateId)}/save`,
+    { method: 'DELETE' },
+    templateUserPlanResponseSchema,
+  )).userPlan;
+}
+
+export async function activateTrainingV2Template(templateId) {
+  return (await callTrainingV2(
+    `/v1/training/templates/${encodeURIComponent(templateId)}/activate`,
+    { method: 'POST' },
+    templateUserPlanResponseSchema,
+  )).userPlan;
 }
 
 // Resolves each exercise id referenced by a plan to its full { name, mainMuscle } — the

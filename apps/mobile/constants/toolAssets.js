@@ -38,6 +38,8 @@ export const TRAINING_V2_HUB_ICONS = {
   library: require('../assets/tool-icons/training-v2/training-hub-library.webp'),
 };
 
+export const TRAINING_V2_CREATE_PLAN_HERO = require('../assets/tool-icons/training-v2/training-v2-create-plan-hero.webp');
+
 export const TOOL_OVERVIEW_IMAGE_ASSETS = [
   ...Object.values(TOOL_IMAGES),
   MENTOR_BG,

@@ -109,3 +109,81 @@ test('a plan-action modal stays open for a non-version 409 (e.g. another plan al
     ok: false, error: { code: 'TRAINING_PLAN_STATUS_CONFLICT' },
   }), false);
 });
+
+test('selectTrainingV2SavedPlans keeps every own plan (never tied to a template) regardless of status, plus only explicitly-saved Grow instances — an active-but-unsaved Grow instance is excluded just like any other unsaved Grow instance', () => {
+  const plans = [
+    { id: 'own-1', status: 'draft', sourceTemplateId: null, savedAt: null },
+    { id: 'own-archived', status: 'archived', sourceTemplateId: null, savedAt: null },
+    { id: 'grow-saved', status: 'draft', sourceTemplateId: 'template-a', savedAt: '2026-01-01T00:00:00Z' },
+    { id: 'grow-unsaved-inactive', status: 'draft', sourceTemplateId: 'template-b', savedAt: null },
+    { id: 'grow-unsaved-archived', status: 'archived', sourceTemplateId: 'template-c', savedAt: null },
+    { id: 'grow-active-unsaved', status: 'active', sourceTemplateId: 'template-d', savedAt: null },
+  ];
+  const saved = viewModel.selectTrainingV2SavedPlans(plans);
+  assert.deepEqual(saved.map((plan) => plan.id), ['own-1', 'own-archived', 'grow-saved']);
+});
+
+test('an active-but-unsaved Grow plan is missing from selectTrainingV2SavedPlans — it only ever shows in Grow-Trainingspläne (with its own Aktiv badge there), never in Gespeicherte Pläne', () => {
+  const plans = [
+    { id: 'grow-active-unsaved', status: 'active', sourceTemplateId: 'template-d', savedAt: null },
+  ];
+  assert.deepEqual(viewModel.selectTrainingV2SavedPlans(plans), []);
+});
+
+test('an active, saved Grow plan still appears in selectTrainingV2SavedPlans (savedAt is what decides membership here, not status)', () => {
+  const plans = [
+    { id: 'grow-active-saved', status: 'active', sourceTemplateId: 'template-d', savedAt: '2026-01-01T00:00:00Z' },
+  ];
+  assert.deepEqual(viewModel.selectTrainingV2SavedPlans(plans).map((plan) => plan.id), ['grow-active-saved']);
+});
+
+test('an own plan appears in selectTrainingV2SavedPlans regardless of status — draft/scheduled/active/archived all qualify purely because sourceTemplateId is null', () => {
+  const plans = ['draft', 'scheduled', 'active', 'archived'].map((status) => ({
+    id: `own-${status}`, status, sourceTemplateId: null, savedAt: null,
+  }));
+  assert.deepEqual(
+    viewModel.selectTrainingV2SavedPlans(plans).map((plan) => plan.id),
+    plans.map((plan) => plan.id),
+  );
+});
+
+test('unsaving an active Grow plan drops it out of selectTrainingV2SavedPlans immediately (savedAt cleared), while it stays active — this view model never reads or infers activation from savedAt', () => {
+  const beforeUnsave = [
+    { id: 'grow-active', status: 'active', sourceTemplateId: 'template-d', savedAt: '2026-01-01T00:00:00Z' },
+  ];
+  const afterUnsave = [
+    { id: 'grow-active', status: 'active', sourceTemplateId: 'template-d', savedAt: null },
+  ];
+  assert.deepEqual(viewModel.selectTrainingV2SavedPlans(beforeUnsave).map((plan) => plan.id), ['grow-active']);
+  assert.deepEqual(viewModel.selectTrainingV2SavedPlans(afterUnsave), []);
+  // Status is untouched by the filter itself — only the Grow-Trainingspläne list (driven by
+  // the template's userPlan.isActive projection, not this array) is responsible for still
+  // showing it as active after the unsave.
+  assert.equal(afterUnsave[0].status, 'active');
+});
+
+test('mapTrainingV2TemplateDetail maps the per-user projection alongside the template content, with the same unit/exercise-name mapping as a plan', () => {
+  const template = {
+    id: 'template-a',
+    name: 'Ganzkörper',
+    revision: {
+      revisionNumber: 1,
+      units: [{
+        id: 'unit',
+        name: 'Ganzkörper A',
+        unitType: 'strength',
+        exercises: [{ id: 'target', exerciseId: 'exercise', targetSets: [] }],
+      }],
+    },
+  };
+  const mapped = viewModel.mapTrainingV2TemplateDetail(
+    template,
+    { isSaved: true, isActive: false, userPlanId: 'plan-1' },
+    { exercise: 'Kniebeuge' },
+  );
+  assert.equal(mapped.isSaved, true);
+  assert.equal(mapped.isActive, false);
+  assert.equal(mapped.userPlanId, 'plan-1');
+  assert.equal(mapped.units[0].unitTypeLabel, 'Kraft');
+  assert.equal(mapped.units[0].exercises[0].exerciseName, 'Kniebeuge');
+});

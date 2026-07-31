@@ -91,65 +91,229 @@ test('the library route delegates to the isolated library screen, which is an ho
   assert.doesNotMatch(library, /fetch\(|\.from\(/);
 });
 
-test('plan list covers empty, status sections, raw schedule and collapsed archive', () => {
+test('the overview shows two flat lists — "Grow-Trainingspläne" (every active template) and "Gespeicherte Pläne" (the caller\'s pre-filtered savedPlans) — with no status sections and no archive UI', () => {
   const sections = read('../components/TrainingV2PlanSections.jsx');
   const card = read('../components/TrainingV2PlanCard.jsx');
-  assert.match(sections, /Noch keine Trainingspläne/);
-  assert.match(sections, /\['active', 'Active'\]/);
-  assert.match(sections, /\['scheduled', 'Scheduled'\]/);
-  assert.match(sections, /\['draft', 'Drafts'\]/);
-  assert.match(sections, /useTrainingV2ArchiveVisibility/);
+
+  assert.match(sections, /Grow-Trainingspläne/);
+  assert.match(sections, /Gespeicherte Pläne/);
+  assert.match(sections, /Noch keine gespeicherten Pläne/);
+  // Sections is a pure renderer: it maps whatever savedPlans/templates it was handed — the
+  // filtering itself (selectTrainingV2SavedPlans) lives in trainingV2ViewModel.js, not here,
+  // so a self-created plan can never disappear from the list just because it was archived.
+  assert.match(sections, /templates\.map\(/);
+  assert.match(sections, /savedPlans\.map\(/);
+  assert.doesNotMatch(sections, /\.filter\(/);
+  assert.doesNotMatch(sections, /!==\s*'archived'/);
+  // No more grouped status sections or a collapsible archive toggle in this step.
+  assert.doesNotMatch(sections, /groupTrainingV2Plans/);
+  assert.doesNotMatch(sections, /useTrainingV2ArchiveVisibility/);
+  assert.doesNotMatch(sections, /styles\.archiveToggle/);
+  assert.doesNotMatch(sections, /'Aktiv'|'Geplant'|'Entwürfe'/);
+
   assert.match(card, /plan\.schedule\.startDate/);
-  assert.match(card, /plan\.schedule\.timeZone/);
   assert.doesNotMatch(card, /DateTimeFormat|toLocale|new Date/);
+  // The IANA time zone is a technical raw value and must not be a prominent, always-visible
+  // main info on the compact card (it remains available on the untouched detail screen).
+  assert.doesNotMatch(card, /plan\.schedule\.timeZone/);
+});
+
+test('the Overview\'s Grow-Trainingspläne section shows every active template regardless of saved/active state, and the Gespeicherte Pläne section is exactly selectTrainingV2SavedPlans(plans)', () => {
+  const screen = read('./TrainingV2PlansScreen.jsx');
+  assert.match(screen, /useTrainingV2Templates/);
+  assert.match(screen, /selectTrainingV2SavedPlans\(plans\)/);
+  assert.match(screen, /templates=\{templates\}/);
+  assert.match(screen, /savedPlans=\{savedPlans\}/);
+});
+
+test('only the active plan gets the "Aktiv" badge — scheduled and draft plans render no status badge at all', () => {
+  const card = read('../components/TrainingV2PlanCard.jsx');
+  assert.match(card, /isActive \? \(/);
+  assert.match(card, />Aktiv</);
+  // No per-status label map or icon map survives — active is the only status this card ever
+  // labels, so there is nothing to look up for scheduled/draft/archived.
+  assert.doesNotMatch(card, /PLAN_STATUS_LABELS_DE/);
+  assert.doesNotMatch(card, /STATUS_ICONS/);
+  assert.doesNotMatch(card, /'Geplant'|'Entwurf'|'Archiviert'/);
+  assert.doesNotMatch(card, /from\s+'\.\.\/models\/trainingV2ViewModel'/);
+  const viewModel = read('../models/trainingV2ViewModel.js');
+  assert.match(viewModel, /active:\s*'Active'/, 'the shared PLAN_STATUS_LABELS must stay in English for the plan detail screen, and is otherwise untouched');
+});
+
+test('the plans header has no leftover unicode arrows and no plus button, and its styles stay isolated from the hub, plan detail, editor and library screens', () => {
+  const screen = read('./TrainingV2PlansScreen.jsx');
+  const sections = read('../components/TrainingV2PlanSections.jsx');
+  const card = read('../components/TrainingV2PlanCard.jsx');
+
+  for (const source of [screen, sections, card]) {
+    assert.match(source, /@expo\/vector-icons/);
+    assert.doesNotMatch(source, /[‹›−]/);
+  }
+  assert.doesNotMatch(screen, />\s*\+\s*Neuer Plan/);
+  // The header's own quick-create action was removed entirely this round — the hero card is
+  // the only way to reach the create-flow from this screen now.
+  assert.doesNotMatch(screen, /accessibilityLabel="Neuen Plan erstellen"/);
+  assert.doesNotMatch(screen, /name="add"/);
+  assert.doesNotMatch(screen, /styles\.plansHeaderAction/);
+
+  assert.match(screen, /name="chevron-back"/);
+  assert.match(card, /name="chevron-forward"/);
+
+  // The header lives on new, screen-local style keys (plansHeaderRow/plansBackRow/
+  // plansHeaderTitle), not on the topRow/title/subtitle/editorLink keys shared with the hub,
+  // plan detail, editor and library screens — so this redesign cannot visually affect them.
+  assert.match(screen, /styles\.plansHeaderRow/);
+  assert.match(screen, /styles\.plansBackRow/);
+  assert.match(screen, /styles\.plansHeaderTitle/);
+  assert.match(screen, /styles\.backText/);
+  assert.doesNotMatch(screen, /styles\.topRow\b/);
+  assert.doesNotMatch(screen, /styles\.title\b/);
+  assert.doesNotMatch(screen, /styles\.editorLink\b/);
+
+  // The empty state also uses a screen-local style (plansEmptyCard/...), not the emptyCard/
+  // emptyTitle/emptyText keys the library screen's placeholder still relies on.
+  assert.match(sections, /styles\.plansEmptyCard/);
+  assert.doesNotMatch(sections, /styles\.emptyCard\b/);
+
+  // The plans route (not the screen file itself) owns its own black-background wrapper,
+  // isolated from the shared cosmic TrainingV2Background the hub and other sub-pages use.
+  const plansRoute = read('../../../../app/(tabs)/tools/training-v2-plans.jsx');
+  assert.match(plansRoute, /TrainingV2PlansBackground/);
+  assert.doesNotMatch(plansRoute, /TrainingV2Background['"]/);
+  const plansBackground = read('../components/TrainingV2PlansBackground.jsx');
+  assert.match(plansBackground, /COLORS\.background/);
+  assert.doesNotMatch(plansBackground, /TRAINING_PAGE_BG|ImageBackground/);
+
+  const hubRoute = read('../../../../app/(tabs)/tools/(training)/training-plan.jsx');
+  assert.doesNotMatch(hubRoute, /TrainingV2PlansBackground/);
+  const trainingV2Background = read('../components/TrainingV2Background.jsx');
+  assert.match(trainingV2Background, /TRAINING_PAGE_BG/, 'the shared cosmic background used by the hub and other sub-pages must stay untouched');
+});
+
+test('the plans list has a single-line header title and a fully-pressable, fully-readable create-plan hero, plus a neutral image slot on every card', () => {
+  const screen = read('./TrainingV2PlansScreen.jsx');
+  const card = read('../components/TrainingV2PlanCard.jsx');
+
+  // Header title is constrained to one line so it can never wrap or overlap on small phones.
+  assert.match(screen, /numberOfLines=\{1\}/);
+
+  // Hero: the confirmed source asset, wrapped in a single Pressable (fully tappable),
+  // navigating to the existing plan editor create-flow — no separate icon/border drawn on
+  // top of it, since the asset already bakes in its own outline, pencil icon and chevron.
+  // Its description text has no numberOfLines cap, so it is never truncated.
+  assert.match(screen, /TRAINING_V2_CREATE_PLAN_HERO/);
+  assert.match(screen, /Eigenen Plan erstellen/);
+  assert.match(screen, /onPress=\{openEditor\}/g);
+  assert.match(screen, /pathname:\s*'\/tools\/training-v2-plan-editor'/);
+  assert.doesNotMatch(screen, /styles\.heroSubtitle\}\s*numberOfLines/);
+
+  // Every card gets the same neutral image slot (no per-plan image field exists in the
+  // model), via a nullable presentation prop that defaults to the placeholder — never a
+  // fake, plan-specific image.
+  assert.match(card, /function PlanThumbnail\(\{ imageSource \}\)/);
+  assert.match(card, /name="barbell-outline"/);
+  assert.match(card, /styles\.planThumbnailPlaceholder/);
+  assert.doesNotMatch(card, /plan\.image|plan\.thumbnail|plan\.photo/i);
+});
+
+test('the hero source asset is a committed webp, not a PNG, at the confirmed path', () => {
+  const assetDir = path.resolve(__dirname, '../../../../assets/tool-icons/training-v2');
+  const files = fs.readdirSync(assetDir);
+  assert.ok(files.includes('training-v2-create-plan-hero.webp'));
+  assert.equal(files.some((name) => name.toLowerCase().endsWith('.png')), false, 'no PNG must ever be committed to this asset folder');
+
+  const stat = fs.statSync(path.join(assetDir, 'training-v2-create-plan-hero.webp'));
+  assert.ok(stat.size < 200 * 1024, `hero webp must stay under 200KB, was ${stat.size} bytes`);
+
+  const toolAssets = read('../../../../constants/toolAssets.js');
+  assert.match(toolAssets, /TRAINING_V2_CREATE_PLAN_HERO\s*=\s*require\('\.\.\/assets\/tool-icons\/training-v2\/training-v2-create-plan-hero\.webp'\)/);
 });
 
 test('plan screens wire the behavior-tested hooks to pull-to-refresh controls', () => {
   assert.match(read('./TrainingV2PlansScreen.jsx'), /RefreshControl/);
-  assert.match(read('./TrainingV2PlanDetailScreen.jsx'), /RefreshControl/);
+  assert.match(read('./TrainingV2OwnPlanDetail.jsx'), /RefreshControl/);
+  assert.match(read('./TrainingV2GrowPlanDetail.jsx'), /RefreshControl/);
 });
 
-test('detail exposes revision, units, unit type, exercises and sets read-only, with no workout/session logging', () => {
-  const detail = read('./TrainingV2PlanDetailScreen.jsx');
-  assert.match(detail, /revision\.revisionNumber/);
-  assert.match(detail, /plan\.units\.map/);
-  assert.match(detail, /unit\.unitTypeLabel/);
-  assert.match(detail, /exercise\.exerciseName/);
-  assert.match(detail, /exercise\.targetSets\.map/);
-  assert.doesNotMatch(detail, /session|workout|logSet|completeSet/i);
+test('the plan-detail route dispatches on templateId vs planId: every Grow entry (Grow-Trainingspläne list or a saved/active Grow instance) opens by templateId, every own plan opens by planId', () => {
+  const dispatcher = read('./TrainingV2PlanDetailScreen.jsx');
+  assert.match(dispatcher, /if \(templateId\) return <TrainingV2GrowPlanDetail templateId=\{templateId\} \/>;/);
+  assert.match(dispatcher, /return <TrainingV2OwnPlanDetail planId=\{planId\} \/>;/);
+
+  const screen = read('./TrainingV2PlansScreen.jsx');
+  assert.match(screen, /plan\?\.sourceTemplateId/);
+  assert.match(screen, /params:\s*\{\s*templateId\s*\}/);
+  assert.match(screen, /params:\s*\{\s*planId\s*\}/);
 });
 
-test('detail shows plan actions gated by status, confirms destructive/status-changing actions and never mutates optimistically', () => {
-  const detail = read('./TrainingV2PlanDetailScreen.jsx');
-  assert.match(detail, /TrainingV2PlanActionsPanel/);
-  assert.match(detail, /status=\{plan\.status\}/);
-  assert.match(detail, /pending=\{actions\.pending\}/);
-  // Activate/archive/reactivate are simple one-tap toggles, so each is gated behind an
-  // explicit native confirm dialog before the mutation ever runs.
-  assert.match(detail, /Alert\.alert/);
-  assert.match(detail, /actions\.activate\(plan\.version\)/);
-  assert.match(detail, /actions\.archive\(plan\.version\)/);
-  assert.match(detail, /actions\.reactivate\(plan\.version\)/);
-  // Schedule and weekly-goal take additional input, so their own modal + explicit
-  // confirm button serves as the confirmation step instead of a second Alert.
-  assert.match(detail, /TrainingV2ScheduleModal/);
-  assert.match(detail, /TrainingV2WeeklyGoalModal/);
-  assert.match(detail, /actions\.schedule\(plan\.version, startDate, timeZone\)/);
-  assert.match(detail, /actions\.updateWeeklyGoal\(plan\.version, weeklyGoal\)/);
-  // No optimistic local mutation of `plan` — only the hook's onSuccess (applyServerPlan,
-  // fed by the real server response) is ever allowed to change what is displayed.
+test('detail exposes revision/units/unit type/exercises/sets read-only, with no workout/session logging, on both the own-plan and the Grow-plan detail screen', () => {
+  const ownDetail = read('./TrainingV2OwnPlanDetail.jsx');
+  assert.match(ownDetail, /revision\.revisionNumber/);
+  assert.match(ownDetail, /plan\.units\.map/);
+  assert.match(ownDetail, /unit\.unitTypeLabel/);
+  assert.match(ownDetail, /exercise\.exerciseName/);
+  assert.match(ownDetail, /exercise\.targetSets\.map/);
+  assert.doesNotMatch(ownDetail, /session|workout|logSet|completeSet/i);
+
+  const growDetail = read('./TrainingV2GrowPlanDetail.jsx');
+  assert.match(growDetail, /template\.units\.map/);
+  assert.match(growDetail, /unit\.unitTypeLabel/);
+  assert.match(growDetail, /exercise\.exerciseName/);
+  assert.match(growDetail, /exercise\.targetSets\.map/);
+  assert.doesNotMatch(growDetail, /session|workout|logSet|completeSet/i);
+});
+
+test('own-plan detail has no Wochenziel, Vormerken or Archivieren left — only an "Aktiv" badge and a single unified "Jetzt aktivieren", gated behind a confirm only when a different plan is currently active', () => {
+  const detail = read('./TrainingV2OwnPlanDetail.jsx');
+  assert.doesNotMatch(detail, /Wochenziel/);
+  assert.doesNotMatch(detail, /Vormerken/);
+  assert.doesNotMatch(detail, /Archivieren/);
+  assert.doesNotMatch(detail, /TrainingV2PlanActionsPanel/);
+  assert.doesNotMatch(detail, /TrainingV2ScheduleModal/);
+  assert.doesNotMatch(detail, /TrainingV2WeeklyGoalModal/);
+  assert.doesNotMatch(detail, /actions\.schedule\(/);
+  assert.doesNotMatch(detail, /actions\.archive\(/);
+  assert.doesNotMatch(detail, /actions\.updateWeeklyGoal\(/);
+
+  assert.match(detail, /Jetzt aktivieren/);
+  assert.match(detail, />Aktiv</);
+  assert.match(detail, /isActive \? \(/);
+  // Reactivate (archived) and activate (draft/scheduled) are unified under one button/label —
+  // the screen itself still picks the correct server call per the API's own status gates.
+  assert.match(detail, /plan\.status === 'archived' \? actions\.reactivate : actions\.activate/);
+  // Warn only when a *different* plan is actually active — not unconditionally on every tap.
+  assert.match(detail, /candidate\.status === 'active' && candidate\.id !== planId/);
+  assert.match(detail, /if \(!otherActivePlan\) \{/);
+  assert.match(detail, /Alert\.alert\(/);
+  // No optimistic local mutation of `plan` — only the hook's onSuccess (applyServerPlan, fed
+  // by the real server response) is ever allowed to change what is displayed.
   assert.doesNotMatch(detail, /setPlan\(/);
   // 409 conflict never overwrites the current view; reload only fires on user action.
   assert.match(detail, /actions\.conflict/);
   assert.match(detail, /onPress=\{handleReload\}/);
-  // A schedule/weekly-goal modal only closes via the shared, testable decision helper —
-  // never via a bare `outcome.ok` check reimplemented inline in the screen.
-  assert.match(detail, /shouldClosePlanActionModal\(outcome\)/);
-  assert.doesNotMatch(detail, /if \(outcome\.ok\)/);
-  // Each modal receives the current action error so it can render it itself while it
-  // stays open, instead of relying on the screen-level banner hidden behind it.
-  assert.match(detail, /error=\{scheduleModalVisible \? actions\.error : null\}/);
-  assert.match(detail, /error=\{weeklyGoalModalVisible \? actions\.error : null\}/);
+});
+
+test('Grow-plan detail has Speichern/Nicht mehr speichern and Jetzt aktivieren, an "Aktiv" badge, no edit flow, and activating never auto-saves while unsaving never deactivates', () => {
+  const detail = read('./TrainingV2GrowPlanDetail.jsx');
+  assert.match(detail, /Speichern/);
+  assert.match(detail, /Nicht mehr speichern/);
+  assert.match(detail, /Jetzt aktivieren/);
+  assert.match(detail, />Aktiv</);
+  assert.match(detail, /template\.isActive \? \(/);
+  assert.doesNotMatch(detail, /training-v2-plan-editor/);
+  assert.doesNotMatch(detail, /Bearbeiten/);
+  assert.doesNotMatch(detail, /Wochenziel|Vormerken|Archivieren/);
+
+  // handleActivate only ever calls actions.activate(); handleToggleSaved only ever calls
+  // actions.save()/actions.unsave() — no handler calls more than one of the three, so
+  // activating can never implicitly save and unsaving can never implicitly deactivate.
+  assert.match(detail, /void actions\.activate\(\);/);
+  assert.match(detail, /template\.isSaved \? actions\.unsave\(\) : actions\.save\(\)/);
+
+  // Warn only when a *different* plan is actually active — not unconditionally on every tap.
+  assert.match(detail, /candidate\.status === 'active' && candidate\.id !== template\.userPlanId/);
+  assert.match(detail, /if \(!otherActivePlan\) \{/);
+  assert.match(detail, /Alert\.alert\(/);
 });
 
 test('schedule and weekly-goal modals render the action error inline while staying open', () => {
@@ -191,20 +355,22 @@ test('isolated V2 code contains no legacy service or table references, and only 
   // server; it is not a reference to the legacy training module and must stay excluded
   // from this otherwise case-insensitive "legacy" guard.
   assert.doesNotMatch(source, /(?<!importedFrom)[Ll]egacy(?!Plan\b)/);
-  // No DELETE anywhere; C3b intentionally adds PUT (weekly-goal) alongside the existing
-  // POST (create/activate/schedule/reactivate/archive) and PATCH (edit).
-  assert.doesNotMatch(source, /method:\s*['"]DELETE['"]/);
   // Never the bare legacy-service function names (createTrainingPlan, updateTrainingPlan,
   // activateTrainingPlan, ...) — the V2 module always uses its own `*TrainingV2*` names.
   assert.doesNotMatch(source, /\b(createTrainingPlan|updateTrainingPlan|activateTrainingPlan|archiveTrainingPlan|scheduleTrainingPlan|reactivateTrainingPlan)\b/);
   assert.match(source, /method:\s*['"]POST['"]/);
   assert.match(source, /method:\s*['"]PATCH['"]/);
   assert.match(source, /method:\s*['"]PUT['"]/);
+  // DELETE is intentionally reachable now, but only for the Grow template "unsave" mutation
+  // (a real, idempotent unsave — not a destructive delete of any plan or exercise content).
+  assert.match(source, /method:\s*['"]DELETE['"]/);
   assert.match(source, /\/activate/);
   assert.match(source, /\/schedule/);
   assert.match(source, /\/reactivate/);
   assert.match(source, /\/archive/);
   assert.match(source, /\/weekly-goal/);
+  assert.match(source, /\/training\/templates/);
+  assert.match(source, /\/save/);
 });
 
 test('schedule modal sends a local YYYY-MM-DD date and the device IANA zone without any client-side UTC math', () => {
@@ -226,10 +392,12 @@ test('the editor route delegates to the isolated editor screen and is reachable 
   assert.match(route, /TrainingV2Background/);
 
   const list = read('./TrainingV2PlansScreen.jsx');
-  const detail = read('./TrainingV2PlanDetailScreen.jsx');
+  // Only the own-plan detail screen links to the editor — Grow content has no edit flow.
+  const detail = read('./TrainingV2OwnPlanDetail.jsx');
   assert.match(list, /training-v2-plan-editor/);
   assert.match(detail, /training-v2-plan-editor/);
   assert.match(detail, /planId/);
+  assert.doesNotMatch(read('./TrainingV2GrowPlanDetail.jsx'), /training-v2-plan-editor/);
 });
 
 test('editor screen guards unsaved changes, deduplicates save and navigates to detail on success', () => {
@@ -286,4 +454,3 @@ test('a target set only shows kg and Wiederholungen, with no RIR or rest-seconds
   assert.match(row, /setField\('targetReps', value === null \? null : \{ minimum: value, maximum: value \}\)/);
   assert.match(row, /targetSet\.targetReps === null \? '' : String\(targetSet\.targetReps\.minimum\)/);
 });
-

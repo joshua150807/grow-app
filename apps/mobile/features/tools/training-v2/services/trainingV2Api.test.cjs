@@ -27,6 +27,13 @@ const listSchema = schema((value) => (
 const detailSchema = schema((value) => (
   value?.plan && Array.isArray(value.plan.revision?.units)
 ));
+const listTemplatesSchema = schema((value) => (
+  value && Array.isArray(value.templates)
+));
+const templateDetailSchema = schema((value) => (
+  value?.template && Array.isArray(value.template.revision?.units) && value?.userPlan !== undefined
+));
+const templateUserPlanSchema = schema((value) => value?.userPlan !== undefined);
 const exerciseSchema = schema((value) => typeof value?.exercise?.name === 'string');
 const listExercisesSchema = schema((value) => Array.isArray(value?.exercises));
 const createInputSchema = inputSchema((value) => (
@@ -58,6 +65,9 @@ function loadApi() {
     '@grow/shared': {
       listTrainingPlansResponseSchema: listSchema,
       trainingPlanDetailResponseSchema: detailSchema,
+      listTrainingTemplatesResponseSchema: listTemplatesSchema,
+      trainingTemplateDetailResponseSchema: templateDetailSchema,
+      templateUserPlanResponseSchema: templateUserPlanSchema,
       trainingExerciseDetailResponseSchema: exerciseSchema,
       listTrainingExercisesResponseSchema: listExercisesSchema,
       createTrainingPlanInputSchema: createInputSchema,
@@ -649,4 +659,112 @@ test('plan-action mutations classify 400/404/409/network/contract failures disti
 
   global.fetch = async () => response(200, { plan: { invalid: true } });
   await assert.rejects(api.activateTrainingV2Plan('plan-1', 1), (error) => error instanceof api.TrainingV2ContractError);
+});
+
+test('listTrainingV2Templates GETs the template list and returns the templates array', async (context) => {
+  withEnv(context);
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(200, {
+      templates: [{ template: { id: 'template-1' }, userPlan: { isSaved: false, isActive: false, userPlanId: null } }],
+    });
+  };
+  const api = loadApi();
+
+  const templates = await api.listTrainingV2Templates();
+
+  assert.equal(templates.length, 1);
+  assert.equal(templates[0].template.id, 'template-1');
+  assert.equal(calls[0][1].method, 'GET');
+  assert.equal(calls[0][0].endsWith('/v1/training/templates'), true);
+});
+
+test('getTrainingV2Template GETs the template detail by id and returns the whole {template, userPlan} envelope', async (context) => {
+  withEnv(context);
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(200, {
+      template: { id: 'template-1', revision: { units: [] } },
+      userPlan: { isSaved: true, isActive: false, userPlanId: 'plan-1' },
+    });
+  };
+  const api = loadApi();
+
+  const result = await api.getTrainingV2Template('template/1');
+
+  assert.equal(result.template.id, 'template-1');
+  assert.equal(result.userPlan.userPlanId, 'plan-1');
+  assert.equal(calls[0][1].method, 'GET');
+  assert.equal(calls[0][0].endsWith('/v1/training/templates/template%2F1'), true);
+});
+
+test('saveTrainingV2Template PUTs to /save with no body and returns the refreshed userPlan projection', async (context) => {
+  withEnv(context);
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(200, { userPlan: { isSaved: true, isActive: false, userPlanId: 'plan-1' } });
+  };
+  const api = loadApi();
+
+  const userPlan = await api.saveTrainingV2Template('template-1');
+
+  assert.equal(userPlan.isSaved, true);
+  assert.equal(calls[0][1].method, 'PUT');
+  assert.equal(calls[0][0].endsWith('/v1/training/templates/template-1/save'), true);
+  assert.equal('body' in calls[0][1], false);
+  assert.equal('Content-Type' in calls[0][1].headers, false);
+});
+
+test('unsaveTrainingV2Template DELETEs /save with no body and returns the refreshed userPlan projection', async (context) => {
+  withEnv(context);
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(200, { userPlan: { isSaved: false, isActive: false, userPlanId: 'plan-1' } });
+  };
+  const api = loadApi();
+
+  const userPlan = await api.unsaveTrainingV2Template('template-1');
+
+  assert.equal(userPlan.isSaved, false);
+  assert.equal(calls[0][1].method, 'DELETE');
+  assert.equal(calls[0][0].endsWith('/v1/training/templates/template-1/save'), true);
+});
+
+test('activateTrainingV2Template POSTs to /activate with no body — activating a Grow template never auto-saves it', async (context) => {
+  withEnv(context);
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(200, { userPlan: { isSaved: false, isActive: true, userPlanId: 'plan-1' } });
+  };
+  const api = loadApi();
+
+  const userPlan = await api.activateTrainingV2Template('template-1');
+
+  assert.equal(userPlan.isActive, true);
+  assert.equal(userPlan.isSaved, false);
+  assert.equal(calls[0][1].method, 'POST');
+  assert.equal(calls[0][0].endsWith('/v1/training/templates/template-1/activate'), true);
+  assert.equal('body' in calls[0][1], false);
+});
+
+test('template mutations classify 401/404/409/network/contract failures the same way plan mutations do', async (context) => {
+  withEnv(context);
+  const api = loadApi();
+
+  global.fetch = async () => response(401, { error: { code: 'UNAUTHORIZED' } });
+  await assert.rejects(api.saveTrainingV2Template('template-1'), (error) => error instanceof api.TrainingV2AuthError);
+
+  global.fetch = async () => response(404, { error: { code: 'TRAINING_TEMPLATE_NOT_FOUND' } });
+  await assert.rejects(api.getTrainingV2Template('missing'), (error) => error instanceof api.TrainingV2NotFoundError);
+
+  global.fetch = async () => { throw new Error('offline'); };
+  await assert.rejects(api.activateTrainingV2Template('template-1'), (error) => error instanceof api.TrainingV2NetworkError);
+
+  global.fetch = async () => response(200, { templates: 'not-an-array' });
+  await assert.rejects(api.listTrainingV2Templates(), (error) => error instanceof api.TrainingV2ContractError);
 });
