@@ -345,6 +345,11 @@ describe('training template save/unsave/activate PostgreSQL integration', () => 
       'utf8',
     );
     await pool.query(provenanceMigration);
+    const tombstonesMigration = await readFile(
+      new URL('../../../supabase/migrations/20260731130000_training_v2_plan_tombstones.sql', import.meta.url),
+      'utf8',
+    );
+    await pool.query(tombstonesMigration);
     server = buildApp({
       authTokenVerifier: verify,
       trainingTemplateService: createTrainingTemplateService(

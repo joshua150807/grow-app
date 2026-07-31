@@ -345,20 +345,10 @@ describe('training plan read repository', () => {
     expect(sql).toContain('plan.id asc');
   });
 
-  it('delete() scopes the DELETE by id, user_id AND source_template_id is null in one statement, relying on cascading FKs for the whole tree', async () => {
-    const query = vi.fn(async () => ({ rowCount: 1 }));
-    const value = createTrainingPlanRepository({ query } as never);
-    expect(await value.delete(user.id, planId)).toEqual({ outcome: 'ok', planId });
-    expect(query).toHaveBeenCalledOnce();
-    const [sql, parameters] = query.mock.calls[0] as unknown as [string, unknown[]];
-    expect(sql).toContain('delete from public.training_plans_v2');
-    expect(sql).toContain('where id=$1 and user_id=$2 and source_template_id is null');
-    expect(parameters).toEqual([planId, user.id]);
-  });
-
-  it('delete() reports not_found (not an error) when zero rows match — a foreign plan id, an already-deleted plan, or a Grow-sourced plan', async () => {
-    const query = vi.fn(async () => ({ rowCount: 0 }));
-    const value = createTrainingPlanRepository({ query } as never);
-    expect(await value.delete(user.id, planId)).toEqual({ outcome: 'not_found' });
-  });
+  // delete() now tombstones through a multi-statement transaction() (see
+  // trainingPlanRepository.ts and 20260731130000_training_v2_plan_tombstones.sql), like every
+  // other mutation in this repository that needs more than one statement — none of those
+  // (create/update/activate/schedule/archive/updateWeeklyGoal) are unit-tested against a bare
+  // `{ query }` mock either; they are covered end-to-end against a real Postgres instead (see
+  // trainingPlans.integration.test.ts's tombstone tests).
 });

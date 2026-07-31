@@ -10,6 +10,7 @@ import type { HabitCollectionService } from '../../modules/habitCollections/habi
 import type { TrainingPlanService } from '../../modules/trainingPlans/trainingPlanService.js';
 import type { TrainingExerciseService } from '../../modules/trainingExercises/trainingExerciseService.js';
 import type { TrainingTemplateService } from '../../modules/trainingTemplates/trainingTemplateService.js';
+import type { TrainingSessionService } from '../../modules/trainingSessions/trainingSessionService.js';
 import { authRoutes } from './auth.js';
 import { creatorRoutes } from './creator.js';
 import { healthRoutes } from './health.js';
@@ -28,6 +29,7 @@ export type V1RoutesOptions = {
   trainingPlanService?: TrainingPlanService;
   trainingExerciseService?: TrainingExerciseService;
   trainingTemplateService?: TrainingTemplateService;
+  trainingSessionService?: TrainingSessionService;
 };
 
 export const v1Routes: FastifyPluginAsync<V1RoutesOptions> = async (app, options) => {
@@ -51,5 +53,6 @@ export const v1Routes: FastifyPluginAsync<V1RoutesOptions> = async (app, options
     trainingPlanService: options.trainingPlanService,
     trainingExerciseService: options.trainingExerciseService,
     trainingTemplateService: options.trainingTemplateService,
+    trainingSessionService: options.trainingSessionService,
   });
 };

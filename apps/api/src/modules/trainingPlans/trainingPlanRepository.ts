@@ -278,6 +278,15 @@ export async function insertTree(
 // cancel-pending-activation and set-active-then-reset-cycle sequence must stay identical
 // for both callers, since a template-derived plan is otherwise an ordinary training_plans_v2
 // row and must obey the exact same one-active-plan-per-user invariant.
+//
+// Self-defends against a tombstoned target instead of trusting every caller to have already
+// excluded `deleted_at is not null` under its own lock (both current callers do, but this is
+// an exported, explicitly "shared" function — a future caller, e.g. a scheduled-activation
+// runner over training_plan_activations_v2's pending/effective_at rows, must not crash on one
+// either). Without the `deleted_at is null` guard below, this update would match a tombstoned
+// plan's still-existing row and try to set status='active' while deleted_at stays set,
+// violating training_plans_v2_deleted_requires_archived_check (20260731130000) with a hard DB
+// error instead of the harmless no-op a fully removed row used to produce.
 export async function applyPlanActivation(
   client: Client, userId: string, planId: string, currentRevisionId: string, reactivation: boolean,
 ): Promise<void> {
@@ -287,9 +296,14 @@ export async function applyPlanActivation(
   await client.query(`update public.training_plan_activations_v2
     set status='cancelled',cancelled_at=now()
     where user_id=$1 and plan_id=$2 and status='pending'`, [userId, planId]);
-  await client.query(`update public.training_plans_v2
+  const activated = await client.query(`update public.training_plans_v2
     set status='active',activated_at=now(),archived_at=null,version=version+1
-    where id=$1 and user_id=$2`, [planId, userId]);
+    where id=$1 and user_id=$2 and deleted_at is null`, [planId, userId]);
+  // A tombstoned plan must also never gain a cycle state: resetCycle would otherwise INSERT a
+  // fresh training_plan_cycle_states_v2 row for it (delete() already removed any prior one),
+  // silently undoing exactly the cleanup delete() did, even though the plan itself was never
+  // actually activated above.
+  if (activated.rowCount === 0) return;
   await resetCycle(client, userId, planId, currentRevisionId,
     reactivation ? 'plan_reactivated' : 'plan_activated');
 }
@@ -316,7 +330,8 @@ async function resetCycle(
 
 async function loadPlan(db: Pick<pg.Pool | Client, 'query'>, userId: string, planId: string): Promise<TrainingPlan | null> {
   const plans = await db.query<PlanRow>(`${planSummarySelect}
-    where plan.user_id=$1 and plan.id=$2 and plan.current_revision_id is not null`, [userId, planId]);
+    where plan.user_id=$1 and plan.id=$2 and plan.deleted_at is null
+      and plan.current_revision_id is not null`, [userId, planId]);
   const plan = plans.rows[0];
   if (!plan?.current_revision_id) return null;
   const revisions = await db.query<{
@@ -390,7 +405,8 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
   return {
     async list(userId) {
       const result = await db.query<PlanRow>(`${planSummarySelect}
-        where plan.user_id=$1 and plan.status in ('active','scheduled','draft','archived')
+        where plan.user_id=$1 and plan.deleted_at is null
+          and plan.status in ('active','scheduled','draft','archived')
         order by case plan.status
           when 'active' then 0 when 'scheduled' then 1 when 'draft' then 2 else 3 end,
           case when plan.status='scheduled' then schedule.effective_at end asc,
@@ -433,7 +449,8 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
             from public.training_plans_v2 plan join public.training_plan_revisions_v2 revision
               on revision.id=plan.current_revision_id and revision.plan_id=plan.id
               and revision.user_id=plan.user_id
-            where plan.id=$1 and plan.user_id=$2 for update of plan`, [planId, userId]);
+            where plan.id=$1 and plan.user_id=$2 and plan.deleted_at is null
+            for update of plan`, [planId, userId]);
         const current = currentRows.rows[0];
         if (!current) return { outcome: 'not_found' };
         if (Number(current.version) !== input.expectedVersion) return { outcome: 'version_conflict' };
@@ -475,7 +492,7 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
       return transaction(db, async (client): Promise<MutationResult> => {
         const rows = await client.query<{ version: number; status: string; current_revision_id: string | null }>(`
           select version,status,current_revision_id from public.training_plans_v2
-          where id=$1 and user_id=$2 for update`, [planId, userId]);
+          where id=$1 and user_id=$2 and deleted_at is null for update`, [planId, userId]);
         const plan = rows.rows[0];
         if (!plan) return { outcome: 'not_found' };
         if (Number(plan.version) !== expectedVersion) return { outcome: 'version_conflict' };
@@ -495,7 +512,7 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
       return transaction(db, async (client): Promise<MutationResult> => {
         const rows = await client.query<{ version: number; status: string; current_revision_id: string | null }>(`
           select version,status,current_revision_id from public.training_plans_v2
-          where id=$1 and user_id=$2 for update`, [planId, userId]);
+          where id=$1 and user_id=$2 and deleted_at is null for update`, [planId, userId]);
         const plan = rows.rows[0];
         if (!plan) return { outcome: 'not_found' };
         if (Number(plan.version) !== expectedVersion) return { outcome: 'version_conflict' };
@@ -519,7 +536,8 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
     archive(userId, planId, expectedVersion) {
       return transaction(db, async (client): Promise<MutationResult> => {
         const rows = await client.query<{ version: number; status: string }>(`
-          select version,status from public.training_plans_v2 where id=$1 and user_id=$2 for update`,
+          select version,status from public.training_plans_v2
+          where id=$1 and user_id=$2 and deleted_at is null for update`,
         [planId, userId]);
         const plan = rows.rows[0];
         if (!plan) return { outcome: 'not_found' };
@@ -537,7 +555,8 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
     updateWeeklyGoal(userId, planId, expectedVersion, weeklyGoal) {
       return transaction(db, async (client): Promise<MutationResult> => {
         const rows = await client.query<{ version: number }>(`
-          select version from public.training_plans_v2 where id=$1 and user_id=$2 for update`,
+          select version from public.training_plans_v2
+          where id=$1 and user_id=$2 and deleted_at is null for update`,
         [planId, userId]);
         if (!rows.rows[0]) return { outcome: 'not_found' };
         if (Number(rows.rows[0].version) !== expectedVersion) return { outcome: 'version_conflict' };
@@ -549,24 +568,47 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
         return { outcome: 'ok', planId };
       });
     },
-    // Every dependent table (revisions, units, exercises, target sets, activations, cycle
-    // states, weekly-goal versions) has an `on delete cascade` FK back to
-    // training_plans_v2(id, user_id) — see training_v2_plan_core.sql — so one DELETE removes
-    // the whole tree atomically, including the active plan's own row (leaving no plan active
-    // at all, never promoting another one). Scoping by user_id in the same statement is both
-    // the ownership check and the delete: a foreign plan id matches zero rows and comes back
-    // as `not_found`, exactly like every other mutation in this file.
-    // source_template_id is not null excludes every Grow instance — saved, unsaved or active
-    // — from this path entirely: they are only ever created/removed via the template
-    // save/unsave/activate flow (trainingTemplateSaveRepository.ts), never hard-deleted, so a
-    // Grow-sourced plan id here matches zero rows and comes back as `not_found` exactly like a
-    // foreign plan id, never partially applying or otherwise touching that row.
-    async delete(userId, planId) {
-      const result = await db.query(
-        'delete from public.training_plans_v2 where id=$1 and user_id=$2 and source_template_id is null',
-        [planId, userId],
-      );
-      return result.rowCount === 0 ? { outcome: 'not_found' } : { outcome: 'ok', planId };
+    // Tombstones rather than physically removing the row (see
+    // 20260731130000_training_v2_plan_tombstones.sql): `deleted_at` is set and the plan is
+    // moved into the existing 'archived' status (never a new status value), which — like
+    // archive() — leaves no plan active or scheduled afterward without ever promoting another
+    // one. The plan's own row and its entire immutable revision tree (revisions, units,
+    // exercises, target sets) are left fully intact; only the pending activation (if any) is
+    // cancelled and the cycle state is removed outright, exactly the two pieces of *live*
+    // plan-progression state that must not silently keep advancing for a plan the user has
+    // deleted. Every other read/mutation in this file excludes `deleted_at is not null`, so a
+    // tombstoned plan is `not_found` everywhere else — except Training V2 sessions
+    // (trainingSessionRepository.ts), which deliberately carry no such filter: they read
+    // straight through a tombstoned plan and its revisions to keep building a session's
+    // historical snapshot, which is the entire point of not hard-deleting here. Only a true
+    // account/owner cascade (an auth.users row deletion) still physically removes everything,
+    // via the unchanged `on delete cascade` FK chain.
+    //
+    // Scoping by user_id in the same statement is both the ownership check and the delete: a
+    // foreign plan id matches zero rows and comes back as `not_found`, exactly like every
+    // other mutation in this file. source_template_id is not null excludes every Grow
+    // instance — saved, unsaved or active — from this path entirely: they are only ever
+    // created/removed via the template save/unsave/activate flow
+    // (trainingTemplateSaveRepository.ts), never tombstoned here, so a Grow-sourced plan id
+    // here matches zero rows and comes back as `not_found` exactly like a foreign or
+    // already-deleted plan id, never partially applying or otherwise touching that row.
+    delete(userId, planId) {
+      return transaction(db, async (client): Promise<MutationResult> => {
+        const rows = await client.query<{ id: string }>(`
+          select id from public.training_plans_v2
+          where id=$1 and user_id=$2 and source_template_id is null and deleted_at is null
+          for update`, [planId, userId]);
+        if (!rows.rows[0]) return { outcome: 'not_found' };
+        await client.query(`update public.training_plan_activations_v2
+          set status='cancelled',cancelled_at=now()
+          where plan_id=$1 and user_id=$2 and status='pending'`, [planId, userId]);
+        await client.query(`delete from public.training_plan_cycle_states_v2
+          where plan_id=$1 and user_id=$2`, [planId, userId]);
+        await client.query(`update public.training_plans_v2
+          set status='archived',archived_at=now(),deleted_at=now(),version=version+1
+          where id=$1 and user_id=$2`, [planId, userId]);
+        return { outcome: 'ok', planId };
+      });
     },
   };
 }

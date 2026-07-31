@@ -18,6 +18,7 @@ import type { HabitCollectionService } from './modules/habitCollections/habitCol
 import type { TrainingPlanService } from './modules/trainingPlans/trainingPlanService.js';
 import type { TrainingExerciseService } from './modules/trainingExercises/trainingExerciseService.js';
 import type { TrainingTemplateService } from './modules/trainingTemplates/trainingTemplateService.js';
+import type { TrainingSessionService } from './modules/trainingSessions/trainingSessionService.js';
 
 export type BuildAppOptions = {
   authTokenVerifier?: AuthTokenVerifier;
@@ -30,6 +31,7 @@ export type BuildAppOptions = {
   trainingPlanService?: TrainingPlanService;
   trainingExerciseService?: TrainingExerciseService;
   trainingTemplateService?: TrainingTemplateService;
+  trainingSessionService?: TrainingSessionService;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -55,6 +57,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     trainingPlanService: options.trainingPlanService,
     trainingExerciseService: options.trainingExerciseService,
     trainingTemplateService: options.trainingTemplateService,
+    trainingSessionService: options.trainingSessionService,
   });
 
   return app;

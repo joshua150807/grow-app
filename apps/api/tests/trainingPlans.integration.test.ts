@@ -4,7 +4,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Pool } from 'pg';
 import { buildApp } from '../src/app.js';
 import type { AuthTokenVerifier } from '../src/auth/types.js';
-import { createTrainingPlanRepository } from '../src/modules/trainingPlans/trainingPlanRepository.js';
+import {
+  applyPlanActivation, createTrainingPlanRepository, transaction,
+} from '../src/modules/trainingPlans/trainingPlanRepository.js';
 import { createTrainingPlanService } from '../src/modules/trainingPlans/trainingPlanService.js';
 
 const expectedDatabaseName = 'grow_api_integration_test';
@@ -103,6 +105,11 @@ describe('training plan API PostgreSQL integration', () => {
       'utf8',
     );
     await pool.query(privateExerciseUniquenessMigration);
+    const tombstonesMigration = await readFile(
+      new URL('../../../supabase/migrations/20260731130000_training_v2_plan_tombstones.sql', import.meta.url),
+      'utf8',
+    );
+    await pool.query(tombstonesMigration);
     server = buildApp({
       authTokenVerifier: verify,
       trainingPlanService: createTrainingPlanService(createTrainingPlanRepository(pool)),
@@ -333,21 +340,26 @@ describe('training plan API PostgreSQL integration', () => {
     expect(cycle.rows[0]).toEqual({ next_order_index: 0, last_trigger: 'plan_reactivated' });
   });
 
-  it('deletes an active own plan and the entire dependent tree via cascading FKs, leaving no plan active afterwards', async () => {
+  it('soft-deletes an active own plan as a tombstone: row and revision tree survive, cycle state is removed, and the active slot is freed', async () => {
     const plan = (await create(payload({ active: true }))).json().plan;
     // Immediate activation (activateImmediately on create) never inserts a
     // training_plan_activations_v2 row — that table is only for a *pending* scheduled
-    // activation (see schedule()) — so it is asserted empty both before and after, while the
-    // rest are asserted non-empty before to prove there is really something to cascade-delete.
-    const populatedBeforeTables = [
+    // activation (see schedule()) — so there is nothing to cancel here; the surviving tables
+    // below are the ones a hard delete used to cascade away and a tombstone must not touch.
+    const survivingTables = [
       'training_plan_revisions_v2', 'training_plan_units_v2', 'training_plan_exercises_v2',
-      'training_plan_target_sets_v2', 'training_plan_cycle_states_v2', 'training_weekly_goal_versions_v2',
+      'training_plan_target_sets_v2', 'training_weekly_goal_versions_v2',
     ];
-    const dependentTables = [...populatedBeforeTables, 'training_plan_activations_v2'];
-    for (const table of populatedBeforeTables) {
-      const before = await pool.query(`select count(*)::int as count from public.${table} where plan_id=$1`, [plan.id]);
-      expect(before.rows[0].count).toBeGreaterThan(0);
+    const before: Record<string, number> = {};
+    for (const table of survivingTables) {
+      const result = await pool.query(`select count(*)::int as count from public.${table} where plan_id=$1`, [plan.id]);
+      before[table] = result.rows[0].count;
+      expect(before[table]).toBeGreaterThan(0);
     }
+    const cycleBefore = await pool.query(
+      'select count(*)::int as count from public.training_plan_cycle_states_v2 where plan_id=$1', [plan.id],
+    );
+    expect(cycleBefore.rows[0].count).toBe(1);
 
     const response = await server.inject({
       method: 'DELETE', url: `/v1/training/plans/${plan.id}`, headers: headersA,
@@ -355,16 +367,113 @@ describe('training plan API PostgreSQL integration', () => {
 
     expect(response.statusCode).toBe(204);
     expect(response.body).toBe('');
-    const remainingPlan = await pool.query('select id from public.training_plans_v2 where id=$1', [plan.id]);
-    expect(remainingPlan.rows).toHaveLength(0);
-    for (const table of dependentTables) {
+
+    const row = await pool.query(
+      'select status,deleted_at,archived_at,version from public.training_plans_v2 where id=$1', [plan.id],
+    );
+    expect(row.rows).toHaveLength(1);
+    expect(row.rows[0].status).toBe('archived');
+    expect(row.rows[0].deleted_at).not.toBeNull();
+    expect(row.rows[0].archived_at).not.toBeNull();
+    expect(Number(row.rows[0].version)).toBe(2);
+
+    for (const table of survivingTables) {
       const after = await pool.query(`select count(*)::int as count from public.${table} where plan_id=$1`, [plan.id]);
-      expect(after.rows[0].count).toBe(0);
+      expect(after.rows[0].count).toBe(before[table]);
     }
+    const cycleAfter = await pool.query(
+      'select count(*)::int as count from public.training_plan_cycle_states_v2 where plan_id=$1', [plan.id],
+    );
+    expect(cycleAfter.rows[0].count).toBe(0);
+
     const activePlans = await pool.query(
       "select id from public.training_plans_v2 where user_id=$1 and status='active'", [userA],
     );
     expect(activePlans.rows).toHaveLength(0);
+
+    // The freed active slot is immediately usable again, not just vacated in name.
+    const another = await create(payload({ active: true }));
+    expect(another.statusCode).toBe(201);
+    expect(another.json().plan.status).toBe('active');
+  });
+
+  it('excludes a deleted plan from the list and its detail with an owner-safe 404', async () => {
+    const plan = (await create()).json().plan;
+    const deletion = await server.inject({ method: 'DELETE', url: `/v1/training/plans/${plan.id}`, headers: headersA });
+    expect(deletion.statusCode).toBe(204);
+
+    const list = await server.inject({ method: 'GET', url: '/v1/training/plans', headers: headersA });
+    expect((list.json().plans as Array<{ id: string }>).map((entry) => entry.id)).not.toContain(plan.id);
+
+    const detail = await server.inject({ method: 'GET', url: `/v1/training/plans/${plan.id}`, headers: headersA });
+    expect(detail.statusCode).toBe(404);
+    expect(detail.json().error.code).toBe('TRAINING_PLAN_NOT_FOUND');
+  });
+
+  it('rejects editing, activating, reactivating, scheduling, archiving, changing the weekly goal of, or re-deleting a deleted plan', async () => {
+    const plan = (await create()).json().plan;
+    const deletion = await server.inject({ method: 'DELETE', url: `/v1/training/plans/${plan.id}`, headers: headersA });
+    expect(deletion.statusCode).toBe(204);
+
+    const attempts = [
+      { method: 'PATCH' as const, url: `/v1/training/plans/${plan.id}`, payload: { name: 'Edited', expectedVersion: 2, units: payload().units } },
+      { method: 'POST' as const, url: `/v1/training/plans/${plan.id}/activate`, payload: { expectedVersion: 2 } },
+      // A deleted plan is always archived — reactivate must still refuse it, not confuse it
+      // with an ordinary (never-deleted) archived plan, which the separate reactivation test
+      // above already proves works.
+      { method: 'POST' as const, url: `/v1/training/plans/${plan.id}/reactivate`, payload: { expectedVersion: 2 } },
+      { method: 'POST' as const, url: `/v1/training/plans/${plan.id}/schedule`, payload: { expectedVersion: 2, startDate: '2026-08-01', timeZone: 'Europe/Berlin' } },
+      { method: 'POST' as const, url: `/v1/training/plans/${plan.id}/archive`, payload: { expectedVersion: 2 } },
+      { method: 'PUT' as const, url: `/v1/training/plans/${plan.id}/weekly-goal`, payload: { expectedVersion: 2, weeklyGoal: 5 } },
+      { method: 'DELETE' as const, url: `/v1/training/plans/${plan.id}`, payload: undefined },
+    ];
+    for (const attempt of attempts) {
+      const response = await server.inject({
+        method: attempt.method, url: attempt.url, headers: headersA, payload: attempt.payload,
+      });
+      expect(response.statusCode).toBe(404);
+      expect(response.json().error.code).toBe('TRAINING_PLAN_NOT_FOUND');
+    }
+
+    const stillThere = await pool.query(
+      'select status,deleted_at from public.training_plans_v2 where id=$1', [plan.id],
+    );
+    expect(stillThere.rows).toHaveLength(1);
+    expect(stillThere.rows[0].status).toBe('archived');
+    expect(stillThere.rows[0].deleted_at).not.toBeNull();
+  });
+
+  it('applyPlanActivation() against a tombstoned plan throws no DB error, leaves it deleted/archived/inactive, and occupies no active slot', async () => {
+    const plan = (await create(payload({ active: true }))).json().plan;
+    const deletion = await server.inject({ method: 'DELETE', url: `/v1/training/plans/${plan.id}`, headers: headersA });
+    expect(deletion.statusCode).toBe(204);
+
+    // A future caller (e.g. a scheduled-activation runner over training_plan_activations_v2)
+    // must be able to call this exported, shared function directly without first
+    // re-verifying deleted_at itself — applyPlanActivation must defend on its own.
+    await expect(transaction(pool, (client) => (
+      applyPlanActivation(client, userA, plan.id, plan.currentRevisionId, false)
+    ))).resolves.toBeUndefined();
+
+    const row = await pool.query(
+      'select status,deleted_at,archived_at,activated_at from public.training_plans_v2 where id=$1', [plan.id],
+    );
+    expect(row.rows).toHaveLength(1);
+    expect(row.rows[0].status).toBe('archived');
+    expect(row.rows[0].deleted_at).not.toBeNull();
+    expect(row.rows[0].archived_at).not.toBeNull();
+
+    const activePlans = await pool.query(
+      "select id from public.training_plans_v2 where user_id=$1 and status='active'", [userA],
+    );
+    expect(activePlans.rows).toHaveLength(0);
+
+    // resetCycle must not run for a target that was never actually (re)activated -- it would
+    // otherwise re-create the very cycle state delete() removed.
+    const cycle = await pool.query(
+      'select count(*)::int as count from public.training_plan_cycle_states_v2 where plan_id=$1', [plan.id],
+    );
+    expect(cycle.rows[0].count).toBe(0);
   });
 
   async function markAsGrowInstance(planId: string, { savedAt }: { savedAt: Date | null }) {

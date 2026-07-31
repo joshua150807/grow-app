@@ -11,11 +11,16 @@ import {
   createTrainingTemplateService,
   type TrainingTemplateService,
 } from '../../modules/trainingTemplates/trainingTemplateService.js';
+import {
+  createTrainingSessionService,
+  type TrainingSessionService,
+} from '../../modules/trainingSessions/trainingSessionService.js';
 
 export type TrainingRoutesOptions = {
   trainingPlanService?: TrainingPlanService;
   trainingExerciseService?: TrainingExerciseService;
   trainingTemplateService?: TrainingTemplateService;
+  trainingSessionService?: TrainingSessionService;
 };
 
 export const trainingRoutes: FastifyPluginAsync<TrainingRoutesOptions> = async (app, options) => {
@@ -28,6 +33,9 @@ export const trainingRoutes: FastifyPluginAsync<TrainingRoutesOptions> = async (
   let runtimeTemplateService: TrainingTemplateService | null = null;
   const templateService = () => options.trainingTemplateService
     ?? (runtimeTemplateService ??= createTrainingTemplateService());
+  let runtimeSessionService: TrainingSessionService | null = null;
+  const sessionService = () => options.trainingSessionService
+    ?? (runtimeSessionService ??= createTrainingSessionService());
   const id = (request: { params: unknown }) => (request.params as { id: string }).id;
 
   app.get('/training/exercises', { preHandler: [app.requireAuth] }, async (request) => (
@@ -87,5 +95,10 @@ export const trainingRoutes: FastifyPluginAsync<TrainingRoutesOptions> = async (
   app.delete('/training/plans/:id', { preHandler: [app.requireAuth] }, async (request, reply) => {
     await service().delete(request.auth.user!, id(request));
     return reply.code(204).send();
+  });
+
+  app.post('/training/sessions', { preHandler: [app.requireAuth] }, async (request, reply) => {
+    const result = await sessionService().create(request.auth.user!, request.body);
+    return reply.code(result.created ? 201 : 200).send(result);
   });
 };

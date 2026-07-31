@@ -5,3 +5,4 @@ export * from './training/exercises.js';
 export * from './training/muscleGroups.js';
 export * from './training/primitives.js';
 export * from './training/plans.js';
+export * from './training/sessions.js';
