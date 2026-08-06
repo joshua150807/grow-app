@@ -101,4 +101,7 @@ export const trainingRoutes: FastifyPluginAsync<TrainingRoutesOptions> = async (
     const result = await sessionService().create(request.auth.user!, request.body);
     return reply.code(result.created ? 201 : 200).send(result);
   });
+  app.get('/training/exercises/:exerciseId/last-note', { preHandler: [app.requireAuth] }, async (request) => (
+    sessionService().getLastExerciseNote(request.auth.user!, request.params)
+  ));
 };

@@ -261,6 +261,7 @@ describe('training plan API contracts', () => {
       sourceTemplateId: null,
       savedAt: null,
       sourceTemplateImageReference: null,
+      nextUnit: null,
     };
 
     expect(listTrainingPlansResponseSchema.parse({ plans: [summary] })).toEqual({
@@ -292,9 +293,11 @@ describe('training plan API contracts', () => {
     expect(parsed.sourceTemplateId).toBeNull();
     expect(parsed.savedAt).toBeNull();
     expect(parsed.sourceTemplateImageReference).toBeNull();
+    expect(parsed.nextUnit).toBeNull();
     expect('sourceTemplateId' in parsed).toBe(true);
     expect('savedAt' in parsed).toBe(true);
     expect('sourceTemplateImageReference' in parsed).toBe(true);
+    expect('nextUnit' in parsed).toBe(true);
 
     const legacyPlan = {
       ...legacySummary,

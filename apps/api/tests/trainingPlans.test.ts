@@ -24,7 +24,7 @@ const record = {
   createdAt: '2026-07-26T10:00:00.000Z', updatedAt: '2026-07-26T10:00:00.000Z',
   activatedAt: null, archivedAt: null,
   schedule: null,
-  sourceTemplateId: null, savedAt: null, sourceTemplateImageReference: null,
+  sourceTemplateId: null, savedAt: null, sourceTemplateImageReference: null, nextUnit: null,
   revision: {
     id: revisionId, revisionNumber: 1, createdAt: '2026-07-26T10:00:00.000Z',
     sourceTemplateRevisionId: null,
@@ -307,6 +307,9 @@ describe('training plan read repository', () => {
     source_template_id: null,
     saved_at: null,
     template_image_reference: null,
+    next_unit_id: null,
+    next_unit_logical_key: null,
+    next_unit_order_index: null,
   };
 
   it('maps the persisted local schedule without reconstructing it from UTC', () => {
@@ -339,10 +342,29 @@ describe('training plan read repository', () => {
     expect(sql).toContain("plan.status in ('active','scheduled','draft','archived')");
     expect(sql).toContain("activation.status='pending'");
     expect(sql).toContain('left join lateral');
+    expect(sql).toContain('left join public.training_plan_cycle_states_v2 cycle');
+    expect(sql).toContain('left join public.training_plan_units_v2 next_unit');
+    // The cycle tracker's own next unit is only ever honored when it is a strength unit; a
+    // deterministic fallback lateral (first strength unit of the plan's current revision)
+    // covers both a missing cycle_states row and a cycle target of an unsupported type.
+    expect(sql).toContain("next_unit.unit_type='strength'");
+    expect(sql).toContain('fallback_next_unit');
+    expect(sql).toContain("unit.revision_id=plan.current_revision_id");
+    expect(sql).toContain("unit.unit_type='strength'");
     expect(sql).toContain("when 'active' then 0 when 'scheduled' then 1 when 'draft' then 2 else 3");
     expect(sql).toContain("case when plan.status='scheduled' then schedule.effective_at end asc");
     expect(sql).toContain("case when plan.status<>'scheduled' then plan.updated_at end desc");
     expect(sql).toContain('plan.id asc');
+  });
+
+  it('maps the cycle tracker\'s next unit when a cycle state row is joined, and null when there is none', () => {
+    expect(mapTrainingPlanSummary(row).nextUnit).toBeNull();
+    expect(mapTrainingPlanSummary({
+      ...row,
+      next_unit_id: unitId,
+      next_unit_logical_key: logicalUnitKey,
+      next_unit_order_index: 0,
+    }).nextUnit).toEqual({ id: unitId, logicalUnitKey, orderIndex: 0 });
   });
 
   // delete() now tombstones through a multi-statement transaction() (see

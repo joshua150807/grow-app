@@ -1,4 +1,4 @@
-import type { CreateTrainingSessionInput } from '@grow/shared';
+import { createTrainingSessionInputSchema, type CreateTrainingSessionInput } from '@grow/shared';
 import { describe, expect, it } from 'vitest';
 import { computeSessionRequestFingerprint } from '../src/modules/trainingSessions/trainingSessionFingerprint.js';
 
@@ -23,6 +23,7 @@ function baseInput(): CreateTrainingSessionInput {
         exerciseId: exerciseA,
         logicalTargetExerciseKey: targetExerciseA,
         orderIndex: 0,
+        note: null,
         sets: [{
           clientSetId: clientSetA,
           logicalTargetSetKey: null,
@@ -40,6 +41,7 @@ function baseInput(): CreateTrainingSessionInput {
         exerciseId: exerciseB,
         logicalTargetExerciseKey: targetExerciseB,
         orderIndex: 1,
+        note: null,
         sets: [{
           clientSetId: clientSetB,
           logicalTargetSetKey: null,
@@ -119,6 +121,25 @@ describe('computeSessionRequestFingerprint', () => {
       exercises: [{ ...input.exercises[0], sets: [{ ...input.exercises[0].sets[0], note: 'changed my mind' }] }, input.exercises[1]],
     };
     expect(computeSessionRequestFingerprint(changed)).not.toBe(computeSessionRequestFingerprint(input));
+  });
+
+  it('changes when an exercise note differs', () => {
+    const input = baseInput();
+    const changed: CreateTrainingSessionInput = {
+      ...input,
+      exercises: [{ ...input.exercises[0], note: 'shoulder felt tight' }, input.exercises[1]],
+    };
+    expect(computeSessionRequestFingerprint(changed)).not.toBe(computeSessionRequestFingerprint(input));
+  });
+
+  it('treats a legacy missing exercise note exactly like an explicit null note after normalization', () => {
+    const explicitNull = baseInput();
+    const legacy = {
+      ...explicitNull,
+      exercises: explicitNull.exercises.map(({ note: _note, ...exercise }) => exercise),
+    };
+    expect(computeSessionRequestFingerprint(createTrainingSessionInputSchema.parse(legacy)))
+      .toBe(computeSessionRequestFingerprint(createTrainingSessionInputSchema.parse(explicitNull)));
   });
 
   it('changes when the exercise set differs (extra exercise added)', () => {

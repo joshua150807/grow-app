@@ -1,4 +1,8 @@
-import { createTrainingSessionInputSchema } from '@grow/shared';
+import {
+  createTrainingSessionInputSchema,
+  lastExerciseNoteResponseSchema,
+  trainingExerciseIdParamsSchema,
+} from '@grow/shared';
 import { z, ZodError } from 'zod';
 import type { AuthUser } from '../../auth/types.js';
 import { AppError } from '../../errors/appError.js';
@@ -50,6 +54,15 @@ export function createTrainingSessionService(
       // longer re-derives conflict/replay semantics from the returned session itself.
       const result = requireResult(await repository.create(user.id, input));
       return { session: result.session, created: result.created };
+    },
+
+    async getLastExerciseNote(user: AuthUser, paramsValue: unknown) {
+      const { exerciseId } = parse(trainingExerciseIdParamsSchema, paramsValue);
+      const found = await repository.findLastExerciseNote(user.id, exerciseId);
+      return lastExerciseNoteResponseSchema.parse({
+        note: found?.note ?? null,
+        completedAt: found?.completedAt ?? null,
+      });
     },
   };
 }

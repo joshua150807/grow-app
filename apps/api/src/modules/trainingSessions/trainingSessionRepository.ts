@@ -15,6 +15,7 @@ export type CreateSessionResult =
 
 export type TrainingSessionRepository = {
   create(userId: string, input: CreateTrainingSessionInput): Promise<CreateSessionResult>;
+  findLastExerciseNote(userId: string, exerciseId: string): Promise<{ note: string; completedAt: string } | null>;
 };
 
 type SessionRow = {
@@ -111,8 +112,33 @@ async function findSessionByIdempotencyKey(
   return row ? { id: String(row.id), fingerprint: String(row.request_fingerprint) } : null;
 }
 
+// Scoped by exerciseId (the stable catalog identity), not logicalTargetExerciseKey (which is
+// per-plan/per-unit) -- "the same exercise" must mean the same movement regardless of which
+// plan or unit it was logged under, and regardless of whether that plan/unit still exists (a
+// session's own exercise_id survives even the on-delete-set-null of its plan backlinks). Reads
+// training_session_exercises_v2.note directly (the exercise-level note the user typed that
+// session), not any per-set note -- e.created_at stands in for "completedAt" here since the
+// exercise row itself carries no completion timestamp of its own.
+async function findLastExerciseNote(
+  db: Pick<pg.Pool, 'query'>, userId: string, exerciseId: string,
+): Promise<{ note: string; completedAt: string } | null> {
+  const result = await db.query<{ note: string; created_at: Date | string }>(`
+    select e.note, e.created_at
+    from public.training_session_exercises_v2 e
+    where e.user_id = $1 and e.exercise_id = $2
+      and e.note is not null and length(trim(e.note)) > 0
+    order by e.created_at desc
+    limit 1
+  `, [userId, exerciseId]);
+  const row = result.rows[0];
+  return row ? { note: row.note, completedAt: iso(row.created_at) } : null;
+}
+
 export function createTrainingSessionRepository(db: Database = getPgPool()): TrainingSessionRepository {
   return {
+    findLastExerciseNote(userId, exerciseId) {
+      return findLastExerciseNote(db, userId, exerciseId);
+    },
     create(userId, input) {
       const fingerprint = computeSessionRequestFingerprint(input);
       return transaction(db, async (client): Promise<CreateSessionResult> => {
@@ -168,9 +194,9 @@ export function createTrainingSessionRepository(db: Database = getPgPool()): Tra
         const unitIndex = siblingUnits.findIndex((row) => String(row.id) === String(sourceUnit.id));
 
         const planExercisesResult = await client.query<{
-          id: string; logical_target_exercise_key: string; note: string | null;
+          id: string; logical_target_exercise_key: string;
         }>(`
-          select id,logical_target_exercise_key,note from public.training_plan_exercises_v2
+          select id,logical_target_exercise_key from public.training_plan_exercises_v2
           where unit_id=$1 and revision_id=$2 and plan_id=$3 and user_id=$4`,
         [sourceUnit.id, sourceUnit.revision_id, input.planId, userId]);
         const planExercisesByKey = new Map(
@@ -201,12 +227,12 @@ export function createTrainingSessionRepository(db: Database = getPgPool()): Tra
         const resolvedExercises: Array<{
           input: typeof input.exercises[number];
           catalog: { id: string; name: string; main_muscle: string | null };
-          planExercise: { id: string; note: string | null } | null;
+          planExercise: { id: string } | null;
         }> = [];
         for (const exerciseInput of input.exercises) {
           const catalog = catalogById.get(exerciseInput.exerciseId);
           if (!catalog) return { outcome: 'reference_not_available' };
-          let planExercise: { id: string; note: string | null } | null = null;
+          let planExercise: { id: string } | null = null;
           if (exerciseInput.logicalTargetExerciseKey !== null) {
             const matched = planExercisesByKey.get(exerciseInput.logicalTargetExerciseKey);
             if (!matched) return { outcome: 'reference_not_available' };
@@ -257,7 +283,7 @@ export function createTrainingSessionRepository(db: Database = getPgPool()): Tra
           `, [
             sessionId, userId, resolved.catalog.id, resolved.catalog.name, resolved.catalog.main_muscle,
             resolved.planExercise?.id ?? null, resolved.input.logicalTargetExerciseKey, resolved.input.orderIndex,
-            resolved.planExercise?.note ?? null,
+            resolved.input.note,
           ]);
           const sessionExerciseId = String(exerciseRow.rows[0].id);
 

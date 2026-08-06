@@ -5,12 +5,10 @@ import { COLORS } from '../../../../constants/colors';
 import { TRAINING_V2_HUB_ICONS } from '../../../../constants/toolAssets';
 import { TrainingV2StateView } from '../components/TrainingV2StateView';
 import { useTrainingV2Plans } from '../hooks/useTrainingV2Plans';
-import { findActiveTrainingV2Plan } from '../models/trainingV2ViewModel';
 import { styles } from '../styles/trainingV2Styles';
 
 export default function TrainingV2HubScreen() {
   const { plans, initialLoading, error, retry, refreshing, refresh } = useTrainingV2Plans();
-  const activePlan = findActiveTrainingV2Plan(plans);
   const hasPlans = plans.length > 0;
 
   // useTrainingV2Plans refetches in the background on every focus (including returning from
@@ -32,11 +30,7 @@ export default function TrainingV2HubScreen() {
   }
 
   const openMyTraining = () => {
-    if (activePlan) {
-      router.push({ pathname: '/tools/training-v2-plan-detail', params: { planId: activePlan.id } });
-    } else {
-      router.push({ pathname: '/tools/training-v2-plans' });
-    }
+    router.push({ pathname: '/tools/training-v2-my-training' });
   };
 
   const openPlans = () => {

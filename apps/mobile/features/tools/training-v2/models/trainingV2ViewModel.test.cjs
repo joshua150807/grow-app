@@ -187,3 +187,28 @@ test('mapTrainingV2TemplateDetail maps the per-user projection alongside the tem
   assert.equal(mapped.units[0].unitTypeLabel, 'Kraft');
   assert.equal(mapped.units[0].exercises[0].exerciseName, 'Kniebeuge');
 });
+
+test('estimateTrainingV2UnitDurationMinutes sums each set\'s work time plus its own real rest, falling back to the 180s default (not 0) for a set with none', () => {
+  const unit = {
+    exercises: [
+      {
+        targetSets: [
+          { plannedRestSeconds: 90 },
+          { plannedRestSeconds: 90 },
+        ],
+      },
+      {
+        // 0 is the "no real value" sentinel (see trainingV2SessionModel.js) — must fall back
+        // to the 180s default, not be treated as a genuine zero-second rest.
+        targetSets: [{ plannedRestSeconds: 0 }],
+      },
+    ],
+  };
+  // (40 + 90) * 2 + (40 + 180) = 260 + 220 = 480s = 8 min.
+  assert.equal(viewModel.estimateTrainingV2UnitDurationMinutes(unit), 8);
+});
+
+test('estimateTrainingV2UnitDurationMinutes never returns 0 for a unit with at least one set', () => {
+  const unit = { exercises: [{ targetSets: [{ plannedRestSeconds: 0 }] }] };
+  assert.ok(viewModel.estimateTrainingV2UnitDurationMinutes(unit) >= 1);
+});

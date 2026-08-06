@@ -26,14 +26,16 @@ const uniqueBy = <T>(values: T[]) => new Set(values).size === values.length;
 // ground truth of what was done (mirrors targetSet identity requirements elsewhere) —
 // `logicalTargetExerciseKey` is only ever an optional correlation back to the plan's own
 // definition, exactly as nullable as sessionCompletionSetInputSchema's own
-// logicalTargetSetKey is for an individual set. No client-supplied note here: the persisted
-// exercise's note is a snapshot of the plan's own target-exercise note at save time (see
-// trainingSessionRepository.ts), not new session input — there is no shared per-session,
-// per-exercise note contract to preserve or extend.
+// logicalTargetSetKey is for an individual set. `note` is today's client-supplied exercise
+// note (the session screen's "Notiz zur Übung" field) — persisted verbatim to
+// training_session_exercises_v2.note (see trainingSessionRepository.ts) and never merged with
+// or overwritten by any past note; it is what findLastExerciseNote later surfaces as "Letzte
+// Notiz" for the next session of the same exerciseId.
 export const sessionCompletionExerciseInputSchema = z.object({
   exerciseId: exerciseIdSchema,
   logicalTargetExerciseKey: logicalTargetExerciseKeySchema.nullable(),
   orderIndex: orderIndexSchema,
+  note: shortNoteSchema.nullable().default(null),
   sets: z.array(sessionCompletionSetInputSchema).min(1),
 }).strict().superRefine((exercise, context) => {
   if (!uniqueBy(exercise.sets.map((set) => set.orderIndex))) {
@@ -121,3 +123,13 @@ export const trainingSessionDetailResponseSchema = z.object({
   created: z.boolean(),
 }).strict();
 export type TrainingSessionDetailResponse = z.infer<typeof trainingSessionDetailResponseSchema>;
+
+// The most recent exercise-level note the user left on this exercise, across every past
+// session — read-only lookup for "Letzte Notiz" (shown next to today's note field, never
+// copied into it). `null`/`null` for an exercise with no session history yet, or one where
+// every past note was empty — that is a valid, non-error result, not a 404.
+export const lastExerciseNoteResponseSchema = z.object({
+  note: shortNoteSchema.nullable(),
+  completedAt: isoDateTimeSchema.nullable(),
+}).strict();
+export type LastExerciseNoteResponse = z.infer<typeof lastExerciseNoteResponseSchema>;

@@ -35,6 +35,7 @@ const templateDetailSchema = schema((value) => (
 ));
 const templateUserPlanSchema = schema((value) => value?.userPlan !== undefined);
 const exerciseSchema = schema((value) => typeof value?.exercise?.name === 'string');
+const lastExerciseNoteSchema = schema((value) => value !== null && typeof value === 'object' && 'note' in value && 'completedAt' in value);
 const listExercisesSchema = schema((value) => Array.isArray(value?.exercises));
 const createInputSchema = inputSchema((value) => (
   typeof value?.name === 'string' && value.name.length > 0 && Array.isArray(value.units) && value.units.length > 0
@@ -69,6 +70,7 @@ function loadApi() {
       trainingTemplateDetailResponseSchema: templateDetailSchema,
       templateUserPlanResponseSchema: templateUserPlanSchema,
       trainingExerciseDetailResponseSchema: exerciseSchema,
+      lastExerciseNoteResponseSchema: lastExerciseNoteSchema,
       listTrainingExercisesResponseSchema: listExercisesSchema,
       createTrainingPlanInputSchema: createInputSchema,
       updateTrainingPlanInputSchema: updateInputSchema,
@@ -209,6 +211,27 @@ test('resolveTrainingV2ExerciseDetails resolves { name, mainMuscle } per exercis
   // resolveTrainingV2ExerciseNames sharing the same cache must not re-fetch.
   assert.deepEqual(await api.resolveTrainingV2ExerciseNames(plan, cache), { 'exercise-1': 'Name exercise-1' });
   assert.equal(calls.length, 1);
+});
+
+test('getTrainingV2LastExerciseNote GETs the last-note endpoint by exercise id and returns note/completedAt', async (context) => {
+  const previousUrl = process.env.EXPO_PUBLIC_API_URL;
+  const previousFetch = global.fetch;
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.test';
+  context.after(() => {
+    process.env.EXPO_PUBLIC_API_URL = previousUrl;
+    global.fetch = previousFetch;
+  });
+  const calls = [];
+  global.fetch = async (...args) => {
+    calls.push(args);
+    return response(200, { note: 'Griff enger', completedAt: '2026-07-30T18:00:00.000Z' });
+  };
+  const api = loadApi();
+
+  const result = await api.getTrainingV2LastExerciseNote('exercise/id');
+  assert.deepEqual(result, { note: 'Griff enger', completedAt: '2026-07-30T18:00:00.000Z' });
+  assert.equal(calls[0][0].endsWith('/v1/training/exercises/exercise%2Fid/last-note'), true);
+  assert.equal(calls[0][1].method, 'GET');
 });
 
 test('keeps successful exercise names when one exercise returns 404', async (context) => {

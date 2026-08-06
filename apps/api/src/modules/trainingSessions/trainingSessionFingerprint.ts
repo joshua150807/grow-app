@@ -19,6 +19,7 @@ export function computeSessionRequestFingerprint(input: CreateTrainingSessionInp
         exerciseId: exercise.exerciseId,
         logicalTargetExerciseKey: exercise.logicalTargetExerciseKey,
         orderIndex: exercise.orderIndex,
+        note: exercise.note,
         sets: [...exercise.sets]
           .sort((a, b) => a.orderIndex - b.orderIndex)
           .map((set) => ({

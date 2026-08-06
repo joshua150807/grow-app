@@ -1,3 +1,24 @@
+// A rough, honest estimate from the unit's own real target-set structure — not a fabricated
+// number: every set contributes a fixed average execution time plus its own rest (falling back
+// to the same 180s default the session screen itself uses whenever a set carries no real rest
+// value — see DEFAULT_REST_SECONDS in trainingV2SessionModel.js for why 0, not null, is that
+// "missing" sentinel in practice; duplicated here as a plain literal, not a cross-file import,
+// since the module-loading test harness (testing/loadModule.cjs) only resolves a loaded file's
+// own relative imports correctly when they climb out of its directory, not same-directory
+// sibling imports).
+const AVERAGE_SET_WORK_SECONDS = 40;
+const FALLBACK_REST_SECONDS = 180;
+
+export function estimateTrainingV2UnitDurationMinutes(unit) {
+  const totalSeconds = unit.exercises.reduce((exerciseSum, exercise) => (
+    exerciseSum + exercise.targetSets.reduce((setSum, targetSet) => {
+      const restSeconds = targetSet.plannedRestSeconds > 0 ? targetSet.plannedRestSeconds : FALLBACK_REST_SECONDS;
+      return setSum + AVERAGE_SET_WORK_SECONDS + restSeconds;
+    }, 0)
+  ), 0);
+  return Math.max(1, Math.round(totalSeconds / 60));
+}
+
 export const PLAN_STATUS_LABELS = {
   active: 'Active',
   scheduled: 'Scheduled',

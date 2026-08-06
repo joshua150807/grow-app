@@ -217,6 +217,7 @@ describe('training V2 session-core PostgreSQL integration', () => {
         exerciseId: systemExerciseId,
         logicalTargetExerciseKey: unit0.exercises[0].logicalTargetExerciseKey,
         orderIndex: 0,
+        note: 'grip felt narrow today',
         sets: [{
           clientSetId: randomUUID(),
           logicalTargetSetKey: unit0.exercises[0].targetSets[0].logicalTargetSetKey,
@@ -235,6 +236,7 @@ describe('training V2 session-core PostgreSQL integration', () => {
     expect(body.session.sourceUnitId).toBe(unit0.id);
     expect(body.session.exercises).toHaveLength(1);
     expect(body.session.exercises[0].exerciseName).toBe('Bench Press');
+    expect(body.session.exercises[0].note).toBe('grip felt narrow today');
     expect(body.session.exercises[0].sets[0]).toMatchObject({ weightKg: 82.5, reps: 9, rir: 1, note: 'felt good', version: 1 });
 
     const cycle = await pool.query(`
@@ -256,6 +258,86 @@ describe('training V2 session-core PostgreSQL integration', () => {
     expect(Number(cycleAfterReplay.rows[0].version)).toBe(2);
   });
 
+  // The full "Übungsnotiz-Roundtrip" the iPhone bug report demanded: a session save's exercise
+  // note lands in training_session_exercises_v2.note, the last-note endpoint surfaces it back
+  // owner-scoped (never leaking to another user), and a later, brand-new session draft for the
+  // same exercise never has it silently pre-filled -- the server only ever persists exactly
+  // what that later request itself sends, regardless of note history.
+  it('persists a session\'s exercise note, surfaces it owner-bound via the last-note endpoint, and never carries it into a later session that sends none', async () => {
+    const { plan, unit0 } = await createActivePlan(headersA);
+
+    const first = await server.inject({
+      method: 'POST', url: '/v1/training/sessions', headers: headersA,
+      payload: completeUnitPayload(plan.id, unit0.id, randomUUID(), {
+        exercises: [{
+          exerciseId: systemExerciseId,
+          logicalTargetExerciseKey: unit0.exercises[0].logicalTargetExerciseKey,
+          orderIndex: 0,
+          note: 'Griff etwas breiter',
+          sets: [{
+            clientSetId: randomUUID(),
+            logicalTargetSetKey: unit0.exercises[0].targetSets[0].logicalTargetSetKey,
+            orderIndex: 0, setType: 'work', weightKg: 60, reps: 5, rir: 2, note: null,
+            completedAt: new Date().toISOString(), actualRestSeconds: 180,
+          }],
+        }],
+      }),
+    });
+    expect(first.statusCode).toBe(201);
+    expect(first.json().session.exercises[0].note).toBe('Griff etwas breiter');
+
+    const dbNote = await pool.query(
+      'select note from public.training_session_exercises_v2 where session_id=$1', [first.json().session.id],
+    );
+    expect(dbNote.rows[0].note).toBe('Griff etwas breiter');
+
+    const lastNoteForOwner = await server.inject({
+      method: 'GET', url: `/v1/training/exercises/${systemExerciseId}/last-note`, headers: headersA,
+    });
+    expect(lastNoteForOwner.statusCode).toBe(200);
+    expect(lastNoteForOwner.json().note).toBe('Griff etwas breiter');
+    expect(lastNoteForOwner.json().completedAt).not.toBeNull();
+
+    // Owner isolation: a different user's identical-exerciseId lookup must never see it.
+    const lastNoteForOtherUser = await server.inject({
+      method: 'GET', url: `/v1/training/exercises/${systemExerciseId}/last-note`, headers: headersB,
+    });
+    expect(lastNoteForOtherUser.statusCode).toBe(200);
+    expect(lastNoteForOtherUser.json()).toEqual({ note: null, completedAt: null });
+
+    // A legacy client omits exercise.note entirely. The API normalizes that missing field to
+    // null and persists null, rather than rejecting the old request or inheriting history.
+    const second = await server.inject({
+      method: 'POST', url: '/v1/training/sessions', headers: headersA,
+      payload: completeUnitPayload(plan.id, unit0.id, randomUUID(), {
+        exercises: [{
+          exerciseId: systemExerciseId,
+          logicalTargetExerciseKey: unit0.exercises[0].logicalTargetExerciseKey,
+          orderIndex: 0,
+          sets: [{
+            clientSetId: randomUUID(),
+            logicalTargetSetKey: unit0.exercises[0].targetSets[0].logicalTargetSetKey,
+            orderIndex: 0, setType: 'work', weightKg: 62.5, reps: 5, rir: 2, note: null,
+            completedAt: new Date().toISOString(), actualRestSeconds: 180,
+          }],
+        }],
+      }),
+    });
+    expect(second.statusCode).toBe(201);
+    expect(second.json().session.exercises[0].note).toBeNull();
+    const legacyDbNote = await pool.query(
+      'select note from public.training_session_exercises_v2 where session_id=$1', [second.json().session.id],
+    );
+    expect(legacyDbNote.rows[0].note).toBeNull();
+
+    // The last-note lookup now reflects the newer (null) session's create timestamp winning
+    // the ordering, but since it carries no note it falls back to the still-earlier real one.
+    const lastNoteAfterSecond = await server.inject({
+      method: 'GET', url: `/v1/training/exercises/${systemExerciseId}/last-note`, headers: headersA,
+    });
+    expect(lastNoteAfterSecond.json().note).toBe('Griff etwas breiter');
+  });
+
   it('rejects a replay with the same idempotency key but a different payload as 409 TRAINING_SESSION_CONFLICT', async () => {
     const { plan, unit0 } = await createActivePlan(headersA);
     const idempotencyKey = randomUUID();
@@ -264,7 +346,7 @@ describe('training V2 session-core PostgreSQL integration', () => {
       method: 'POST', url: '/v1/training/sessions', headers: headersA,
       payload: completeUnitPayload(plan.id, unit0.id, idempotencyKey, {
         exercises: [{
-          exerciseId: systemExerciseId, logicalTargetExerciseKey: unit0.exercises[0].logicalTargetExerciseKey, orderIndex: 0,
+          exerciseId: systemExerciseId, logicalTargetExerciseKey: unit0.exercises[0].logicalTargetExerciseKey, orderIndex: 0, note: null,
           sets: [{
             clientSetId: randomUUID(), logicalTargetSetKey: unit0.exercises[0].targetSets[0].logicalTargetSetKey,
             orderIndex: 0, setType: 'work', weightKg: 80, reps: 8, rir: 2, note: null,
@@ -280,7 +362,7 @@ describe('training V2 session-core PostgreSQL integration', () => {
       // Same key, same unit -- but a materially different payload (weight changed).
       payload: completeUnitPayload(plan.id, unit0.id, idempotencyKey, {
         exercises: [{
-          exerciseId: systemExerciseId, logicalTargetExerciseKey: unit0.exercises[0].logicalTargetExerciseKey, orderIndex: 0,
+          exerciseId: systemExerciseId, logicalTargetExerciseKey: unit0.exercises[0].logicalTargetExerciseKey, orderIndex: 0, note: null,
           sets: [{
             clientSetId: randomUUID(), logicalTargetSetKey: unit0.exercises[0].targetSets[0].logicalTargetSetKey,
             orderIndex: 0, setType: 'work', weightKg: 999, reps: 8, rir: 2, note: null,
@@ -341,6 +423,7 @@ describe('training V2 session-core PostgreSQL integration', () => {
         exerciseId: systemExerciseId,
         logicalTargetExerciseKey: unit0.exercises[0].logicalTargetExerciseKey,
         orderIndex: 0,
+        note: null,
         sets: [{
           clientSetId: setId,
           logicalTargetSetKey: unit0.exercises[0].targetSets[0].logicalTargetSetKey,

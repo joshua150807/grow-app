@@ -50,7 +50,9 @@ function sessionInput(overrides: Partial<Record<string, unknown>> = {}) {
 
 describe('training session API contracts', () => {
   it('accepts a fully populated exercise/set completion', () => {
-    expect(createTrainingSessionInputSchema.parse(sessionInput())).toEqual(sessionInput());
+    expect(createTrainingSessionInputSchema.parse(sessionInput())).toEqual({
+      ...sessionInput(), exercises: [{ ...exercise(), note: null }],
+    });
   });
 
   it('accepts a rest-day session with no exercises at all', () => {
@@ -66,15 +68,31 @@ describe('training session API contracts', () => {
         })],
       })],
     });
-    expect(createTrainingSessionInputSchema.parse(input)).toEqual(input);
+    expect(createTrainingSessionInputSchema.parse(input)).toEqual({
+      ...input, exercises: [{ ...input.exercises[0], note: null }],
+    });
   });
 
   it('rejects an unknown top-level field (e.g. a client-invented session note)', () => {
     expect(createTrainingSessionInputSchema.safeParse({ ...sessionInput(), note: 'nope' }).success).toBe(false);
   });
 
-  it('rejects an unknown exercise-level field (no session-exercise note input exists)', () => {
-    expect(sessionCompletionExerciseInputSchema.safeParse({ ...exercise(), note: 'nope' }).success).toBe(false);
+  it('normalizes a missing legacy exercise note to null', () => {
+    expect(sessionCompletionExerciseInputSchema.parse(exercise()).note).toBeNull();
+  });
+
+  it('accepts an explicit null exercise note', () => {
+    expect(sessionCompletionExerciseInputSchema.parse(exercise({ note: null })).note).toBeNull();
+  });
+
+  it('accepts a valid exercise note and preserves the existing trimming contract', () => {
+    expect(sessionCompletionExerciseInputSchema.parse(exercise({ note: '  Griff breiter  ' })).note)
+      .toBe('Griff breiter');
+  });
+
+  it('rejects invalid exercise note values', () => {
+    expect(sessionCompletionExerciseInputSchema.safeParse(exercise({ note: 123 })).success).toBe(false);
+    expect(sessionCompletionExerciseInputSchema.safeParse(exercise({ note: 'x'.repeat(1_001) })).success).toBe(false);
   });
 
   it('rejects duplicate set order positions within one exercise', () => {
@@ -102,7 +120,9 @@ describe('training session API contracts', () => {
     const input = sessionInput({
       exercises: [exercise({ logicalTargetExerciseKey: null, sets: [set({ logicalTargetSetKey: null })] })],
     });
-    expect(createTrainingSessionInputSchema.parse(input)).toEqual(input);
+    expect(createTrainingSessionInputSchema.parse(input)).toEqual({
+      ...input, exercises: [{ ...input.exercises[0], note: null }],
+    });
   });
 
   it('rejects duplicate exercise order positions', () => {

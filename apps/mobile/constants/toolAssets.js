@@ -40,6 +40,13 @@ export const TRAINING_V2_HUB_ICONS = {
 
 export const TRAINING_V2_CREATE_PLAN_HERO = require('../assets/tool-icons/training-v2/training-v2-create-plan-hero.webp');
 
+export const TRAINING_V2_MY_TRAINING_ASSETS = {
+  hero: require('../assets/training-v2/my-training/training-v2-my-training-hero.webp'),
+  planCalendar: require('../assets/training-v2/my-training/training-v2-plan-calendar.webp'),
+  progress: require('../assets/training-v2/my-training/training-v2-progress.webp'),
+  recordsTrophy: require('../assets/training-v2/my-training/training-v2-records-trophy.webp'),
+};
+
 export const TOOL_OVERVIEW_IMAGE_ASSETS = [
   ...Object.values(TOOL_IMAGES),
   MENTOR_BG,

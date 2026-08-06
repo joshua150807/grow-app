@@ -46,6 +46,9 @@ export type PlanRow = {
   source_template_id: string | null;
   saved_at: Date | string | null;
   template_image_reference: string | null;
+  next_unit_id: string | null;
+  next_unit_logical_key: string | null;
+  next_unit_order_index: number | null;
 };
 type ExerciseRow = { id: string; scope: 'system' | 'user'; owner_user_id: string | null };
 
@@ -60,7 +63,10 @@ const planSummarySelect = `
     schedule.effective_at as schedule_effective_at,
     (select goal.target_sessions_per_week from public.training_weekly_goal_versions_v2 goal
      where goal.plan_id=plan.id and goal.user_id=plan.user_id
-     order by goal.effective_from desc limit 1) as weekly_goal
+     order by goal.effective_from desc limit 1) as weekly_goal,
+    coalesce(next_unit.id,fallback_next_unit.id) as next_unit_id,
+    coalesce(next_unit.logical_unit_key,fallback_next_unit.logical_unit_key) as next_unit_logical_key,
+    coalesce(next_unit.order_index,fallback_next_unit.order_index) as next_unit_order_index
   from public.training_plans_v2 plan
   left join public.training_templates_v2 template on template.id=plan.source_template_id
   left join lateral (
@@ -70,7 +76,27 @@ const planSummarySelect = `
       and activation.status='pending'
     order by activation.effective_at asc,activation.id asc
     limit 1
-  ) schedule on true`;
+  ) schedule on true
+  left join public.training_plan_cycle_states_v2 cycle
+    on cycle.plan_id=plan.id and cycle.user_id=plan.user_id
+  left join public.training_plan_units_v2 next_unit
+    on next_unit.id=cycle.next_unit_id and next_unit.revision_id=cycle.revision_id
+      and next_unit.plan_id=cycle.plan_id and next_unit.user_id=cycle.user_id
+      and next_unit.unit_type='strength'
+  -- The cycle tracker's own target can be missing entirely (no cycle_states row: a plan
+  -- that was never activated) or point at a unit type this vertical slice cannot start as a
+  -- session (rest/run/mobility/stretching -- the next_unit join above already excludes those
+  -- via unit_type='strength', leaving it null). Either way, the deterministic substitute is
+  -- the first strength unit of the plan's *current* revision by order_index -- never a client
+  -- guess, and never a unit type that would let "start next session" open a non-strength unit.
+  left join lateral (
+    select unit.id,unit.logical_unit_key,unit.order_index
+    from public.training_plan_units_v2 unit
+    where unit.revision_id=plan.current_revision_id and unit.plan_id=plan.id and unit.user_id=plan.user_id
+      and unit.unit_type='strength'
+    order by unit.order_index asc
+    limit 1
+  ) fallback_next_unit on next_unit.id is null`;
 
 export function mapTrainingPlanSummary(row: PlanRow): TrainingPlanSummary {
   const hasSchedule = row.schedule_start_date !== null
@@ -90,6 +116,11 @@ export function mapTrainingPlanSummary(row: PlanRow): TrainingPlanSummary {
     sourceTemplateId: row.source_template_id === null ? null : String(row.source_template_id),
     savedAt: nullableIso(row.saved_at),
     sourceTemplateImageReference: row.template_image_reference,
+    nextUnit: row.next_unit_id === null ? null : {
+      id: String(row.next_unit_id),
+      logicalUnitKey: String(row.next_unit_logical_key),
+      orderIndex: Number(row.next_unit_order_index),
+    },
   });
   if (!parsed.success) {
     const error = new Error('Internal training plan contract violation.');

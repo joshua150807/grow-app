@@ -1,6 +1,8 @@
 import {
   createTrainingExerciseInputSchema,
   createTrainingPlanInputSchema,
+  createTrainingSessionInputSchema,
+  lastExerciseNoteResponseSchema,
   listTrainingExercisesResponseSchema,
   listTrainingPlansResponseSchema,
   listTrainingTemplatesResponseSchema,
@@ -9,6 +11,7 @@ import {
   templateUserPlanResponseSchema,
   trainingExerciseDetailResponseSchema,
   trainingPlanDetailResponseSchema,
+  trainingSessionDetailResponseSchema,
   trainingTemplateDetailResponseSchema,
   updateTrainingPlanInputSchema,
   updateWeeklyGoalInputSchema,
@@ -254,6 +257,26 @@ export async function scheduleTrainingV2Plan(planId, expectedVersion, startDate,
     { method: 'POST', body },
     trainingPlanDetailResponseSchema,
   )).plan;
+}
+
+// Returns the full { session, created } envelope, not just the session, so a caller can tell
+// a genuinely new save apart from an idempotent replay of an already-saved request.
+export async function createTrainingV2Session(input) {
+  const body = parseTrainingV2Input(createTrainingSessionInputSchema, input);
+  return callTrainingV2(
+    '/v1/training/sessions',
+    { method: 'POST', body },
+    trainingSessionDetailResponseSchema,
+  );
+}
+
+// Read-only lookup for the "Letzte Notiz" hint (last note left on this exercise in any past
+// session) — never 404s, since "no note yet" is a normal result, not an error.
+export async function getTrainingV2LastExerciseNote(exerciseId) {
+  return requestTrainingV2(
+    `/v1/training/exercises/${encodeURIComponent(exerciseId)}/last-note`,
+    lastExerciseNoteResponseSchema,
+  );
 }
 
 export async function updateTrainingV2WeeklyGoal(planId, expectedVersion, weeklyGoal) {

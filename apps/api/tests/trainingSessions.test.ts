@@ -44,6 +44,7 @@ function createInput(overrides: Partial<Record<string, unknown>> = {}) {
       exerciseId,
       logicalTargetExerciseKey: null,
       orderIndex: 0,
+      note: null,
       sets: [{
         clientSetId,
         logicalTargetSetKey: null,
@@ -64,6 +65,7 @@ function createInput(overrides: Partial<Record<string, unknown>> = {}) {
 function repository(overrides: Partial<TrainingSessionRepository> = {}): TrainingSessionRepository {
   return {
     create: vi.fn(async (): Promise<CreateSessionResult> => ({ outcome: 'ok', session, created: true })),
+    findLastExerciseNote: vi.fn(async () => null),
     ...overrides,
   };
 }
@@ -91,6 +93,22 @@ describe('training session API', () => {
     expect(response.statusCode).toBe(201);
     expect(response.json()).toEqual({ session, created: true });
     expect(value.create).toHaveBeenCalledWith(user.id, expect.objectContaining({ planId, unitId, status: 'completed' }));
+    await server.close();
+  });
+
+  it('accepts a legacy request without exercise.note and normalizes it to null before repository access', async () => {
+    const value = repository();
+    const server = app(value);
+    const input = createInput();
+    const legacyExercises = (input.exercises as Array<Record<string, unknown>>)
+      .map(({ note: _note, ...exercise }) => exercise);
+    const response = await server.inject({
+      method: 'POST', url: '/v1/training/sessions', headers, payload: { ...input, exercises: legacyExercises },
+    });
+    expect(response.statusCode).toBe(201);
+    expect(value.create).toHaveBeenCalledWith(user.id, expect.objectContaining({
+      exercises: [expect.objectContaining({ note: null })],
+    }));
     await server.close();
   });
 
@@ -178,6 +196,51 @@ describe('training session API', () => {
       method: 'POST', url: '/v1/training/sessions', headers, payload: createInput({ exercises: [] }),
     });
     expect(response.statusCode).toBe(201);
+    await server.close();
+  });
+
+  it('requires auth for GET /v1/training/exercises/:exerciseId/last-note', async () => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({ method: 'GET', url: `/v1/training/exercises/${exerciseId}/last-note` });
+    expect(response.statusCode).toBe(401);
+    expect(value.findLastExerciseNote).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it('returns the note/completedAt of the exercise\'s most recent session set that has one', async () => {
+    const value = repository({
+      findLastExerciseNote: vi.fn(async () => ({ note: 'Griff etwas breiter', completedAt: '2026-07-30T18:00:00.000Z' })),
+    });
+    const server = app(value);
+    const response = await server.inject({
+      method: 'GET', url: `/v1/training/exercises/${exerciseId}/last-note`, headers,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ note: 'Griff etwas breiter', completedAt: '2026-07-30T18:00:00.000Z' });
+    expect(value.findLastExerciseNote).toHaveBeenCalledWith(user.id, exerciseId);
+    await server.close();
+  });
+
+  it('returns note:null, completedAt:null (not 404) when no past note exists for this exercise', async () => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({
+      method: 'GET', url: `/v1/training/exercises/${exerciseId}/last-note`, headers,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ note: null, completedAt: null });
+    await server.close();
+  });
+
+  it('rejects a non-uuid exerciseId param', async () => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({
+      method: 'GET', url: '/v1/training/exercises/not-a-uuid/last-note', headers,
+    });
+    expect(response.statusCode).toBe(400);
+    expect(value.findLastExerciseNote).not.toHaveBeenCalled();
     await server.close();
   });
 });

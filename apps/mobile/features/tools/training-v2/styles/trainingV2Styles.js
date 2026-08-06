@@ -411,6 +411,92 @@ export const styles = StyleSheet.create({
   actionButtonDangerText: { color: COLORS.error, fontSize: sf(13), fontWeight: '800' },
   actionButtonDisabled: { opacity: 0.5 },
 
+  // Session logging (TrainingV2SessionActiveScreen) — kg/Wiederholungen inputs and the
+  // per-set complete toggle reuse the editor's generic targetSetRow/targetSetFieldGroup/
+  // targetSetFieldLabel/targetSetInput and the plan actions' actionButtonSecondary/
+  // actionButtonSecondaryText/saveBar/saveButton*/formErrorText styles rather than
+  // duplicating them — only what is genuinely session-specific gets a new key here.
+  sessionProgressText: { color: COLORS.textMuted, fontSize: sf(13), fontWeight: '750', marginBottom: sv(4) },
+  lastNoteText: {
+    color: COLORS.textDim,
+    fontSize: sf(11.5),
+    fontStyle: 'italic',
+    lineHeight: sf(16),
+    marginTop: sv(4),
+  },
+  sessionSetBlock: { borderTopWidth: 1, borderTopColor: COLORS.borderDeep, paddingTop: sv(12), marginTop: sv(10) },
+  sessionSetHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: s(8) },
+  sessionSetLabel: { color: COLORS.textSecondary, fontSize: sf(14), fontWeight: '800' },
+  sessionSetHint: { color: COLORS.textDim, fontSize: sf(11.5) },
+  sessionSetInputDisabled: { color: COLORS.textDim, borderColor: COLORS.borderDeep },
+  sessionNoteInput: {
+    backgroundColor: 'rgba(10, 9, 17, 0.72)',
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: s(9),
+    paddingHorizontal: s(10),
+    paddingVertical: sv(7),
+    color: COLORS.textPrimary,
+    fontSize: sf(12.5),
+    marginTop: sv(8),
+  },
+  sessionCompleteButton: {
+    borderWidth: 1,
+    borderColor: COLORS.goldBorderLight,
+    borderRadius: s(10),
+    paddingHorizontal: s(14),
+    paddingVertical: sv(9),
+    alignSelf: 'flex-end',
+  },
+  sessionCompleteButtonDone: { backgroundColor: COLORS.softGold, borderColor: COLORS.softGold },
+  sessionCompleteButtonText: { color: COLORS.softGold, fontSize: sf(12.5), fontWeight: '800' },
+  sessionCompleteButtonTextDone: { color: COLORS.nearBlack },
+
+  // Rest timer overlay — a full-screen, solid replacement of the session content (never a
+  // translucent modal on top of it), so the countdown is the only thing on screen while a
+  // set's rest is running, matching the same visual weight as the existing training module's
+  // own pause screen.
+  restOverlay: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: s(28),
+  },
+  restOverlayLabel: {
+    color: COLORS.mutedGold,
+    fontSize: sf(13),
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: sv(18),
+  },
+  restOverlayTimer: {
+    color: COLORS.softGold,
+    fontSize: sf(64),
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  restOverlayHint: { color: COLORS.textMuted, fontSize: sf(14), marginTop: sv(14) },
+  restAdjustRow: { flexDirection: 'row', gap: s(12), marginTop: sv(32) },
+  restAdjustButton: {
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: s(12),
+    paddingHorizontal: s(20),
+    paddingVertical: sv(12),
+  },
+  restAdjustButtonText: { color: COLORS.textSecondary, fontSize: sf(14), fontWeight: '800' },
+  restSkipButton: {
+    borderWidth: 1,
+    borderColor: COLORS.goldBorderLight,
+    borderRadius: s(12),
+    paddingHorizontal: s(24),
+    paddingVertical: sv(12),
+    marginTop: sv(20),
+  },
+  restSkipButtonText: { color: COLORS.softGold, fontSize: sf(14), fontWeight: '800' },
+
   // Hub (three tappable cards: Mein Training / Trainingspläne / Übungsbibliothek)
   hubCard: {
     flexDirection: 'row',
@@ -438,5 +524,116 @@ export const styles = StyleSheet.create({
   hubCardTitle: { color: COLORS.textPrimary, fontSize: sf(17), fontWeight: '850' },
   hubCardDescription: { color: COLORS.textMuted, fontSize: sf(12.5), lineHeight: sf(18), marginTop: sv(4) },
   hubCardChevron: { color: COLORS.softGold, fontSize: sf(22), fontWeight: '700' },
+
+  // "Mein Training" (TrainingV2MyTrainingScreen) — isolated `mt*` keys, deliberately not
+  // reusing topRow/backText/title/subtitle (shared with the hub/session/plan-detail headers):
+  // this screen's header is centered and two lines, theirs is a single left-aligned row.
+  mtHeader: { marginBottom: sv(14) },
+  mtBackRow: {
+    flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginBottom: sv(10), paddingVertical: sv(4),
+  },
+  mtBackText: { color: COLORS.softGold, fontSize: sf(15), fontWeight: '700' },
+  mtTitle: { color: COLORS.textPrimary, fontSize: sf(26), fontWeight: '900', textAlign: 'center' },
+  mtSubtitle: { color: COLORS.textMuted, fontSize: sf(12.5), textAlign: 'center', marginTop: sv(3) },
+
+  // Hero: training-v2-my-training-hero.webp already bakes in its own gold frame and athlete
+  // artwork on its right half, so the card is just that image with the text/CTA overlaid
+  // into its left (dark) half via mtHeroTextWrap's padding — no extra border/shadow drawn
+  // on top of it.
+  mtHeroCard: { borderRadius: s(18), overflow: 'hidden', marginBottom: sv(14) },
+  mtHeroImage: { width: '100%', aspectRatio: 1600 / 727, justifyContent: 'center' },
+  mtHeroImageInner: { borderRadius: s(18) },
+  mtHeroTextWrap: { paddingLeft: '7%', paddingRight: '46%' },
+  mtHeroLabel: {
+    color: COLORS.mutedGold, fontSize: sf(10.5), fontWeight: '900', letterSpacing: 1.2, textTransform: 'uppercase',
+  },
+  mtHeroUnitName: { color: COLORS.softGold, fontSize: sf(22), fontWeight: '900', marginTop: sv(5), lineHeight: sf(26) },
+  mtHeroMetaRow: { flexDirection: 'row', alignItems: 'center', gap: s(5), marginTop: sv(8) },
+  mtHeroMetaText: { color: COLORS.textMuted, fontSize: sf(11.5), fontWeight: '650' },
+  mtHeroMetaDot: { width: s(3), height: s(3), borderRadius: s(1.5), backgroundColor: COLORS.textFaint, marginHorizontal: s(2) },
+  mtHeroButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: s(7),
+    backgroundColor: COLORS.softGold,
+    borderRadius: s(12),
+    paddingVertical: sv(10),
+    marginTop: sv(12),
+  },
+  mtHeroButtonText: { color: COLORS.nearBlack, fontSize: sf(13.5), fontWeight: '900' },
+
+  mtUnitPickerWrap: { marginBottom: sv(14) },
+  mtUnitPickerLabel: {
+    color: COLORS.textDim, fontSize: sf(11), fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: sv(7),
+  },
+  mtUnitPickerRow: { flexDirection: 'row', gap: s(8) },
+  mtUnitChip: {
+    borderWidth: 1, borderColor: COLORS.borderSubtle, borderRadius: s(999), paddingHorizontal: s(14), paddingVertical: sv(8),
+  },
+  mtUnitChipActive: { borderColor: COLORS.goldBorderLight, backgroundColor: 'rgba(231,201,138,0.12)' },
+  mtUnitChipText: { color: COLORS.textSecondary, fontSize: sf(12.5), fontWeight: '750' },
+  mtUnitChipTextActive: { color: COLORS.softGold },
+
+  mtSectionHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: s(7), marginBottom: sv(8) },
+  mtSectionHeaderTextWrap: { flex: 1 },
+  mtSectionHeaderTitle: {
+    color: COLORS.softGold, fontSize: sf(11.5), fontWeight: '900', letterSpacing: 1.1, textTransform: 'uppercase',
+  },
+  mtSectionHeaderSubtitle: { color: COLORS.textMuted, fontSize: sf(11.5), marginTop: sv(1) },
+
+  mtPlanCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(10, 9, 17, 0.72)',
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: s(14),
+    padding: s(11),
+    marginBottom: sv(14),
+    gap: s(10),
+  },
+  mtPlanCardIcon: { width: s(30), height: s(30) },
+  mtPlanCardBody: { flex: 1 },
+  mtPlanCardName: { color: COLORS.textPrimary, fontSize: sf(14.5), fontWeight: '850' },
+  mtPlanCardMeta: { color: COLORS.textMuted, fontSize: sf(11.5), marginTop: sv(2) },
+  mtPlanCycleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: s(5), marginTop: sv(7) },
+  mtPlanCyclePill: {
+    borderWidth: 1, borderColor: COLORS.borderDeep, borderRadius: s(999), paddingHorizontal: s(8), paddingVertical: sv(3.5), maxWidth: s(90),
+  },
+  mtPlanCyclePillActive: { borderColor: COLORS.softGold, backgroundColor: COLORS.softGold },
+  mtPlanCyclePillText: { color: COLORS.textDim, fontSize: sf(9.5), fontWeight: '750' },
+  mtPlanCyclePillTextActive: { color: COLORS.nearBlack },
+
+  mtEmptyHistoryCard: {
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: s(14),
+    paddingVertical: sv(16),
+    paddingHorizontal: s(18),
+    marginBottom: sv(14),
+    gap: sv(6),
+  },
+  mtEmptyHistoryTitle: { color: COLORS.textSecondary, fontSize: sf(13), fontWeight: '800', textAlign: 'center' },
+  mtEmptyHistoryText: { color: COLORS.textMuted, fontSize: sf(11.5), textAlign: 'center', lineHeight: sf(16) },
+
+  mtLowerRow: { flexDirection: 'row', gap: s(10) },
+  mtLowerCard: {
+    flex: 1,
+    backgroundColor: 'rgba(10, 9, 17, 0.72)',
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: s(14),
+    padding: s(12),
+    minHeight: sv(96),
+  },
+  mtLowerCardHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: s(6) },
+  mtLowerCardIcon: { width: s(15), height: s(15) },
+  mtLowerCardTitle: {
+    color: COLORS.softGold, fontSize: sf(9.5), fontWeight: '900', letterSpacing: 0.5, textTransform: 'uppercase', flexShrink: 1,
+  },
+  mtLowerCardSubtitle: { color: COLORS.textMuted, fontSize: sf(10), marginTop: sv(2) },
+  mtLowerCardEmptyText: { color: COLORS.textDim, fontSize: sf(11), lineHeight: sf(15), marginTop: sv(10) },
 });
 

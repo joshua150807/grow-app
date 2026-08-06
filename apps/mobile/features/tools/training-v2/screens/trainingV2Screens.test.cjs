@@ -50,7 +50,11 @@ test('V2 hub shows three tappable cards and never auto-redirects', () => {
   assert.match(hub, /onPress=\{openMyTraining\}/);
   assert.match(hub, /onPress=\{openPlans\}/);
   assert.match(hub, /onPress=\{openLibrary\}/);
-  assert.match(hub, /pathname:\s*'\/tools\/training-v2-plan-detail'/);
+  // "Mein Training" always opens the same flat sub-page now, unconditionally — which plan (if
+  // any) it acts on, and which unit it suggests, is TrainingV2MyTrainingScreen's own decision
+  // (via useTrainingV2Plans + the plan-detail read's nextUnit), not something the hub computes.
+  assert.doesNotMatch(hub, /findActiveTrainingV2Plan/);
+  assert.match(hub, /pathname:\s*'\/tools\/training-v2-my-training'/);
   assert.match(hub, /pathname:\s*'\/tools\/training-v2-plans'/);
   assert.match(hub, /pathname:\s*'\/tools\/training-v2-library'/);
 });
@@ -501,4 +505,158 @@ test('a target set only shows kg and Wiederholungen, with no RIR or rest-seconds
   // so the API/DB target-set model does not need to change for this.
   assert.match(row, /setField\('targetReps', value === null \? null : \{ minimum: value, maximum: value \}\)/);
   assert.match(row, /targetSet\.targetReps === null \? '' : String\(targetSet\.targetReps\.minimum\)/);
+});
+
+test('the session screen guards every way of leaving (header back, hardware back, iOS swipe) through one usePreventRemove, with exactly the three required options and no silent or extra leave path', () => {
+  const session = read('./TrainingV2SessionActiveScreen.jsx');
+  assert.match(session, /from '@react-navigation\/native'/);
+  assert.match(session, /usePreventRemove\(Boolean\(draft\),/);
+  // Same reasoning as the plan editor's own usePreventRemove use: a hand-rolled
+  // beforeRemove/BackHandler listener races an interactive swipe-back, usePreventRemove does
+  // not — so no manual listener may exist alongside it here either.
+  assert.doesNotMatch(session, /addListener\(\s*['"]beforeRemove['"]/);
+  assert.doesNotMatch(session, /BackHandler/);
+  assert.match(session, /text: 'Training fortsetzen', style: 'cancel'/);
+  assert.match(session, /text:\s*\n?\s*'Unvollständig speichern'/);
+  assert.match(session, /text:\s*\n?\s*'Training verwerfen'/);
+  assert.match(session, /navigation\.dispatch\(data\.action\)/);
+  // No second, differently-worded discard path that could leave without going through the
+  // three-option guard above (this screen used to have its own separate "Verwerfen" link).
+  assert.doesNotMatch(session, /discardLink/);
+  assert.doesNotMatch(session, /confirmDiscard/);
+  assert.doesNotMatch(session, /'Training verwerfen\?'/);
+});
+
+test('the leave-guard arms as soon as a session draft exists, independent of hasSessionProgress — an untouched draft is not exempt, and stays armed through an in-flight save', () => {
+  const session = read('./TrainingV2SessionActiveScreen.jsx');
+  const guardLine = session.slice(session.indexOf('usePreventRemove('), session.indexOf('usePreventRemove(') + 40);
+  // hasSessionProgress must play no part in whether the guard is armed. It is still used
+  // elsewhere on this screen (to decide whether the "Unvollständig beenden" shortcut button is
+  // shown), so a blanket doesNotMatch on the whole file would be wrong — scoped to the guard's
+  // own condition instead.
+  assert.doesNotMatch(guardLine, /hasSessionProgress/);
+  assert.match(guardLine, /usePreventRemove\(Boolean\(draft\), \(/);
+  // `saving` must not be part of the boolean passed to usePreventRemove — gating the guard
+  // itself on `!saving` used to disarm it for the whole duration of an in-flight save (a real
+  // network round-trip), letting a concurrent hardware-back/swipe/header-tap leave silently,
+  // unconfirmed, and race finishSave's own post-save navigation. `saving` is checked inside the
+  // callback body instead (see the next test), which blocks a second leave attempt without ever
+  // turning the guard itself off.
+  assert.doesNotMatch(guardLine, /!saving/);
+});
+
+test('a leave attempt while a save is already in flight is blocked silently (no second dialog, no unconfirmed exit) — only finishSave\'s own bypass ref lets its post-save navigation through', () => {
+  const session = read('./TrainingV2SessionActiveScreen.jsx');
+  const guardBody = session.slice(session.indexOf('usePreventRemove(Boolean(draft),'), session.indexOf("Alert.alert(\n      'Training verlassen?'"));
+  assert.match(guardBody, /if \(bypassLeaveGuardRef\.current\) \{/);
+  assert.match(guardBody, /navigation\.dispatch\(data\.action\)/);
+  assert.match(guardBody, /if \(saving\) return;/);
+  // The saving-check must come after the bypass check, and before Alert.alert — a concurrent
+  // leave attempt during an in-flight save must never reach the dialog.
+  const bypassIndex = guardBody.indexOf('bypassLeaveGuardRef.current');
+  const savingIndex = guardBody.indexOf('if (saving) return;');
+  assert.ok(bypassIndex >= 0 && bypassIndex < savingIndex, 'bypass check must be evaluated before the saving check');
+
+  // finishSave is the only place the bypass ref is ever set, and it does so immediately before
+  // its own router.back() — never before save() resolves successfully.
+  const finishSave = session.slice(session.indexOf('const finishSave'), session.indexOf('const { completedSets, totalSets }'));
+  assert.match(finishSave, /if \(outcome\.ok\) \{\s*bypassLeaveGuardRef\.current = true;\s*router\.back\(\);\s*\}/);
+  assert.equal((session.match(/bypassLeaveGuardRef\.current = true/g) ?? []).length, 1, 'the bypass ref is set from exactly one place');
+});
+
+test('the guard\'s three options are wired to the correct effect: "Training verwerfen" discards (clears the persisted draft), "Unvollständig speichern" saves, "Training fortsetzen" does neither', () => {
+  const session = read('./TrainingV2SessionActiveScreen.jsx');
+  const discardBlock = session.slice(session.indexOf("'Training verwerfen'"), session.indexOf("'Training verwerfen'") + 200);
+  assert.match(discardBlock, /await discard\(\);/);
+  assert.match(discardBlock, /navigation\.dispatch\(data\.action\)/);
+  const saveBlock = session.slice(session.indexOf("'Unvollständig speichern'"), session.indexOf("'Unvollständig speichern'") + 250);
+  assert.match(saveBlock, /await save\('incomplete'\)/);
+  // "Training fortsetzen" is the plain cancel entry with no onPress at all — selecting it must
+  // neither discard nor save, it just closes the dialog and leaves the draft untouched.
+  assert.match(session, /\{ text: 'Training fortsetzen', style: 'cancel' \},/);
+});
+
+test('"Mein Training" prefers a resumable local draft over the server-suggested nextUnit, and only offers other strength units once a resumable/suggested target already exists', () => {
+  const myTraining = read('./TrainingV2MyTrainingScreen.jsx');
+  // resolveTargetUnit: a resumable draft short-circuits before nextUnit is ever consulted.
+  const resolveBody = myTraining.slice(
+    myTraining.indexOf('function resolveTargetUnit'),
+    myTraining.indexOf('export default function TrainingV2MyTrainingScreen'),
+  );
+  assert.match(resolveBody, /if \(resumableUnitId\) \{/);
+  assert.match(resolveBody, /resuming: true/);
+  const nextUnitIndex = resolveBody.indexOf('plan.nextUnit');
+  const resumableIndex = resolveBody.indexOf('if (resumableUnitId)');
+  assert.ok(resumableIndex < nextUnitIndex, 'the resumable-draft branch must be checked, and returned from, before plan.nextUnit is ever read');
+
+  // findTrainingV2SessionDraftForPlan is only ever used to look up resumableUnitId — never
+  // recomputed as an alternative unit source or bypassed by a fresh unit selection.
+  assert.match(myTraining, /findTrainingV2SessionDraftForPlan/);
+  assert.match(myTraining, /setResumableUnitId\(resumable\?\.unitId \?\? null\)/);
+
+  // Selecting a different supported (strength) unit is only offered once more than one exists,
+  // and lists every strength unit of the active plan — not only the suggested/resumed one.
+  assert.match(myTraining, /plan\.units\.filter\(\(unit\) => unit\.unitType === 'strength'\)\.length > 1/);
+  assert.match(myTraining, /onPress=\{\(\) => openSession\(unit\.id\)\}/);
+});
+
+test('"Mein Training" never offers a non-strength unit as startable — resolveTargetUnit and the alternative-unit list both filter to unitType === \'strength\' before anything is picked or rendered', () => {
+  const myTraining = read('./TrainingV2MyTrainingScreen.jsx');
+  const resolveBody = myTraining.slice(
+    myTraining.indexOf('function resolveTargetUnit'),
+    myTraining.indexOf('export default function TrainingV2MyTrainingScreen'),
+  );
+  // strengthUnits is derived first and is the only pool resolveTargetUnit ever picks from —
+  // both the resumable match and the plan.nextUnit lookup search within it, never plan.units
+  // directly, so a rest/run/mobility/stretching unit id can never come out of this function.
+  const strengthUnitsIndex = resolveBody.indexOf("plan.units.filter((unit) => unit.unitType === 'strength')");
+  assert.ok(strengthUnitsIndex >= 0, 'resolveTargetUnit must derive its candidate pool from strength units only');
+  assert.match(resolveBody, /strengthUnits\.find\(\(unit\) => unit\.id === resumableUnitId\)/);
+  assert.match(resolveBody, /strengthUnits\.length === 0/);
+
+  // Same filter guards the "Andere Einheit wählen" list the user can tap into before a session
+  // starts — a non-strength unit is never rendered as a startable row.
+  const otherUnitsSection = myTraining.slice(myTraining.indexOf('Andere Einheit wählen'));
+  assert.match(otherUnitsSection, /unit\.unitType === 'strength'/);
+});
+
+test('the session screen has exactly one "Notiz zur Übung" field per exercise, wired to updateNote(exerciseIndex, ...) — never the read-only "Letzte Notiz" hint, and never one of the per-set "Notiz zum Satz" inputs', () => {
+  const session = read('./TrainingV2SessionActiveScreen.jsx');
+  assert.match(session, /accessibilityLabel="Notiz zur Übung"/);
+  assert.match(session, /onChangeText=\{\(text\) => updateNote\(exerciseIndex, text\)\}/);
+  assert.match(session, /value=\{exercise\.note \?\? ''\}/);
+
+  // The exercise note field sits inside the exercise card, before any per-set row, and reads
+  // from exercise.note — never from lastNotes (the "Letzte Notiz" hint is never copied into
+  // today's editable field, matching useLastExerciseNotes' own contract).
+  const cardStart = session.indexOf('draft.exercises.map((exercise, exerciseIndex) =>');
+  const noteFieldIndex = session.indexOf('accessibilityLabel="Notiz zur Übung"');
+  const firstSetRowIndex = session.indexOf('exercise.sets.map((set, setIndex) =>');
+  assert.ok(cardStart >= 0 && cardStart < noteFieldIndex && noteFieldIndex < firstSetRowIndex);
+  const noteFieldBlock = session.slice(noteFieldIndex - 20, noteFieldIndex + 400);
+  assert.doesNotMatch(noteFieldBlock, /lastNotes\[/);
+
+  // updateNote must come from the session hook alongside updateInput, not be a locally
+  // reinvented setter.
+  assert.match(session, /updateInput, updateNote, completeSet, uncompleteSet,/);
+
+  // Exactly one visible note field per exercise means exactly one "Notiz..." TextInput in the
+  // whole screen source per rendered exercise card — i.e. no second, per-set note field sits
+  // alongside it. SessionSetRow (the per-set row component) is the only other place a note
+  // input could hide, so its own body is asserted empty of one below.
+  assert.equal((session.match(/accessibilityLabel="Notiz[^"]*"/g) ?? []).length, 1);
+});
+
+test('SessionSetRow renders no note input at all — the per-set "Notiz zum Satz" field has been fully removed from the mobile UI, not just hidden', () => {
+  const session = read('./TrainingV2SessionActiveScreen.jsx');
+  assert.doesNotMatch(session, /Notiz zum Satz/);
+  assert.doesNotMatch(session, /Satznotiz/);
+
+  const setRowStart = session.indexOf('function SessionSetRow');
+  const setRowEnd = session.indexOf('export default function TrainingV2SessionActiveScreen');
+  const setRowBody = session.slice(setRowStart, setRowEnd);
+  assert.ok(setRowStart >= 0 && setRowEnd > setRowStart);
+  assert.equal((setRowBody.match(/<TextInput/g) ?? []).length, 2, 'only the kg and Wiederholungen inputs remain in the per-set row');
+  assert.doesNotMatch(setRowBody, /accessibilityLabel="Notiz/);
+  assert.doesNotMatch(setRowBody, /updateInput\(exerciseIndex, setIndex, \{ note:/);
 });

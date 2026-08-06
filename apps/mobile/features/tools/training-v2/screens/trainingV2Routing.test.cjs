@@ -20,6 +20,8 @@ const FLAT_SUBPAGES = [
   'training-v2-plan-detail.jsx',
   'training-v2-plan-editor.jsx',
   'training-v2-library.jsx',
+  'training-v2-my-training.jsx',
+  'training-v2-session-active.jsx',
 ];
 
 test('Tools -> Hub: the tools overview enters the training flow through exactly one route, with no intermediate redirect', () => {
@@ -33,10 +35,15 @@ test('Tools -> Hub: the tools overview enters the training flow through exactly 
 test('Hub -> sub-page: training-v2 sub-pages are flat siblings of the hub in the single outer tools stack, not duplicated inside any nested training stack', () => {
   for (const name of FLAT_SUBPAGES) {
     const route = read(`../../../../app/(tabs)/tools/${name}`);
-    // The plans list route uses its own, narrowly-scoped black background (per its
-    // reference mockup) instead of the shared cosmic TrainingV2Background used by the
-    // other flat sub-pages — see trainingV2Screens.test.cjs for that isolation in detail.
-    const expectedBackground = name === 'training-v2-plans.jsx' ? 'TrainingV2PlansBackground' : 'TrainingV2Background';
+    // The plans list and my-training routes each use their own, narrowly-scoped black
+    // background (per their reference mockups) instead of the shared cosmic
+    // TrainingV2Background used by the other flat sub-pages — see trainingV2Screens.test.cjs
+    // for that isolation in detail.
+    const routeSpecificBackgrounds = {
+      'training-v2-plans.jsx': 'TrainingV2PlansBackground',
+      'training-v2-my-training.jsx': 'TrainingV2MyTrainingBackground',
+    };
+    const expectedBackground = routeSpecificBackgrounds[name] ?? 'TrainingV2Background';
     assert.match(route, new RegExp(expectedBackground), `${name} must render its background wrapper`);
   }
 

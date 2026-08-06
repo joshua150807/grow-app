@@ -212,6 +212,18 @@ export const trainingPlanScheduleSchema = z.object({
   effectiveAt: isoDateTimeSchema,
 }).strict();
 
+// The unit the server-side cycle tracker (training_plan_cycle_states_v2) currently points at
+// for this plan — advanced automatically on session completion/skip and remapped on plan
+// revisions. Only ever set for a plan that has an active cycle state (in practice: currently
+// or previously activated); a plan that was never activated has none. `.default(null)` for the
+// same reason as sourceTemplateId etc. below: existing repository call sites must keep parsing
+// even before they're updated to supply this key.
+export const planNextUnitSchema = z.object({
+  id: unitIdSchema,
+  logicalUnitKey: logicalUnitKeySchema,
+  orderIndex: orderIndexSchema,
+}).strict();
+
 const trainingPlanSummaryShape = {
   id: planIdSchema,
   name: nameSchema,
@@ -243,6 +255,7 @@ const trainingPlanSummaryShape = {
   // render it without a separate template lookup and without depending on the template
   // still existing or being unchanged later.
   sourceTemplateImageReference: z.string().nullable().default(null),
+  nextUnit: planNextUnitSchema.nullable().default(null),
 };
 
 function validateScheduleStatus(
@@ -448,6 +461,7 @@ export type PlanTargetExercise = z.infer<typeof planTargetExerciseSchema>;
 export type PlanUnit = z.infer<typeof planUnitSchema>;
 export type PlanRevision = z.infer<typeof planRevisionSchema>;
 export type TrainingPlanSchedule = z.infer<typeof trainingPlanScheduleSchema>;
+export type PlanNextUnit = z.infer<typeof planNextUnitSchema>;
 export type TrainingPlanSummary = z.infer<typeof trainingPlanSummarySchema>;
 export type TrainingPlan = z.infer<typeof trainingPlanSchema>;
 export type ListTrainingPlansResponse = z.infer<typeof listTrainingPlansResponseSchema>;

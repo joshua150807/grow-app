@@ -304,12 +304,71 @@ describe('training plan API PostgreSQL integration', () => {
       last_trigger: 'plan_revision_remapped',
       logical_unit_key: remaining.logicalUnitKey,
     });
+    // The cycle tracker itself now points at the surviving unit (asserted above) — but that
+    // surviving unit is the 'Rest' unit, and this revision has no other unit at all, so the
+    // API's own nextUnit (which only ever surfaces a 'strength' unit, see planSummarySelect's
+    // fallback join) has nothing to fall back to and reports null rather than a unit the app
+    // could never start as a Kraftsession.
+    expect(update.json().plan.nextUnit).toBeNull();
     const stale = await server.inject({
       method: 'PATCH', url: `/v1/training/plans/${plan.id}`, headers: headersA,
       payload: { name: 'Stale', expectedVersion: 1, units: [{ ...remaining, orderIndex: 0 }] },
     });
     expect(stale.statusCode).toBe(409);
     expect(stale.json().error.code).toBe('TRAINING_PLAN_VERSION_CONFLICT');
+  });
+
+  it('nextUnit falls back to the first strength unit of the current revision for a draft plan with no cycle state yet', async () => {
+    const draft = (await create(payload())).json().plan;
+    expect((await pool.query(
+      'select count(*)::int count from public.training_plan_cycle_states_v2 where plan_id=$1', [draft.id],
+    )).rows[0].count).toBe(0);
+    expect(draft.nextUnit).toEqual({
+      id: draft.revision.units[0].id,
+      logicalUnitKey: draft.revision.units[0].logicalUnitKey,
+      orderIndex: 0,
+    });
+  });
+
+  it('nextUnit falls back to the first strength unit when the cycle tracker itself points at a non-strength unit, and stays null once no strength unit exists at all', async () => {
+    const restFirst = {
+      name: 'Plan',
+      weeklyGoal: 3,
+      activateImmediately: true,
+      units: [
+        { logicalUnitKey: randomUUID(), name: 'Rest', unitType: 'rest', orderIndex: 0, exercises: [] },
+        {
+          logicalUnitKey: randomUUID(), name: 'Strength', unitType: 'strength', orderIndex: 1,
+          exercises: [targetExercise(systemExercise, 0)],
+        },
+      ],
+    };
+    const created = await create(restFirst);
+    const plan = created.json().plan;
+    // resetCycle() (on activation) points at the very first unit by order_index regardless of
+    // type, so the cycle tracker itself now targets the 'Rest' unit -- confirm that directly
+    // before asserting the API's own fallback around it.
+    const cycle = await pool.query(`
+      select unit.unit_type from public.training_plan_cycle_states_v2 cycle
+      join public.training_plan_units_v2 unit on unit.id=cycle.next_unit_id
+      where cycle.plan_id=$1
+    `, [plan.id]);
+    expect(cycle.rows[0].unit_type).toBe('rest');
+    expect(plan.nextUnit).toEqual({
+      id: plan.revision.units[1].id,
+      logicalUnitKey: restFirst.units[1].logicalUnitKey,
+      orderIndex: 1,
+    });
+
+    const restOnly = await server.inject({
+      method: 'PATCH', url: `/v1/training/plans/${plan.id}`, headers: headersA,
+      payload: {
+        name: 'Rest only', expectedVersion: 1,
+        units: [{ logicalUnitKey: randomUUID(), name: 'Rest', unitType: 'rest', orderIndex: 0, exercises: [] }],
+      },
+    });
+    expect(restOnly.statusCode).toBe(200);
+    expect(restOnly.json().plan.nextUnit).toBeNull();
   });
 
   it('activation archives the old active plan and reactivation resets to unit one', async () => {
