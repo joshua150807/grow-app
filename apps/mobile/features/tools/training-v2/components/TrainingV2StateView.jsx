@@ -23,4 +23,3 @@ export function TrainingV2StateView({ loading, error, onRetry }) {
     </View>
   );
 }
-

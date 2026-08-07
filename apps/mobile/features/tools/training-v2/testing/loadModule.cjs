@@ -25,4 +25,3 @@ function loadModule(fromDirectory, relativePath, mocks = {}) {
 }
 
 module.exports = { loadModule };
-

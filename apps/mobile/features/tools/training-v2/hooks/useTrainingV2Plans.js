@@ -77,4 +77,3 @@ export function useTrainingV2Plans() {
     refresh: useCallback(() => load({ refresh: true }), [load]),
   };
 }
-

@@ -8,4 +8,3 @@ export function useTrainingV2ArchiveVisibility() {
 
   return { archivesExpanded, toggleArchives };
 }
-

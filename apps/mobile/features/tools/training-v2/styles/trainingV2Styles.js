@@ -636,4 +636,3 @@ export const styles = StyleSheet.create({
   mtLowerCardSubtitle: { color: COLORS.textMuted, fontSize: sf(10), marginTop: sv(2) },
   mtLowerCardEmptyText: { color: COLORS.textDim, fontSize: sf(11), lineHeight: sf(15), marginTop: sv(10) },
 });
-

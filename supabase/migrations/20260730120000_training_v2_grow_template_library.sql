@@ -717,4 +717,3 @@ from (values
   target_reps_min, target_reps_max, target_rir, planned_rest_seconds
 )
 on conflict (id) do nothing;
-

@@ -66,4 +66,3 @@ export function useTrainingV2PlanDetail(planId) {
     applyServerPlan,
   };
 }
-
