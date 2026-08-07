@@ -5,6 +5,7 @@ import {
   lastExerciseNoteResponseSchema,
   listTrainingExercisesResponseSchema,
   listTrainingPlansResponseSchema,
+  listTrainingSessionsResponseSchema,
   listTrainingTemplatesResponseSchema,
   planVersionInputSchema,
   scheduleTrainingPlanInputSchema,
@@ -12,6 +13,7 @@ import {
   trainingExerciseDetailResponseSchema,
   trainingPlanDetailResponseSchema,
   trainingSessionDetailResponseSchema,
+  trainingSessionResponseSchema,
   trainingTemplateDetailResponseSchema,
   updateTrainingPlanInputSchema,
   updateWeeklyGoalInputSchema,
@@ -268,6 +270,30 @@ export async function createTrainingV2Session(input) {
     { method: 'POST', body },
     trainingSessionDetailResponseSchema,
   );
+}
+
+// History/dashboard read path: paginated list of the caller's own past sessions (newest
+// first, no filters), and a single session's full snapshot by id. Neither call ever 404s for
+// "not visible any more" the way a plan read can — a session keeps meaning what it meant
+// even after its source plan is edited, archived or deleted server-side.
+export async function listTrainingV2Sessions(query = {}) {
+  const searchParams = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    searchParams.set(key, String(value));
+  });
+  const queryString = searchParams.toString();
+  return requestTrainingV2(
+    `/v1/training/sessions${queryString ? `?${queryString}` : ''}`,
+    listTrainingSessionsResponseSchema,
+  );
+}
+
+export async function getTrainingV2Session(sessionId) {
+  return (await requestTrainingV2(
+    `/v1/training/sessions/${encodeURIComponent(sessionId)}`,
+    trainingSessionResponseSchema,
+  )).session;
 }
 
 // Read-only lookup for the "Letzte Notiz" hint (last note left on this exercise in any past

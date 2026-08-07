@@ -98,7 +98,7 @@ export type PersistedSessionExercise = z.infer<typeof persistedSessionExerciseSc
 // unit still exist (see the on-delete-set-null design note in the session-core migration) —
 // planId/planRevisionId/sourceUnitId are kept only as best-effort backlinks and go null once
 // their source is gone.
-export const trainingSessionSchema = z.object({
+const trainingSessionSummaryShape = {
   id: sessionIdSchema,
   planId: planIdSchema.nullable(),
   planRevisionId: planRevisionIdSchema.nullable(),
@@ -111,6 +111,17 @@ export const trainingSessionSchema = z.object({
   status: persistedSessionStatusSchema,
   idempotencyKey: idempotencyKeySchema,
   createdAt: isoDateTimeSchema,
+};
+
+// The list-view projection of a session: every historical identity field, but without the
+// nested exercises/sets a history/dashboard list never renders — avoids an n+1 exercises/sets
+// fetch per row (see trainingSessionRepository.ts's list()). Mirrors the
+// trainingPlanSummarySchema/trainingPlanSchema split in plans.ts.
+export const trainingSessionSummarySchema = z.object(trainingSessionSummaryShape).strict();
+export type TrainingSessionSummary = z.infer<typeof trainingSessionSummarySchema>;
+
+export const trainingSessionSchema = z.object({
+  ...trainingSessionSummaryShape,
   exercises: z.array(persistedSessionExerciseSchema),
 }).strict();
 export type TrainingSession = z.infer<typeof trainingSessionSchema>;
@@ -123,6 +134,59 @@ export const trainingSessionDetailResponseSchema = z.object({
   created: z.boolean(),
 }).strict();
 export type TrainingSessionDetailResponse = z.infer<typeof trainingSessionDetailResponseSchema>;
+
+// Coerces a string query param to an integer the same way exercises.ts's own queryInteger
+// does (duplicated locally rather than shared/exported — the only two call sites, one per
+// module, would otherwise force an unrelated cross-file dependency for four lines of logic).
+const queryInteger = (minimum: number, maximum?: number) => z.preprocess(
+  (value) => {
+    if (typeof value !== 'string') return value;
+    if (!/^\d+$/.test(value)) return value;
+    return Number(value);
+  },
+  maximum === undefined
+    ? z.number().int().safe().min(minimum)
+    : z.number().int().safe().min(minimum).max(maximum),
+);
+
+// Read path for the session history/dashboard — list (paginated, newest first) and get-by-id.
+// No status/date/plan filters here: not requested for this read path, and every terminal
+// session (completed or incomplete) must stay visible in the plain list.
+export const listTrainingSessionsQuerySchema = z.object({
+  limit: queryInteger(1, 100).default(50),
+  page: queryInteger(0).default(0),
+}).strict().superRefine(({ limit, page }, context) => {
+  if (!Number.isSafeInteger(page * limit)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Pagination offset must be a safe integer.',
+      path: ['page'],
+    });
+  }
+});
+export type ListTrainingSessionsQuery = z.infer<typeof listTrainingSessionsQuerySchema>;
+
+export const listTrainingSessionsResponseSchema = z.object({
+  sessions: z.array(trainingSessionSummarySchema),
+  pagination: z.object({
+    page: z.number().int().nonnegative(),
+    limit: z.number().int().min(1).max(100),
+    hasMore: z.boolean(),
+  }).strict(),
+}).strict();
+export type ListTrainingSessionsResponse = z.infer<typeof listTrainingSessionsResponseSchema>;
+
+export const trainingSessionIdParamsSchema = z.object({
+  sessionId: sessionIdSchema,
+}).strict();
+export type TrainingSessionIdParams = z.infer<typeof trainingSessionIdParamsSchema>;
+
+// Get-by-id response — deliberately not trainingSessionDetailResponseSchema, which also
+// carries `created` (a create-only concept with no meaning for a plain read).
+export const trainingSessionResponseSchema = z.object({
+  session: trainingSessionSchema,
+}).strict();
+export type TrainingSessionResponse = z.infer<typeof trainingSessionResponseSchema>;
 
 // The most recent exercise-level note the user left on this exercise, across every past
 // session — read-only lookup for "Letzte Notiz" (shown next to today's note field, never

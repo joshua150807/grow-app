@@ -97,6 +97,12 @@ export const trainingRoutes: FastifyPluginAsync<TrainingRoutesOptions> = async (
     return reply.code(204).send();
   });
 
+  app.get('/training/sessions', { preHandler: [app.requireAuth] }, async (request) => (
+    sessionService().list(request.auth.user!, request.query)
+  ));
+  app.get('/training/sessions/:sessionId', { preHandler: [app.requireAuth] }, async (request) => (
+    sessionService().get(request.auth.user!, request.params)
+  ));
   app.post('/training/sessions', { preHandler: [app.requireAuth] }, async (request, reply) => {
     const result = await sessionService().create(request.auth.user!, request.body);
     return reply.code(result.created ? 201 : 200).send(result);

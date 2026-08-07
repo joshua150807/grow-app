@@ -1,7 +1,11 @@
 import {
   createTrainingSessionInputSchema,
   lastExerciseNoteResponseSchema,
+  listTrainingSessionsQuerySchema,
+  listTrainingSessionsResponseSchema,
   trainingExerciseIdParamsSchema,
+  trainingSessionIdParamsSchema,
+  trainingSessionResponseSchema,
 } from '@grow/shared';
 import { z, ZodError } from 'zod';
 import type { AuthUser } from '../../auth/types.js';
@@ -63,6 +67,24 @@ export function createTrainingSessionService(
         note: found?.note ?? null,
         completedAt: found?.completedAt ?? null,
       });
+    },
+
+    async list(user: AuthUser, queryValue: unknown) {
+      const query = parse(listTrainingSessionsQuerySchema, queryValue);
+      const result = await repository.list(user.id, query);
+      return listTrainingSessionsResponseSchema.parse({
+        sessions: result.sessions,
+        pagination: { page: query.page, limit: query.limit, hasMore: result.hasMore },
+      });
+    },
+
+    async get(user: AuthUser, paramsValue: unknown) {
+      const { sessionId } = parse(trainingSessionIdParamsSchema, paramsValue);
+      const session = await repository.find(user.id, sessionId);
+      if (!session) {
+        throw new AppError(404, 'TRAINING_SESSION_NOT_FOUND', 'Training session was not found.');
+      }
+      return trainingSessionResponseSchema.parse({ session });
     },
   };
 }

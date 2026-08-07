@@ -34,6 +34,8 @@ const session: TrainingSession = {
   exercises: [],
 };
 
+const { exercises: _sessionExercises, ...sessionSummary } = session;
+
 function createInput(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     planId,
@@ -66,6 +68,8 @@ function repository(overrides: Partial<TrainingSessionRepository> = {}): Trainin
   return {
     create: vi.fn(async (): Promise<CreateSessionResult> => ({ outcome: 'ok', session, created: true })),
     findLastExerciseNote: vi.fn(async () => null),
+    list: vi.fn(async () => ({ sessions: [], hasMore: false })),
+    find: vi.fn(async () => null),
     ...overrides,
   };
 }
@@ -241,6 +245,99 @@ describe('training session API', () => {
     });
     expect(response.statusCode).toBe(400);
     expect(value.findLastExerciseNote).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it('requires auth for GET /v1/training/sessions', async () => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({ method: 'GET', url: '/v1/training/sessions' });
+    expect(response.statusCode).toBe(401);
+    expect(value.list).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it('lists sessions using the repository\'s summary + hasMore result and default pagination', async () => {
+    const value = repository({
+      list: vi.fn(async () => ({ sessions: [sessionSummary], hasMore: true })),
+    });
+    const server = app(value);
+    const response = await server.inject({ method: 'GET', url: '/v1/training/sessions', headers });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      sessions: [sessionSummary],
+      pagination: { page: 0, limit: 50, hasMore: true },
+    });
+    expect(value.list).toHaveBeenCalledWith(user.id, { page: 0, limit: 50 });
+    await server.close();
+  });
+
+  it('passes page/limit query params through to the repository and echoes them in pagination', async () => {
+    const value = repository({
+      list: vi.fn(async () => ({ sessions: [], hasMore: false })),
+    });
+    const server = app(value);
+    const response = await server.inject({
+      method: 'GET', url: '/v1/training/sessions?page=2&limit=10', headers,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().pagination).toEqual({ page: 2, limit: 10, hasMore: false });
+    expect(value.list).toHaveBeenCalledWith(user.id, { page: 2, limit: 10 });
+    await server.close();
+  });
+
+  it('rejects an out-of-range limit without calling the repository', async () => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({
+      method: 'GET', url: '/v1/training/sessions?limit=0', headers,
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('TRAINING_SESSION_VALIDATION_ERROR');
+    expect(value.list).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it('requires auth for GET /v1/training/sessions/:sessionId', async () => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({ method: 'GET', url: `/v1/training/sessions/${session.id}` });
+    expect(response.statusCode).toBe(401);
+    expect(value.find).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it('returns the full session snapshot by id', async () => {
+    const value = repository({ find: vi.fn(async () => session) });
+    const server = app(value);
+    const response = await server.inject({
+      method: 'GET', url: `/v1/training/sessions/${session.id}`, headers,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ session });
+    expect(value.find).toHaveBeenCalledWith(user.id, session.id);
+    await server.close();
+  });
+
+  it('maps a missing/foreign session to 404 TRAINING_SESSION_NOT_FOUND', async () => {
+    const value = repository({ find: vi.fn(async () => null) });
+    const server = app(value);
+    const response = await server.inject({
+      method: 'GET', url: `/v1/training/sessions/${session.id}`, headers,
+    });
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe('TRAINING_SESSION_NOT_FOUND');
+    await server.close();
+  });
+
+  it('rejects a non-uuid sessionId param without calling the repository', async () => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({
+      method: 'GET', url: '/v1/training/sessions/not-a-uuid', headers,
+    });
+    expect(response.statusCode).toBe(400);
+    expect(value.find).not.toHaveBeenCalled();
     await server.close();
   });
 });

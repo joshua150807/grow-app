@@ -1,5 +1,10 @@
-import type { CreateTrainingSessionInput, TrainingSession } from '@grow/shared/src/training/sessions.js';
-import { trainingSessionSchema } from '@grow/shared/src/training/sessions.js';
+import type {
+  CreateTrainingSessionInput,
+  ListTrainingSessionsQuery,
+  TrainingSession,
+  TrainingSessionSummary,
+} from '@grow/shared/src/training/sessions.js';
+import { trainingSessionSchema, trainingSessionSummarySchema } from '@grow/shared/src/training/sessions.js';
 import type pg from 'pg';
 import { getPgPool } from '../../db/client.js';
 import { transaction, type Client, type Database } from '../trainingPlans/trainingPlanRepository.js';
@@ -16,6 +21,11 @@ export type CreateSessionResult =
 export type TrainingSessionRepository = {
   create(userId: string, input: CreateTrainingSessionInput): Promise<CreateSessionResult>;
   findLastExerciseNote(userId: string, exerciseId: string): Promise<{ note: string; completedAt: string } | null>;
+  list(
+    userId: string,
+    query: ListTrainingSessionsQuery,
+  ): Promise<{ sessions: TrainingSessionSummary[]; hasMore: boolean }>;
+  find(userId: string, sessionId: string): Promise<TrainingSession | null>;
 };
 
 type SessionRow = {
@@ -102,6 +112,51 @@ async function loadSession(
   return parsed.data;
 }
 
+function mapSessionSummaryRow(row: SessionRow): TrainingSessionSummary {
+  const parsed = trainingSessionSummarySchema.safeParse({
+    id: String(row.id),
+    planId: row.plan_id === null ? null : String(row.plan_id),
+    planRevisionId: row.plan_revision_id === null ? null : String(row.plan_revision_id),
+    sourceUnitId: row.source_unit_id === null ? null : String(row.source_unit_id),
+    planName: String(row.plan_name),
+    revisionNumber: Number(row.revision_number),
+    logicalUnitKey: String(row.logical_unit_key),
+    unitName: String(row.unit_name),
+    unitType: row.unit_type,
+    status: row.status,
+    idempotencyKey: String(row.idempotency_key),
+    createdAt: iso(row.created_at),
+  });
+  if (!parsed.success) {
+    const error = new Error('Internal training session contract violation.');
+    error.name = 'TrainingSessionContractError';
+    throw error;
+  }
+  return parsed.data;
+}
+
+// Owner-scoped only -- deliberately no join/filter on plan status or deleted_at (see the
+// plan-tombstones migration's own comment): a session must keep listing exactly as it always
+// has even after its source plan is edited, archived or deleted. Rides
+// training_sessions_v2_user_created_at_idx (user_id, created_at desc); `id desc` is only a
+// deterministic tiebreaker for rows sharing a created_at timestamp.
+async function listSessions(
+  db: Pick<pg.Pool, 'query'>, userId: string, query: ListTrainingSessionsQuery,
+): Promise<{ sessions: TrainingSessionSummary[]; hasMore: boolean }> {
+  const result = await db.query<SessionRow>(`
+    select id,plan_id,plan_revision_id,source_unit_id,plan_name,revision_number,logical_unit_key,
+      unit_name,unit_type,status,idempotency_key,created_at
+    from public.training_sessions_v2
+    where user_id=$1
+    order by created_at desc, id desc
+    limit $2 offset $3
+  `, [userId, query.limit + 1, query.page * query.limit]);
+  return {
+    sessions: result.rows.slice(0, query.limit).map(mapSessionSummaryRow),
+    hasMore: result.rows.length > query.limit,
+  };
+}
+
 async function findSessionByIdempotencyKey(
   client: Client, userId: string, idempotencyKey: string,
 ): Promise<{ id: string; fingerprint: string } | null> {
@@ -138,6 +193,12 @@ export function createTrainingSessionRepository(db: Database = getPgPool()): Tra
   return {
     findLastExerciseNote(userId, exerciseId) {
       return findLastExerciseNote(db, userId, exerciseId);
+    },
+    list(userId, query) {
+      return listSessions(db, userId, query);
+    },
+    find(userId, sessionId) {
+      return loadSession(db, userId, sessionId);
     },
     create(userId, input) {
       const fingerprint = computeSessionRequestFingerprint(input);

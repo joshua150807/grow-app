@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Pool } from 'pg';
+import { listTrainingSessionsResponseSchema, trainingSessionResponseSchema } from '@grow/shared';
 import { buildApp } from '../src/app.js';
 import type { AuthTokenVerifier } from '../src/auth/types.js';
 import { createTrainingPlanRepository } from '../src/modules/trainingPlans/trainingPlanRepository.js';
@@ -715,5 +716,152 @@ describe('training V2 session-core PostgreSQL integration', () => {
     await expect(pool.query(
       "update public.training_sessions_v2 set status='incomplete' where id=$1", [sessionId],
     )).rejects.toMatchObject({ code: '55000' });
+  });
+
+  describe('session read path (list + get by id)', () => {
+    it('lists only the caller\'s own sessions, and a session is only readable by id for its owner', async () => {
+      const { plan: ownPlan, unit0: ownUnit } = await createActivePlan(headersA);
+      const { plan: otherPlan, unit0: otherUnit } = await createActivePlan(headersB);
+
+      const ownSession = await server.inject({
+        method: 'POST', url: '/v1/training/sessions', headers: headersA,
+        payload: completeUnitPayload(ownPlan.id, ownUnit.id, randomUUID()),
+      });
+      expect(ownSession.statusCode).toBe(201);
+      const otherSession = await server.inject({
+        method: 'POST', url: '/v1/training/sessions', headers: headersB,
+        payload: completeUnitPayload(otherPlan.id, otherUnit.id, randomUUID()),
+      });
+      expect(otherSession.statusCode).toBe(201);
+      const ownSessionId = ownSession.json().session.id;
+      const otherSessionId = otherSession.json().session.id;
+
+      const list = await server.inject({ method: 'GET', url: '/v1/training/sessions', headers: headersA });
+      expect(list.statusCode).toBe(200);
+      const listBody = listTrainingSessionsResponseSchema.parse(list.json());
+      expect(listBody.sessions.map((entry) => entry.id)).toEqual([ownSessionId]);
+      expect(listBody.sessions.some((entry) => entry.id === otherSessionId)).toBe(false);
+
+      const ownGet = await server.inject({
+        method: 'GET', url: `/v1/training/sessions/${ownSessionId}`, headers: headersA,
+      });
+      expect(ownGet.statusCode).toBe(200);
+      // get-by-id must return the exact same full snapshot the create response already did.
+      expect(trainingSessionResponseSchema.parse(ownGet.json()).session).toEqual(ownSession.json().session);
+
+      // A foreign session id and a nonexistent id must be indistinguishable 404s -- a
+      // different shape (e.g. 403 for the foreign one) would leak that it exists at all.
+      const errors: unknown[] = [];
+      for (const url of [
+        `/v1/training/sessions/${otherSessionId}`,
+        `/v1/training/sessions/${randomUUID()}`,
+      ]) {
+        const response = await server.inject({ method: 'GET', url, headers: headersA });
+        expect(response.statusCode).toBe(404);
+        expect(response.json().error.code).toBe('TRAINING_SESSION_NOT_FOUND');
+        errors.push({
+          code: response.json().error.code,
+          message: response.json().error.message,
+          details: response.json().error.details,
+        });
+      }
+      expect(errors[1]).toEqual(errors[0]);
+    });
+
+    it('lists both completed and incomplete sessions', async () => {
+      const { plan, unit0, unit1 } = await createActivePlan(headersA);
+      const completed = await server.inject({
+        method: 'POST', url: '/v1/training/sessions', headers: headersA,
+        payload: completeUnitPayload(plan.id, unit0.id, randomUUID()),
+      });
+      const incomplete = await server.inject({
+        method: 'POST', url: '/v1/training/sessions', headers: headersA,
+        payload: completeUnitPayload(plan.id, unit1.id, randomUUID(), { status: 'incomplete' }),
+      });
+      expect(completed.statusCode).toBe(201);
+      expect(incomplete.statusCode).toBe(201);
+
+      const list = await server.inject({ method: 'GET', url: '/v1/training/sessions?limit=100', headers: headersA });
+      const body = listTrainingSessionsResponseSchema.parse(list.json());
+      const statusById = Object.fromEntries(body.sessions.map((entry) => [entry.id, entry.status]));
+      expect(statusById[completed.json().session.id]).toBe('completed');
+      expect(statusById[incomplete.json().session.id]).toBe('incomplete');
+    });
+
+    it('paginates deterministically newest-first, matching the database order, with limit-plus-one and no total count', async () => {
+      const { plan, unit0, unit1 } = await createActivePlan(headersA);
+      const createdIds: string[] = [];
+      for (let index = 0; index < 3; index += 1) {
+        const response = await server.inject({
+          method: 'POST', url: '/v1/training/sessions', headers: headersA,
+          payload: completeUnitPayload(plan.id, index % 2 === 0 ? unit0.id : unit1.id, randomUUID()),
+        });
+        expect(response.statusCode).toBe(201);
+        createdIds.push(response.json().session.id);
+      }
+
+      // The expected order is read straight from the same (user_id, created_at desc, id desc)
+      // ordering the repository's own query uses -- this test asserts the API matches the
+      // database's real order, not a fragile assumption about how far apart three sequential
+      // inserts' created_at timestamps land.
+      const expectedOrder = await pool.query(`
+        select id from public.training_sessions_v2 where user_id=$1 order by created_at desc, id desc
+      `, [userA]);
+      const expectedIds = expectedOrder.rows.map((row) => String(row.id));
+      expect(expectedIds.slice().sort()).toEqual(createdIds.slice().sort());
+
+      const first = listTrainingSessionsResponseSchema.parse((await server.inject({
+        method: 'GET', url: '/v1/training/sessions?limit=2&page=0', headers: headersA,
+      })).json());
+      const second = listTrainingSessionsResponseSchema.parse((await server.inject({
+        method: 'GET', url: '/v1/training/sessions?limit=2&page=1', headers: headersA,
+      })).json());
+      expect(first.pagination).toEqual({ page: 0, limit: 2, hasMore: true });
+      expect(second.pagination).toEqual({ page: 1, limit: 2, hasMore: false });
+      expect([...first.sessions, ...second.sessions].map((entry) => entry.id)).toEqual(expectedIds);
+      expect(new Set([...first.sessions, ...second.sessions].map((entry) => entry.id)).size).toBe(3);
+    });
+
+    it('keeps a session listable and fully readable by id after its source plan is deleted (tombstoned)', async () => {
+      const { plan, unit0 } = await createActivePlan(headersA);
+      const created = await server.inject({
+        method: 'POST', url: '/v1/training/sessions', headers: headersA,
+        payload: completeUnitPayload(plan.id, unit0.id, randomUUID()),
+      });
+      expect(created.statusCode).toBe(201);
+      const sessionId = created.json().session.id;
+
+      const deletion = await server.inject({ method: 'DELETE', url: `/v1/training/plans/${plan.id}`, headers: headersA });
+      expect(deletion.statusCode).toBe(204);
+
+      const list = await server.inject({ method: 'GET', url: '/v1/training/sessions', headers: headersA });
+      expect(list.statusCode).toBe(200);
+      expect(listTrainingSessionsResponseSchema.parse(list.json()).sessions.map((entry) => entry.id))
+        .toContain(sessionId);
+
+      const get = await server.inject({ method: 'GET', url: `/v1/training/sessions/${sessionId}`, headers: headersA });
+      expect(get.statusCode).toBe(200);
+      expect(trainingSessionResponseSchema.parse(get.json()).session).toEqual(created.json().session);
+    });
+
+    it('rejects invalid pagination and a non-uuid session id with a 400, never a 404 or 500', async () => {
+      const invalidLimit = await server.inject({
+        method: 'GET', url: '/v1/training/sessions?limit=0', headers: headersA,
+      });
+      expect(invalidLimit.statusCode).toBe(400);
+      expect(invalidLimit.json().error.code).toBe('TRAINING_SESSION_VALIDATION_ERROR');
+
+      const invalidPage = await server.inject({
+        method: 'GET', url: '/v1/training/sessions?page=-1', headers: headersA,
+      });
+      expect(invalidPage.statusCode).toBe(400);
+      expect(invalidPage.json().error.code).toBe('TRAINING_SESSION_VALIDATION_ERROR');
+
+      const invalidId = await server.inject({
+        method: 'GET', url: '/v1/training/sessions/not-a-uuid', headers: headersA,
+      });
+      expect(invalidId.statusCode).toBe(400);
+      expect(invalidId.json().error.code).toBe('TRAINING_SESSION_VALIDATION_ERROR');
+    });
   });
 });

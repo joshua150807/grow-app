@@ -37,6 +37,8 @@ const templateUserPlanSchema = schema((value) => value?.userPlan !== undefined);
 const exerciseSchema = schema((value) => typeof value?.exercise?.name === 'string');
 const lastExerciseNoteSchema = schema((value) => value !== null && typeof value === 'object' && 'note' in value && 'completedAt' in value);
 const listExercisesSchema = schema((value) => Array.isArray(value?.exercises));
+const listSessionsSchema = schema((value) => Array.isArray(value?.sessions) && value.pagination !== undefined);
+const sessionDetailSchema = schema((value) => typeof value?.session?.id === 'string');
 const createInputSchema = inputSchema((value) => (
   typeof value?.name === 'string' && value.name.length > 0 && Array.isArray(value.units) && value.units.length > 0
 ));
@@ -72,6 +74,8 @@ function loadApi() {
       trainingExerciseDetailResponseSchema: exerciseSchema,
       lastExerciseNoteResponseSchema: lastExerciseNoteSchema,
       listTrainingExercisesResponseSchema: listExercisesSchema,
+      listTrainingSessionsResponseSchema: listSessionsSchema,
+      trainingSessionResponseSchema: sessionDetailSchema,
       createTrainingPlanInputSchema: createInputSchema,
       updateTrainingPlanInputSchema: updateInputSchema,
       planVersionInputSchema: planVersionSchema,
@@ -350,6 +354,81 @@ test('listTrainingV2Exercises builds a query string from provided filters and dr
   assert.equal(params.get('category'), 'strength');
   assert.equal(params.has('equipment'), false);
   assert.equal(params.has('environment'), false);
+});
+
+test('listTrainingV2Sessions builds a query string from provided filters and drops empty ones', async (context) => {
+  withEnv(context);
+  const calls = [];
+  global.fetch = async (url) => {
+    calls.push(url);
+    return response(200, {
+      sessions: [{ id: 'session-1' }],
+      pagination: { page: 0, limit: 50, hasMore: false },
+    });
+  };
+  const api = loadApi();
+
+  const result = await api.listTrainingV2Sessions({ page: 1, limit: '', status: undefined });
+
+  assert.deepEqual(result.sessions, [{ id: 'session-1' }]);
+  const [url] = calls[0].split('?');
+  const params = new URLSearchParams(calls[0].split('?')[1]);
+  assert.equal(url.endsWith('/v1/training/sessions'), true);
+  assert.equal(params.get('page'), '1');
+  assert.equal(params.has('limit'), false);
+  assert.equal(params.has('status'), false);
+  assert.equal(calls[0].includes('?'), true);
+});
+
+test('listTrainingV2Sessions omits the query string entirely when called with no arguments', async (context) => {
+  withEnv(context);
+  const calls = [];
+  global.fetch = async (url) => {
+    calls.push(url);
+    return response(200, { sessions: [], pagination: { page: 0, limit: 50, hasMore: false } });
+  };
+  const api = loadApi();
+
+  await api.listTrainingV2Sessions();
+
+  assert.equal(calls[0].endsWith('/v1/training/sessions'), true);
+  assert.equal(calls[0].includes('?'), false);
+});
+
+test('getTrainingV2Session GETs the session detail by id and returns the full session snapshot', async (context) => {
+  withEnv(context);
+  const calls = [];
+  global.fetch = async (url, init) => {
+    calls.push([url, init]);
+    return response(200, { session: { id: 'session/1', exercises: [] } });
+  };
+  const api = loadApi();
+
+  const session = await api.getTrainingV2Session('session/1');
+
+  assert.equal(session.id, 'session/1');
+  assert.equal(calls[0][1].method, 'GET');
+  assert.equal(calls[0][0].endsWith('/v1/training/sessions/session%2F1'), true);
+});
+
+test('session read functions classify 401/404/network/contract failures the same way other reads do', async (context) => {
+  withEnv(context);
+  const api = loadApi();
+
+  global.fetch = async () => response(401, { error: { code: 'UNAUTHORIZED' } });
+  await assert.rejects(api.listTrainingV2Sessions(), (error) => error instanceof api.TrainingV2AuthError);
+
+  global.fetch = async () => response(404, { error: { code: 'TRAINING_SESSION_NOT_FOUND' } });
+  await assert.rejects(api.getTrainingV2Session('missing'), (error) => error instanceof api.TrainingV2NotFoundError);
+
+  global.fetch = async () => { throw new Error('offline'); };
+  await assert.rejects(api.listTrainingV2Sessions(), (error) => error instanceof api.TrainingV2NetworkError);
+
+  global.fetch = async () => response(200, { sessions: 'not-an-array' });
+  await assert.rejects(api.listTrainingV2Sessions(), (error) => error instanceof api.TrainingV2ContractError);
+
+  global.fetch = async () => response(200, { session: { id: 42 } });
+  await assert.rejects(api.getTrainingV2Session('session-1'), (error) => error instanceof api.TrainingV2ContractError);
 });
 
 test('createTrainingV2Plan validates the request against the shared input schema before sending, then posts it', async (context) => {
