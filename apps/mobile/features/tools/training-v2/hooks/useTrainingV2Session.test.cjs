@@ -286,6 +286,42 @@ test('a successful save() — "Unvollständig speichern" or "Training abschließ
   assert.equal(afterSuccess.draft, null);
 });
 
+test('save() stamps endedAt once on the first attempt and a retry after failure reuses the exact same value', async () => {
+  const calls = [];
+  const outcomes = [];
+  let clock = new Date('2026-08-01T09:30:00.000Z');
+  const harness = createSessionHookHarness({
+    api: { getTrainingV2Plan: async () => plan },
+    sessionSave: {
+      saveTrainingV2Session: async (draft, status) => {
+        calls.push(draft.endedAt);
+        const outcome = outcomes.shift();
+        return outcome ?? { ok: true, session: { ...draft, status } };
+      },
+    },
+  });
+  harness.render({ planId: 'plan-1', unitId: 'unit-1' });
+  await harness.settle();
+
+  outcomes.push({ ok: false, error: new Error('Netzwerkfehler') });
+  const failed = await harness.result.save('incomplete', { now: () => clock });
+  assert.equal(failed.ok, false);
+  assert.equal(harness.draftStore.get('user-1:plan-1:unit-1').endedAt, calls[0], 'the stamped endedAt is persisted to the draft store before the network call');
+  // settle() (not a single rerender()) — this harness's load() effect re-fires on every render
+  // (it has no real dependency-array memoization), so a single rerender leaves an
+  // already-in-flight load() call still pending; settling lets it converge on the
+  // just-persisted draft before the retry reads it.
+  await harness.settle();
+
+  // A later retry passes a different "now" — the already-stamped endedAt must still win.
+  clock = new Date('2026-08-01T09:35:00.000Z');
+  const ok = await harness.result.save('completed', { now: () => clock });
+  assert.equal(ok.ok, true);
+
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0], calls[1], 'retry reuses the exact same endedAt as the first attempt');
+});
+
 test('a save error leaves today\'s already-entered exercise note in place for the user to retry — it is never cleared or reset by the failed attempt', async () => {
   const planWithExercise = {
     id: 'plan-1',

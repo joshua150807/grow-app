@@ -87,6 +87,7 @@ describe('training V2 session-core PostgreSQL integration', () => {
       '20260729060000_training_v2_private_exercise_name_uniqueness.sql',
       '20260731090000_training_v2_session_core.sql',
       '20260731130000_training_v2_plan_tombstones.sql',
+      '20260809100000_training_v2_session_timing.sql',
     ]) {
       const sql = await readFile(new URL(`../../../supabase/migrations/${file}`, import.meta.url), 'utf8');
       await pool.query(sql);
@@ -257,6 +258,112 @@ describe('training V2 session-core PostgreSQL integration', () => {
     const cycleAfterReplay = await pool.query(`
       select version from public.training_plan_cycle_states_v2 where plan_id=$1 and user_id=$2`, [plan.id, userA]);
     expect(Number(cycleAfterReplay.rows[0].version)).toBe(2);
+  });
+
+  it('persists and reads back startedAt/endedAt/pausedDurationSeconds for a completed session', async () => {
+    const { plan, unit0 } = await createActivePlan(headersA);
+    const startedAt = '2026-08-01T09:00:00.000Z';
+    const endedAt = '2026-08-01T10:05:00.000Z';
+
+    const response = await server.inject({
+      method: 'POST', url: '/v1/training/sessions', headers: headersA,
+      payload: completeUnitPayload(plan.id, unit0.id, randomUUID(), {
+        startedAt, endedAt, pausedDurationSeconds: 300,
+      }),
+    });
+    expect(response.statusCode).toBe(201);
+    expect(response.json().session).toMatchObject({ startedAt, endedAt, pausedDurationSeconds: 300 });
+
+    const detail = await server.inject({
+      method: 'GET', url: `/v1/training/sessions/${response.json().session.id}`, headers: headersA,
+    });
+    expect(detail.json().session).toMatchObject({ startedAt, endedAt, pausedDurationSeconds: 300 });
+
+    const list = await server.inject({ method: 'GET', url: '/v1/training/sessions', headers: headersA });
+    expect(list.json().sessions[0]).toMatchObject({ startedAt, endedAt, pausedDurationSeconds: 300 });
+
+    const row = await pool.query(
+      'select started_at, ended_at, paused_duration_seconds from public.training_sessions_v2 where id=$1',
+      [response.json().session.id],
+    );
+    expect(new Date(row.rows[0].started_at).toISOString()).toBe(startedAt);
+    expect(new Date(row.rows[0].ended_at).toISOString()).toBe(endedAt);
+    expect(Number(row.rows[0].paused_duration_seconds)).toBe(300);
+  });
+
+  it('persists timing for an incomplete session exactly like a completed one', async () => {
+    const { plan, unit0 } = await createActivePlan(headersA);
+    const startedAt = '2026-08-01T09:00:00.000Z';
+    const endedAt = '2026-08-01T09:20:00.000Z';
+
+    const response = await server.inject({
+      method: 'POST', url: '/v1/training/sessions', headers: headersA,
+      payload: completeUnitPayload(plan.id, unit0.id, randomUUID(), {
+        status: 'incomplete', startedAt, endedAt, pausedDurationSeconds: 0,
+      }),
+    });
+    expect(response.statusCode).toBe(201);
+    expect(response.json().session).toMatchObject({ status: 'incomplete', startedAt, endedAt, pausedDurationSeconds: 0 });
+  });
+
+  it('leaves startedAt/endedAt/pausedDurationSeconds at null/0 for a legacy-style request that sends no timing', async () => {
+    const { plan, unit0 } = await createActivePlan(headersA);
+
+    const response = await server.inject({
+      method: 'POST', url: '/v1/training/sessions', headers: headersA,
+      payload: completeUnitPayload(plan.id, unit0.id, randomUUID()),
+    });
+    expect(response.statusCode).toBe(201);
+    expect(response.json().session).toMatchObject({ startedAt: null, endedAt: null, pausedDurationSeconds: 0 });
+  });
+
+  it('rejects endedAt before startedAt with a 400 validation error, persisting nothing', async () => {
+    const { plan, unit0 } = await createActivePlan(headersA);
+
+    const response = await server.inject({
+      method: 'POST', url: '/v1/training/sessions', headers: headersA,
+      payload: completeUnitPayload(plan.id, unit0.id, randomUUID(), {
+        startedAt: '2026-08-01T09:00:00.000Z', endedAt: '2026-08-01T08:00:00.000Z',
+      }),
+    });
+    expect(response.statusCode).toBe(400);
+    const count = await pool.query('select count(*)::int as count from public.training_sessions_v2 where user_id=$1', [userA]);
+    expect(count.rows[0].count).toBe(0);
+  });
+
+  it('rejects a pausedDurationSeconds larger than the gross startedAt..endedAt span', async () => {
+    const { plan, unit0 } = await createActivePlan(headersA);
+
+    const response = await server.inject({
+      method: 'POST', url: '/v1/training/sessions', headers: headersA,
+      payload: completeUnitPayload(plan.id, unit0.id, randomUUID(), {
+        startedAt: '2026-08-01T09:00:00.000Z', endedAt: '2026-08-01T09:10:00.000Z', pausedDurationSeconds: 601,
+      }),
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it('keeps a retry\'s endedAt and idempotency key stable, replaying the exact same session instead of conflicting', async () => {
+    const { plan, unit0 } = await createActivePlan(headersA);
+    const idempotencyKey = randomUUID();
+    const payload = completeUnitPayload(plan.id, unit0.id, idempotencyKey, {
+      startedAt: '2026-08-01T09:00:00.000Z', endedAt: '2026-08-01T09:45:00.000Z', pausedDurationSeconds: 60,
+    });
+
+    const first = await server.inject({ method: 'POST', url: '/v1/training/sessions', headers: headersA, payload });
+    expect(first.statusCode).toBe(201);
+
+    const retry = await server.inject({ method: 'POST', url: '/v1/training/sessions', headers: headersA, payload });
+    expect(retry.statusCode).toBe(200);
+    expect(retry.json().created).toBe(false);
+    expect(retry.json().session.id).toBe(first.json().session.id);
+    expect(retry.json().session.endedAt).toBe(first.json().session.endedAt);
+
+    const conflicting = await server.inject({
+      method: 'POST', url: '/v1/training/sessions', headers: headersA,
+      payload: { ...payload, endedAt: '2026-08-01T10:45:00.000Z' },
+    });
+    expect(conflicting.statusCode).toBe(409);
   });
 
   // The full "Übungsnotiz-Roundtrip" the iPhone bug report demanded: a session save's exercise

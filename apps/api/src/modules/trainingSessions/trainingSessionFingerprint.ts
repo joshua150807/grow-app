@@ -13,6 +13,9 @@ export function computeSessionRequestFingerprint(input: CreateTrainingSessionInp
     planId: input.planId,
     unitId: input.unitId,
     status: input.status,
+    startedAt: input.startedAt,
+    endedAt: input.endedAt,
+    pausedDurationSeconds: input.pausedDurationSeconds,
     exercises: [...input.exercises]
       .sort((a, b) => a.orderIndex - b.orderIndex)
       .map((exercise) => ({

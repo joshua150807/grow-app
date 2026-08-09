@@ -100,6 +100,25 @@ test('retrying after a failure sends the exact same idempotencyKey and payload â
   assert.equal(calls[0].idempotencyKey, calls[1].idempotencyKey);
 });
 
+test('the built payload carries the draft\'s startedAt/endedAt through unchanged and always sends pausedDurationSeconds:0', async () => {
+  const { saveTrainingV2Session } = loadSessionSave();
+  const calls = [];
+  const createSession = async (payload) => {
+    calls.push(payload);
+    return { session: { id: 'session-1' }, created: true };
+  };
+
+  await saveTrainingV2Session(
+    draft({ startedAt: '2026-08-01T09:00:00.000Z', endedAt: '2026-08-01T09:30:00.000Z' }),
+    'completed',
+    { createSession },
+  );
+
+  assert.equal(calls[0].startedAt, '2026-08-01T09:00:00.000Z');
+  assert.equal(calls[0].endedAt, '2026-08-01T09:30:00.000Z');
+  assert.equal(calls[0].pausedDurationSeconds, 0);
+});
+
 test('an idempotent server-side replay (created: false) is surfaced to the caller, not treated as an error', async () => {
   const { saveTrainingV2Session } = loadSessionSave();
   const createSession = async () => ({ session: { id: 'session-1' }, created: false });

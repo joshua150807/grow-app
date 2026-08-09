@@ -32,6 +32,7 @@ type SessionRow = {
   id: string; plan_id: string | null; plan_revision_id: string | null; source_unit_id: string | null;
   plan_name: string; revision_number: number; logical_unit_key: string; unit_name: string;
   unit_type: TrainingSession['unitType']; status: TrainingSession['status']; idempotency_key: string;
+  started_at: Date | string | null; ended_at: Date | string | null; paused_duration_seconds: number;
   created_at: Date | string;
 };
 type SessionExerciseRow = {
@@ -46,13 +47,14 @@ type SessionSetRow = {
 };
 
 const iso = (value: Date | string) => new Date(value).toISOString();
+const isoOrNull = (value: Date | string | null) => (value === null ? null : iso(value));
 
 async function loadSession(
   db: Pick<pg.Pool | Client, 'query'>, userId: string, sessionId: string,
 ): Promise<TrainingSession | null> {
   const sessions = await db.query<SessionRow>(`
     select id,plan_id,plan_revision_id,source_unit_id,plan_name,revision_number,logical_unit_key,
-      unit_name,unit_type,status,idempotency_key,created_at
+      unit_name,unit_type,status,idempotency_key,started_at,ended_at,paused_duration_seconds,created_at
     from public.training_sessions_v2 where id=$1 and user_id=$2`, [sessionId, userId]);
   const session = sessions.rows[0];
   if (!session) return null;
@@ -78,6 +80,9 @@ async function loadSession(
     unitType: session.unit_type,
     status: session.status,
     idempotencyKey: String(session.idempotency_key),
+    startedAt: isoOrNull(session.started_at),
+    endedAt: isoOrNull(session.ended_at),
+    pausedDurationSeconds: Number(session.paused_duration_seconds),
     createdAt: iso(session.created_at),
     exercises: exercises.rows.map((exercise) => ({
       id: String(exercise.id),
@@ -125,6 +130,9 @@ function mapSessionSummaryRow(row: SessionRow): TrainingSessionSummary {
     unitType: row.unit_type,
     status: row.status,
     idempotencyKey: String(row.idempotency_key),
+    startedAt: isoOrNull(row.started_at),
+    endedAt: isoOrNull(row.ended_at),
+    pausedDurationSeconds: Number(row.paused_duration_seconds),
     createdAt: iso(row.created_at),
   });
   if (!parsed.success) {
@@ -145,7 +153,7 @@ async function listSessions(
 ): Promise<{ sessions: TrainingSessionSummary[]; hasMore: boolean }> {
   const result = await db.query<SessionRow>(`
     select id,plan_id,plan_revision_id,source_unit_id,plan_name,revision_number,logical_unit_key,
-      unit_name,unit_type,status,idempotency_key,created_at
+      unit_name,unit_type,status,idempotency_key,started_at,ended_at,paused_duration_seconds,created_at
     from public.training_sessions_v2
     where user_id=$1
     order by created_at desc, id desc
@@ -311,14 +319,15 @@ export function createTrainingSessionRepository(db: Database = getPgPool()): Tra
         const sessionInsert = await client.query<{ id: string }>(`
           insert into public.training_sessions_v2
             (user_id,plan_id,plan_revision_id,source_unit_id,plan_name,revision_number,
-             logical_unit_key,unit_name,unit_type,status,idempotency_key,request_fingerprint)
-          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+             logical_unit_key,unit_name,unit_type,status,idempotency_key,started_at,ended_at,
+             paused_duration_seconds,request_fingerprint)
+          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
           on conflict (user_id,idempotency_key) do nothing
           returning id
         `, [
           userId, input.planId, sourceUnit.revision_id, sourceUnit.id, plan.name, revision.revision_number,
           sourceUnit.logical_unit_key, sourceUnit.name, sourceUnit.unit_type, input.status, input.idempotencyKey,
-          fingerprint,
+          input.startedAt, input.endedAt, input.pausedDurationSeconds, fingerprint,
         ]);
 
         if (!sessionInsert.rows[0]) {

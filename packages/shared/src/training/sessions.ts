@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { persistedSessionStatusSchema, trainingUnitTypeSchema } from './enums.js';
 import {
+  durationSecondsSchema,
   exerciseIdSchema,
   idempotencyKeySchema,
   isoDateTimeSchema,
@@ -61,11 +62,21 @@ export const sessionCompletionExerciseInputSchema = z.object({
 // exercise data from there — see trainingSessionRepository.ts); no run fields exist here
 // because run/rest/mobility/stretching units carry no target exercises to begin with (see
 // planUnitInputSchema in plans.ts), so an exercise-less session already covers them.
+//
+// startedAt/endedAt/pausedDurationSeconds are all optional and independently default to
+// null/0 — an already-installed client build that predates timing (an EAS-updated build can
+// lag the API, per AGENTS.md) must keep saving sessions exactly as before, with "duration
+// unknown" persisted rather than a request rejection. A client that does send timing must send
+// startedAt and endedAt together (see the superRefine below); a lone one of the pair can only
+// ever be a bug, never a legitimate partial state.
 export const createTrainingSessionInputSchema = z.object({
   planId: planIdSchema,
   unitId: unitIdSchema,
   status: persistedSessionStatusSchema,
   idempotencyKey: idempotencyKeySchema,
+  startedAt: isoDateTimeSchema.nullable().default(null),
+  endedAt: isoDateTimeSchema.nullable().default(null),
+  pausedDurationSeconds: durationSecondsSchema.default(0),
   exercises: z.array(sessionCompletionExerciseInputSchema),
 }).strict().superRefine((session, context) => {
   if (!uniqueBy(session.exercises.map((exercise) => exercise.orderIndex))) {
@@ -76,6 +87,31 @@ export const createTrainingSessionInputSchema = z.object({
     .filter((key): key is string => key !== null);
   if (!uniqueBy(correlationKeys)) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'Exercise logical keys must be unique.', path: ['exercises'] });
+  }
+
+  if ((session.startedAt === null) !== (session.endedAt === null)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'startedAt and endedAt must both be present or both be null.',
+      path: ['endedAt'],
+    });
+    return;
+  }
+  if (session.startedAt === null || session.endedAt === null) return;
+
+  const startedAtMs = Date.parse(session.startedAt);
+  const endedAtMs = Date.parse(session.endedAt);
+  if (endedAtMs < startedAtMs) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: 'endedAt must not be before startedAt.', path: ['endedAt'] });
+    return;
+  }
+  const grossDurationSeconds = (endedAtMs - startedAtMs) / 1000;
+  if (session.pausedDurationSeconds > grossDurationSeconds) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'pausedDurationSeconds must not exceed the gross duration between startedAt and endedAt.',
+      path: ['pausedDurationSeconds'],
+    });
   }
 });
 export type SessionCompletionExerciseInput = z.infer<typeof sessionCompletionExerciseInputSchema>;
@@ -98,6 +134,11 @@ export type PersistedSessionExercise = z.infer<typeof persistedSessionExerciseSc
 // unit still exist (see the on-delete-set-null design note in the session-core migration) —
 // planId/planRevisionId/sourceUnitId are kept only as best-effort backlinks and go null once
 // their source is gone.
+//
+// startedAt/endedAt are both null exactly for a legacy session or one saved by a
+// timing-unaware client build — duration is then unknown, never estimated (see
+// getEffectiveTrainingSessionDurationSeconds in domain.ts, which returns null in that case
+// rather than falling back to createdAt or any set's completedAt).
 const trainingSessionSummaryShape = {
   id: sessionIdSchema,
   planId: planIdSchema.nullable(),
@@ -110,6 +151,9 @@ const trainingSessionSummaryShape = {
   unitType: trainingUnitTypeSchema,
   status: persistedSessionStatusSchema,
   idempotencyKey: idempotencyKeySchema,
+  startedAt: isoDateTimeSchema.nullable(),
+  endedAt: isoDateTimeSchema.nullable(),
+  pausedDurationSeconds: durationSecondsSchema,
   createdAt: isoDateTimeSchema,
 };
 

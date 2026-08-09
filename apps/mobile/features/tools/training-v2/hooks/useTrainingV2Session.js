@@ -6,6 +6,7 @@ import {
   createTrainingV2SessionDraft,
   recordRestSecondsForSet,
   setRestTimer,
+  stampSessionEndedAt,
   uncompleteSessionSet,
   updateExerciseNote,
   updateSessionSetInput,
@@ -146,11 +147,22 @@ export function useTrainingV2Session(planId, unitId) {
     setDraft(null);
   }, [ownerId, planId, unitId]);
 
-  const save = useCallback(async (status) => {
+  const save = useCallback(async (status, { now = () => new Date() } = {}) => {
     if (!draft) return { ok: false };
     setSaving(true);
     setSaveError(null);
-    const outcome = await saveTrainingV2Session(draft, status);
+
+    // endedAt is stamped once, on the very first save attempt, and persisted to the draft
+    // store immediately — stampSessionEndedAt is a no-op on a draft that already carries one,
+    // so a retry (this same draft, after a failed attempt) always reuses that exact value,
+    // exactly like idempotencyKey already does.
+    const stamped = stampSessionEndedAt(draft, now().toISOString());
+    if (stamped !== draft) {
+      setDraft(stamped);
+      if (ownerId) await saveTrainingV2SessionDraft(ownerId, planId, unitId, stamped);
+    }
+
+    const outcome = await saveTrainingV2Session(stamped, status);
     setSaving(false);
     if (outcome.ok) {
       if (ownerId) await clearTrainingV2SessionDraft(ownerId, planId, unitId);

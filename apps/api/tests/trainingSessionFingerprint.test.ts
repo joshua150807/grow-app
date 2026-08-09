@@ -18,6 +18,9 @@ function baseInput(): CreateTrainingSessionInput {
     unitId,
     status: 'completed',
     idempotencyKey,
+    startedAt: '2026-07-31T08:55:00.000Z',
+    endedAt: '2026-07-31T09:20:00.000Z',
+    pausedDurationSeconds: 60,
     exercises: [
       {
         exerciseId: exerciseA,
@@ -151,6 +154,30 @@ describe('computeSessionRequestFingerprint', () => {
   it('changes when unitId differs', () => {
     const input = baseInput();
     expect(computeSessionRequestFingerprint({ ...input, unitId: planId }))
+      .not.toBe(computeSessionRequestFingerprint(input));
+  });
+
+  it('is stable across a retry that resends the exact same startedAt/endedAt/pausedDurationSeconds', () => {
+    const input = baseInput();
+    const retry = { ...input };
+    expect(computeSessionRequestFingerprint(retry)).toBe(computeSessionRequestFingerprint(input));
+  });
+
+  it('changes when endedAt differs (a genuinely different request reusing the same idempotency key is a conflict, not a replay)', () => {
+    const input = baseInput();
+    expect(computeSessionRequestFingerprint({ ...input, endedAt: '2026-07-31T10:00:00.000Z' }))
+      .not.toBe(computeSessionRequestFingerprint(input));
+  });
+
+  it('changes when startedAt differs', () => {
+    const input = baseInput();
+    expect(computeSessionRequestFingerprint({ ...input, startedAt: '2026-07-31T08:00:00.000Z' }))
+      .not.toBe(computeSessionRequestFingerprint(input));
+  });
+
+  it('changes when pausedDurationSeconds differs', () => {
+    const input = baseInput();
+    expect(computeSessionRequestFingerprint({ ...input, pausedDurationSeconds: 120 }))
       .not.toBe(computeSessionRequestFingerprint(input));
   });
 });

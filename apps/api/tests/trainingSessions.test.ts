@@ -30,6 +30,9 @@ const session: TrainingSession = {
   unitType: 'strength',
   status: 'completed',
   idempotencyKey,
+  startedAt: '2026-07-31T08:55:00.000Z',
+  endedAt: '2026-07-31T10:00:00.000Z',
+  pausedDurationSeconds: 120,
   createdAt: '2026-07-31T10:00:00.000Z',
   exercises: [],
 };

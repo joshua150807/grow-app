@@ -11,6 +11,7 @@ const {
   recordRestSecondsForSet,
   sessionProgressSummary,
   setRestTimer,
+  stampSessionEndedAt,
   uncompleteSessionSet,
   updateSessionSetInput,
 } = require('../testing/loadModule.cjs').loadModule(__dirname, './trainingV2SessionModel.js');
@@ -196,6 +197,24 @@ test('sessionProgressSummary counts completed sets against the draft\'s total se
   assert.deepEqual(sessionProgressSummary(completed), { completedSets: 1, totalSets: 3 });
 });
 
+test('stampSessionEndedAt sets endedAt once and never overwrites an already-stamped draft (idempotent across retries)', () => {
+  const draft = createTrainingV2SessionDraft(plan(), planUnit(), names, {
+    now: () => new Date('2026-08-01T09:00:00.000Z'),
+    logicalKeyFactory: sequentialKeyFactory(),
+  });
+  assert.equal(draft.endedAt, undefined);
+
+  const stamped = stampSessionEndedAt(draft, '2026-08-01T09:45:00.000Z');
+  assert.equal(stamped.endedAt, '2026-08-01T09:45:00.000Z');
+  // The original draft is never mutated in place.
+  assert.equal(draft.endedAt, undefined);
+
+  // A retry that passes a different "now" must not move an already-stamped endedAt.
+  const retried = stampSessionEndedAt(stamped, '2026-08-01T09:50:00.000Z');
+  assert.equal(retried.endedAt, '2026-08-01T09:45:00.000Z');
+  assert.equal(retried, stamped, 'a no-op stamp returns the exact same object reference');
+});
+
 test('buildTrainingV2SessionPayload only ever includes completed sets, drops exercises left with none, and never sends an RIR value', () => {
   const draft = createTrainingV2SessionDraft(plan(), planUnit(), names, { logicalKeyFactory: sequentialKeyFactory() });
   const withValue = updateSessionSetInput(draft, 0, 0, { weightKg: 80, reps: 8 });
@@ -206,6 +225,7 @@ test('buildTrainingV2SessionPayload only ever includes completed sets, drops exe
   assert.equal(payload.unitId, 'unit-db-id');
   assert.equal(payload.status, 'incomplete');
   assert.equal(payload.idempotencyKey, 'key-1');
+  assert.equal(payload.pausedDurationSeconds, 0, 'V1 has no persisted pause state, so this is always 0, never invented');
   // Exercise 2 (index 1) never had a set completed, so it is dropped entirely rather than
   // sent with an empty sets array.
   assert.equal(payload.exercises.length, 1);
@@ -216,6 +236,22 @@ test('buildTrainingV2SessionPayload only ever includes completed sets, drops exe
   assert.equal(sentSet.reps, 8);
   assert.equal(sentSet.rir, null);
   assert.equal(sentSet.completedAt, '2026-08-01T09:05:00.000Z');
+});
+
+test('buildTrainingV2SessionPayload carries startedAt/endedAt straight from the draft, and sends null for either when not yet stamped', () => {
+  const draft = createTrainingV2SessionDraft(plan(), planUnit(), names, {
+    now: () => new Date('2026-08-01T09:00:00.000Z'),
+    logicalKeyFactory: sequentialKeyFactory(),
+  });
+
+  const beforeStamp = buildTrainingV2SessionPayload(draft, 'incomplete');
+  assert.equal(beforeStamp.startedAt, '2026-08-01T09:00:00.000Z');
+  assert.equal(beforeStamp.endedAt, null);
+
+  const stamped = stampSessionEndedAt(draft, '2026-08-01T09:30:00.000Z');
+  const afterStamp = buildTrainingV2SessionPayload(stamped, 'incomplete');
+  assert.equal(afterStamp.startedAt, '2026-08-01T09:00:00.000Z');
+  assert.equal(afterStamp.endedAt, '2026-08-01T09:30:00.000Z');
 });
 
 test('buildTrainingV2SessionPayload carries actualRestSeconds through to the exact set it was recorded on, leaving an undismissed set null', () => {

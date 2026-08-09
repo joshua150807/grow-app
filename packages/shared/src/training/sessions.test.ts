@@ -43,6 +43,9 @@ function sessionInput(overrides: Partial<Record<string, unknown>> = {}) {
     unitId: ids[1],
     status: 'completed',
     idempotencyKey: ids[9],
+    startedAt: null,
+    endedAt: null,
+    pausedDurationSeconds: 0,
     exercises: [exercise()],
     ...overrides,
   };
@@ -153,6 +156,63 @@ describe('training session API contracts', () => {
     expect(createTrainingSessionInputSchema.safeParse(sessionInput({ status: 'active' })).success).toBe(false);
   });
 
+  it('defaults startedAt/endedAt/pausedDurationSeconds to null/null/0 for a legacy request that omits them', () => {
+    const legacy = sessionInput();
+    const { startedAt: _startedAt, endedAt: _endedAt, pausedDurationSeconds: _paused, ...withoutTiming } = legacy;
+    const parsed = createTrainingSessionInputSchema.parse(withoutTiming);
+    expect(parsed.startedAt).toBeNull();
+    expect(parsed.endedAt).toBeNull();
+    expect(parsed.pausedDurationSeconds).toBe(0);
+  });
+
+  it('accepts a fully populated timing request', () => {
+    const input = sessionInput({
+      startedAt: '2026-07-31T09:00:00.000Z', endedAt: '2026-07-31T09:45:00.000Z', pausedDurationSeconds: 60,
+    });
+    const parsed = createTrainingSessionInputSchema.parse(input);
+    expect(parsed.startedAt).toBe('2026-07-31T09:00:00.000Z');
+    expect(parsed.endedAt).toBe('2026-07-31T09:45:00.000Z');
+    expect(parsed.pausedDurationSeconds).toBe(60);
+  });
+
+  it('rejects startedAt without endedAt (and vice versa) — timing must be all-or-nothing', () => {
+    expect(createTrainingSessionInputSchema.safeParse(
+      sessionInput({ startedAt: '2026-07-31T09:00:00.000Z', endedAt: null }),
+    ).success).toBe(false);
+    expect(createTrainingSessionInputSchema.safeParse(
+      sessionInput({ startedAt: null, endedAt: '2026-07-31T09:45:00.000Z' }),
+    ).success).toBe(false);
+  });
+
+  it('rejects endedAt before startedAt', () => {
+    const input = sessionInput({ startedAt: '2026-07-31T09:00:00.000Z', endedAt: '2026-07-31T08:59:59.000Z' });
+    expect(createTrainingSessionInputSchema.safeParse(input).success).toBe(false);
+  });
+
+  it('accepts endedAt equal to startedAt (a zero-length gross duration)', () => {
+    const input = sessionInput({ startedAt: '2026-07-31T09:00:00.000Z', endedAt: '2026-07-31T09:00:00.000Z' });
+    expect(createTrainingSessionInputSchema.safeParse(input).success).toBe(true);
+  });
+
+  it('rejects a negative pausedDurationSeconds', () => {
+    const input = sessionInput({ pausedDurationSeconds: -1 });
+    expect(createTrainingSessionInputSchema.safeParse(input).success).toBe(false);
+  });
+
+  it('rejects a pausedDurationSeconds larger than the gross startedAt..endedAt span', () => {
+    const input = sessionInput({
+      startedAt: '2026-07-31T09:00:00.000Z', endedAt: '2026-07-31T09:10:00.000Z', pausedDurationSeconds: 601,
+    });
+    expect(createTrainingSessionInputSchema.safeParse(input).success).toBe(false);
+  });
+
+  it('accepts a pausedDurationSeconds exactly equal to the gross span', () => {
+    const input = sessionInput({
+      startedAt: '2026-07-31T09:00:00.000Z', endedAt: '2026-07-31T09:10:00.000Z', pausedDurationSeconds: 600,
+    });
+    expect(createTrainingSessionInputSchema.safeParse(input).success).toBe(true);
+  });
+
   it('round-trips a persisted session with a null plan/revision/unit backlink and a null exercise/set correlation', () => {
     const persisted = {
       id: ids[0],
@@ -166,6 +226,9 @@ describe('training session API contracts', () => {
       unitType: 'strength' as const,
       status: 'completed' as const,
       idempotencyKey: ids[9],
+      startedAt: '2026-07-31T09:00:00.000Z',
+      endedAt: '2026-07-31T10:00:00.000Z',
+      pausedDurationSeconds: 120,
       createdAt: '2026-07-31T10:00:00.000Z',
       exercises: [{
         id: ids[2],

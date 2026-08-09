@@ -15,6 +15,7 @@ import {
   exerciseStatusSchema,
   getEffectiveLoadForVolumeKg,
   getEffectiveRunDurationSeconds,
+  getEffectiveTrainingSessionDurationSeconds,
   idempotencyOperationSchema,
   isRunEligibleForPersonalRecord,
   isSetEligibleForPersonalRecord,
@@ -417,5 +418,41 @@ describe('strength domain rules', () => {
       completedAt: null,
       sessionStatus: 'completed',
     })).toBe(false);
+  });
+});
+
+describe('training session timing domain rules', () => {
+  it('computes gross duration minus pause, in seconds', () => {
+    expect(getEffectiveTrainingSessionDurationSeconds({
+      startedAt: '2026-07-31T09:00:00.000Z',
+      endedAt: '2026-07-31T09:45:00.000Z',
+      pausedDurationSeconds: 300,
+    })).toBe(2_400);
+  });
+
+  it('never returns a negative duration even if pause exceeds the gross span', () => {
+    expect(getEffectiveTrainingSessionDurationSeconds({
+      startedAt: '2026-07-31T09:00:00.000Z',
+      endedAt: '2026-07-31T09:10:00.000Z',
+      pausedDurationSeconds: 601,
+    })).toBe(0);
+  });
+
+  it('returns null (not an estimate) when startedAt or endedAt is missing', () => {
+    expect(getEffectiveTrainingSessionDurationSeconds({
+      startedAt: null,
+      endedAt: '2026-07-31T09:45:00.000Z',
+      pausedDurationSeconds: 0,
+    })).toBeNull();
+    expect(getEffectiveTrainingSessionDurationSeconds({
+      startedAt: '2026-07-31T09:00:00.000Z',
+      endedAt: null,
+      pausedDurationSeconds: 0,
+    })).toBeNull();
+    expect(getEffectiveTrainingSessionDurationSeconds({
+      startedAt: null,
+      endedAt: null,
+      pausedDurationSeconds: 0,
+    })).toBeNull();
   });
 });

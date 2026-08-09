@@ -127,6 +127,16 @@ export function setRestTimer(state, restTimer) {
   return { ...state, restTimer };
 }
 
+// Called once, right before the first save attempt — never regenerated on a retry (idempotent:
+// a draft that already carries an endedAt is returned untouched), the same way idempotencyKey
+// is fixed once at draft creation. Keeping this a pure, separate step (rather than folding it
+// into buildTrainingV2SessionPayload) lets the caller persist the stamped draft to storage
+// before the network call, so the same endedAt survives even an app kill between attempts.
+export function stampSessionEndedAt(state, endedAt) {
+  if (state.endedAt) return state;
+  return { ...state, endedAt };
+}
+
 // True once the user has entered or completed anything — the signal for whether leaving needs
 // the fortsetzen/unvollständig-speichern/verwerfen dialog, or can just navigate back.
 export function hasSessionProgress(state) {
@@ -148,12 +158,21 @@ export function sessionProgressSummary(state) {
 // exercise with zero completed sets is dropped entirely rather than sent with an empty array
 // (sessionCompletionExerciseInputSchema requires sets.length >= 1). No RIR is ever collected,
 // so rir is always sent as null.
+//
+// startedAt/endedAt are read straight off the draft (the caller is responsible for having
+// stamped endedAt via stampSessionEndedAt before its first save attempt — see
+// useTrainingV2Session.js's save()). pausedDurationSeconds is always 0: V1 has no persisted
+// session-level pause state to derive a real value from, and the contract explicitly forbids
+// inventing one — 0 here means "no pause recorded", not "no pause happened".
 export function buildTrainingV2SessionPayload(state, status) {
   return {
     planId: state.planId,
     unitId: state.unitId,
     status,
     idempotencyKey: state.idempotencyKey,
+    startedAt: state.startedAt ?? null,
+    endedAt: state.endedAt ?? null,
+    pausedDurationSeconds: 0,
     exercises: state.exercises
       .map((exercise) => ({
         exerciseId: exercise.exerciseId,

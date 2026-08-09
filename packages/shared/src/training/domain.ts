@@ -72,6 +72,29 @@ export function calculateEpleyOneRepMaxKg(
   return weightKg * (1 + reps / 30);
 }
 
+// Effective duration for a Training V2 session (strength unit, not a run): endedAt - startedAt
+// - pausedDurationSeconds, clamped at 0. Returns null whenever startedAt/endedAt is missing --
+// a legacy session or one saved by a client build that predates timing -- rather than ever
+// estimating from createdAt or a set's own completedAt (see the session contract's own note in
+// sessions.ts). No History UI reads this yet; it exists so that UI has one correct place to
+// compute it from once it does.
+export function getEffectiveTrainingSessionDurationSeconds(session: {
+  startedAt: string | null;
+  endedAt: string | null;
+  pausedDurationSeconds: number;
+}): number | null {
+  if (session.startedAt === null || session.endedAt === null) {
+    return null;
+  }
+  const startedAtMs = Date.parse(session.startedAt);
+  const endedAtMs = Date.parse(session.endedAt);
+  if (!Number.isFinite(startedAtMs) || !Number.isFinite(endedAtMs)) {
+    return null;
+  }
+  const grossSeconds = (endedAtMs - startedAtMs) / 1000;
+  return Math.max(0, grossSeconds - session.pausedDurationSeconds);
+}
+
 export function isSetEligibleForPersonalRecord(input: {
   setType: SetType;
   completedAt: string | null;
