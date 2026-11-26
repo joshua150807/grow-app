@@ -76,6 +76,9 @@ function databaseText(error: unknown): string {
 }
 
 function throwRepositoryError(error: unknown): never {
+  if (error instanceof Error && error.name === 'TrainingPlanCreateConflictError') {
+    throw new AppError(409, 'TRAINING_PLAN_CREATE_CONFLICT', 'This create request already exists with different content.');
+  }
   if (error instanceof Error && error.name === 'TrainingExerciseNotAvailableError') {
     throw new AppError(400, 'TRAINING_EXERCISE_NOT_AVAILABLE', 'One or more exercises are not available.');
   }

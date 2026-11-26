@@ -22,6 +22,8 @@ const FLAT_SUBPAGES = [
   'training-v2-library.jsx',
   'training-v2-my-training.jsx',
   'training-v2-session-active.jsx',
+  'training-v2-history.jsx',
+  'training-v2-session-detail.jsx',
 ];
 
 test('Tools -> Hub: the tools overview enters the training flow through exactly one route, with no intermediate redirect', () => {

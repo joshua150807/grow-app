@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
@@ -8,6 +8,7 @@ import { useTrainingV2PlanDetail } from '../hooks/useTrainingV2PlanDetail';
 import { useTrainingV2Plans } from '../hooks/useTrainingV2Plans';
 import { targetSetLabel } from '../models/trainingV2ViewModel';
 import { styles } from '../styles/trainingV2Styles';
+import { useTrainingV2ContentStyle } from '../hooks/useTrainingV2ContentStyle';
 import { TrainingV2StateView } from '../components/TrainingV2StateView';
 import { clearTrainingV2Draft, getTrainingV2DraftOwnerId } from '../services/trainingV2DraftStorage';
 import {
@@ -26,6 +27,12 @@ function actionErrorMessage(error) {
 // archive action are removed here entirely; only content, the edit flow and a single unified
 // "Jetzt aktivieren" survive from the previous, larger action set.
 export default function TrainingV2OwnPlanDetail({ planId }) {
+  const contentStyle = useTrainingV2ContentStyle();
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
   const {
     plan, loading, refreshing, error, retry, refresh, applyServerPlan,
   } = useTrainingV2PlanDetail(planId);
@@ -69,7 +76,12 @@ export default function TrainingV2OwnPlanDetail({ planId }) {
   // screen can never be returned to via the hardware/gesture back action either.
   const finishDelete = useCallback(async () => {
     const draftOwnerId = getTrainingV2DraftOwnerId();
-    if (draftOwnerId) await clearTrainingV2Draft(draftOwnerId, 'edit', planId);
+    try {
+      if (draftOwnerId) await clearTrainingV2Draft(draftOwnerId, 'edit', planId);
+    } catch {
+      if (mountedRef.current) Alert.alert('Plan gelöscht', 'Der Plan wurde auf dem Server gelöscht. Der lokale Bearbeitungsentwurf konnte nicht entfernt werden. Deine Trainingshistorie bleibt erhalten.');
+    }
+    if (!mountedRef.current) return;
     const cacheOwnerId = getTrainingV2PlansOwnerId();
     const cachedPlans = getCachedTrainingV2Plans(cacheOwnerId);
     if (cachedPlans) {
@@ -95,16 +107,17 @@ export default function TrainingV2OwnPlanDetail({ planId }) {
     );
   }, [runDelete]);
 
-  if (loading || error) {
+  if (!plan && (loading || error)) {
     return <TrainingV2StateView loading={loading} error={error} onRetry={retry} />;
   }
   if (!plan) return null;
 
   const isActive = plan.status === 'active';
+  const canEdit = !plan.sourceTemplateId;
 
   return (
     <ScrollView
-      contentContainerStyle={styles.content}
+      contentContainerStyle={contentStyle}
       refreshControl={(
         <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={COLORS.softGold} />
       )}
@@ -112,15 +125,16 @@ export default function TrainingV2OwnPlanDetail({ planId }) {
     >
       <View style={styles.topRow}>
         <Text onPress={() => router.back()} style={styles.backText}>‹ Zurück</Text>
-        <Text style={styles.title}>Plandetail</Text>
-        <Text
+        <Text style={styles.title}>{canEdit ? 'Plandetail' : 'Grow-Plan'}</Text>
+        {canEdit ? <Text
           onPress={() => router.push({ pathname: '/tools/training-v2-plan-editor', params: { planId } })}
           style={styles.editorLink}
         >
           Bearbeiten
-        </Text>
+        </Text> : null}
       </View>
 
+      {error ? <TrainingV2StateView error={error} onRetry={retry} /> : null}
       {actions.conflict ? (
         <View style={styles.conflictBanner}>
           <Text style={styles.conflictBannerText}>
@@ -139,14 +153,14 @@ export default function TrainingV2OwnPlanDetail({ planId }) {
       ) : null}
 
       <View style={styles.detailHeader}>
-        <View style={styles.cardTop}>
-          <Text style={styles.detailName}>{plan.name}</Text>
-          {isActive ? (
-            <View style={[styles.statusBadge, styles.statusBadgeActive]}>
+        {isActive ? (
+          <View style={styles.detailStatusRow}>
+            <View style={[styles.statusBadge, styles.statusBadgeActive, styles.detailStatusBadge]}>
               <Text style={[styles.statusBadgeText, styles.statusBadgeTextActive]}>Aktiv</Text>
             </View>
-          ) : null}
-        </View>
+          </View>
+        ) : null}
+        <Text style={styles.detailName}>{plan.name}</Text>
         <Text style={styles.detailMeta}>Revision {plan.revision.revisionNumber}</Text>
       </View>
 

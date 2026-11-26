@@ -29,7 +29,9 @@ import {
   templateUnitIdSchema,
   unitIdSchema,
   uuidSchema,
+  TRAINING_V2_LIMITS,
   versionSchema,
+  weeklyGoalInputSchema,
   weightKgSchema,
 } from './primitives.js';
 import {
@@ -59,7 +61,7 @@ export const planTargetExerciseInputSchema = z.object({
   exerciseDraft: planExerciseDraftInputSchema.optional(),
   orderIndex: orderIndexSchema,
   note: shortNoteSchema.nullable(),
-  targetSets: z.array(targetSetInputSchema).min(1),
+  targetSets: z.array(targetSetInputSchema).min(1).max(TRAINING_V2_LIMITS.maxSetsPerExercise),
 }).strict().superRefine((exercise, context) => {
   const hasExerciseId = exercise.exerciseId !== undefined;
   const hasExerciseDraft = exercise.exerciseDraft !== undefined;
@@ -83,7 +85,7 @@ export const planUnitInputSchema = z.object({
   name: nameSchema,
   unitType: trainingUnitTypeSchema,
   orderIndex: orderIndexSchema,
-  exercises: z.array(planTargetExerciseInputSchema),
+  exercises: z.array(planTargetExerciseInputSchema).max(TRAINING_V2_LIMITS.maxExercisesPerUnit),
 }).strict().superRefine((unit, context) => {
   if (unit.unitType === 'strength' && unit.exercises.length === 0) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'Strength units require at least one exercise.', path: ['exercises'] });
@@ -101,7 +103,7 @@ export const planUnitInputSchema = z.object({
 
 const planTreeObjectSchema = z.object({
   name: nameSchema,
-  units: z.array(planUnitInputSchema).min(1),
+  units: z.array(planUnitInputSchema).min(1).max(TRAINING_V2_LIMITS.maxPlanUnits),
 }).strict();
 
 function validatePlanTree(
@@ -152,7 +154,11 @@ function validatePlanTree(
 export const planTreeInputSchema = planTreeObjectSchema.superRefine(validatePlanTree);
 
 export const createTrainingPlanInputSchema = planTreeObjectSchema.extend({
-  weeklyGoal: z.number().int().positive(),
+  // Optional for older clients. New create flows persist this UUID before sending.
+  idempotencyKey: z.string().uuid().optional(),
+  // 1-7 "Trainingstage pro Woche" (Fixplan D3). The read side stays open/nullable so plans
+  // stored before this limit -- and plans without a weekly goal -- keep loading unchanged.
+  weeklyGoal: weeklyGoalInputSchema,
   activateImmediately: z.boolean().optional().default(false),
 }).strict().superRefine(validatePlanTree);
 
@@ -171,7 +177,7 @@ export const scheduleTrainingPlanInputSchema = planVersionInputSchema.extend({
 
 export const updateWeeklyGoalInputSchema = z.object({
   expectedVersion: versionSchema,
-  weeklyGoal: z.number().int().positive(),
+  weeklyGoal: weeklyGoalInputSchema,
 }).strict();
 
 export const planTargetExerciseSchema = z.object({

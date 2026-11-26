@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { persistedSessionStatusSchema, setTypeSchema } from './enums.js';
 import {
+  actualRestSecondsInputSchema,
   clientSetIdSchema,
+  completedRepsInputSchema,
   completedRepsSchema,
   distanceMetersSchema,
   durationSecondsSchema,
@@ -9,6 +11,8 @@ import {
   isoDateTimeSchema,
   logicalTargetSetKeySchema,
   orderIndexSchema,
+  plannedRestSecondsInputSchema,
+  repRangeInputSchema,
   repRangeSchema,
   restSecondsSchema,
   rirSchema,
@@ -16,6 +20,7 @@ import {
   shortNoteSchema,
   uuidSchema,
   versionSchema,
+  weightKgInputSchema,
   weightKgSchema,
 } from './primitives.js';
 
@@ -30,7 +35,15 @@ const targetSetFields = {
   importedFromLegacyPlan: z.boolean(),
 };
 
-export const targetSetInputSchema = z.object(targetSetFields).strict();
+// Input and persisted shapes are identical except for the plausibility limits: new writes are
+// bounded (Fixplan B2), while persisted/read schemas keep the original open rules so historical
+// rows stay readable (audit F04, U3).
+export const targetSetInputSchema = z.object({
+  ...targetSetFields,
+  targetWeightKg: weightKgInputSchema.nullable(),
+  targetReps: repRangeInputSchema.nullable(),
+  plannedRestSeconds: plannedRestSecondsInputSchema,
+}).strict();
 export const persistedTargetSetSchema = z.object({
   id: uuidSchema,
   ...targetSetFields,
@@ -51,7 +64,12 @@ const confirmedSessionSetFields = {
   actualRestSeconds: restSecondsSchema.nullable(),
 };
 
-export const sessionCompletionSetInputSchema = z.object(confirmedSessionSetFields).strict();
+export const sessionCompletionSetInputSchema = z.object({
+  ...confirmedSessionSetFields,
+  weightKg: weightKgInputSchema.nullable(),
+  reps: completedRepsInputSchema.nullable(),
+  actualRestSeconds: actualRestSecondsInputSchema.nullable(),
+}).strict();
 export const persistedSessionSetSchema = z.object({
   id: sessionSetIdSchema,
   ...confirmedSessionSetFields,
@@ -62,8 +80,8 @@ export type PersistedSessionSet = z.infer<typeof persistedSessionSetSchema>;
 
 export const setCorrectionInputSchema = z.object({
   expectedVersion: versionSchema,
-  weightKg: weightKgSchema.nullable(),
-  reps: completedRepsSchema.nullable(),
+  weightKg: weightKgInputSchema.nullable(),
+  reps: completedRepsInputSchema.nullable(),
   rir: rirSchema,
   note: shortNoteSchema.nullable(),
   idempotencyKey: idempotencyKeySchema.optional(),

@@ -10,6 +10,7 @@ const {
   parseSessionWeightInput,
   recordRestSecondsForSet,
   sessionProgressSummary,
+  sessionSetPlaceholders,
   setRestTimer,
   stampSessionEndedAt,
   uncompleteSessionSet,
@@ -293,4 +294,11 @@ test('completing sets in different exercises never lets one set\'s rest timer or
   // The first exercise's set keeps its own recorded rest, untouched by the second set's timer.
   assert.equal(withSecondTimer.exercises[0].sets[0].actualRestSeconds, 45);
   assert.equal(withSecondTimer.exercises[1].sets[0].actualRestSeconds, null);
+});
+
+test('sessionSetPlaceholders shows last session values as grey hints, falling back to the plain field hints', () => {
+  assert.deepEqual(sessionSetPlaceholders({ weightKg: 82.5, reps: 8 }), { weight: '82,5 kg', reps: '8 Wdh.' });
+  assert.deepEqual(sessionSetPlaceholders({ weightKg: null, reps: 15 }), { weight: 'kg', reps: '15 Wdh.' });
+  assert.deepEqual(sessionSetPlaceholders({ weightKg: 0, reps: null }), { weight: '0 kg', reps: 'Wdh.' });
+  assert.deepEqual(sessionSetPlaceholders(null), { weight: 'kg', reps: 'Wdh.' });
 });

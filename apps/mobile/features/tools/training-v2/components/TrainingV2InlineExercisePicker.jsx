@@ -19,8 +19,9 @@ export function TrainingV2InlineExercisePicker({
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState('');
   const [muscleMenuOpen, setMuscleMenuOpen] = useState(false);
+  const [confirmError, setConfirmError] = useState(null);
   const {
-    results, exactMatch, search, reset,
+    results, exactMatch, search, reset, loading, error: searchError,
   } = useTrainingV2ExercisePicker();
   const confirmingRef = useRef(false);
   // Tapping a suggestion while the TextInput is still focused blurs it as part of the same
@@ -81,10 +82,12 @@ export function TrainingV2InlineExercisePicker({
     if (suggestionTapRef.current) return;
     if (confirmingRef.current) return;
     confirmingRef.current = true;
+    let confirmed = false;
     try {
       const cleaned = cleanExerciseName(text);
       if (!cleaned) {
         dispatch({ type: 'REMOVE_EXERCISE', logicalUnitKey, logicalTargetExerciseKey });
+        confirmed = true;
         return;
       }
 
@@ -92,6 +95,10 @@ export function TrainingV2InlineExercisePicker({
       // being confirmed right now (Fertig/blur can fire before the last keystroke's debounce
       // settles) — re-check directly so this decision never relies on timing.
       const fresh = await search({ search: cleaned });
+      if (fresh.error) {
+        setConfirmError(fresh.error);
+        return;
+      }
       if (fresh.exactMatch) {
         dispatch({
           type: 'SET_EXERCISE_SELECTION',
@@ -106,8 +113,10 @@ export function TrainingV2InlineExercisePicker({
           type: 'SET_EXERCISE_DRAFT', logicalUnitKey, logicalTargetExerciseKey, name: cleaned,
         });
       }
+      confirmed = true;
+      setConfirmError(null);
     } finally {
-      setEditing(false);
+      if (confirmed) setEditing(false);
       confirmingRef.current = false;
     }
   }
@@ -132,7 +141,7 @@ export function TrainingV2InlineExercisePicker({
           <TextInput
             autoFocus
             onBlur={confirmTypedText}
-            onChangeText={setText}
+            onChangeText={(value) => { setText(value); setConfirmError(null); }}
             onSubmitEditing={confirmTypedText}
             placeholder="Übung suchen oder eingeben …"
             placeholderTextColor="#6F6A77"
@@ -154,7 +163,14 @@ export function TrainingV2InlineExercisePicker({
 
       {showDropdown ? (
         <View style={styles.inlineDropdown}>
-          {results.length === 0 ? (
+          {loading ? <Text style={styles.inlineDropdownEmpty}>Übungen werden geladen …</Text> : confirmError || searchError ? (
+            <View>
+              <Text style={styles.formErrorText}>{(confirmError || searchError).message}</Text>
+              <Pressable accessibilityRole="button" onPress={confirmTypedText} style={styles.retryButton}>
+                <Text style={styles.retryText}>Erneut suchen</Text>
+              </Pressable>
+            </View>
+          ) : results.length === 0 ? (
             <Text style={styles.inlineDropdownEmpty}>Keine Übungen gefunden — „Fertig" legt eine eigene Übung an.</Text>
           ) : results.map((item) => (
             <Pressable

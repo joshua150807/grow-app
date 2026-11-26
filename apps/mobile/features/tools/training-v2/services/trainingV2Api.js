@@ -1,11 +1,13 @@
+import { trainingRecordsResponseSchema, trainingProgressResponseSchema, trainingExerciseProgressResponseSchema } from '@grow/shared';
 import {
   createTrainingExerciseInputSchema,
   createTrainingPlanInputSchema,
   createTrainingSessionInputSchema,
   lastExerciseNoteResponseSchema,
+  lastExerciseSetsResponseSchema,
   listTrainingExercisesResponseSchema,
   listTrainingPlansResponseSchema,
-  listTrainingSessionsResponseSchema,
+  listTrainingSessionHistoryResponseSchema,
   listTrainingTemplatesResponseSchema,
   planVersionInputSchema,
   scheduleTrainingPlanInputSchema,
@@ -13,7 +15,8 @@ import {
   trainingExerciseDetailResponseSchema,
   trainingPlanDetailResponseSchema,
   trainingSessionDetailResponseSchema,
-  trainingSessionResponseSchema,
+  trainingSessionHistoryResponseSchema,
+  trainingSessionStatsResponseSchema,
   trainingTemplateDetailResponseSchema,
   updateTrainingPlanInputSchema,
   updateWeeklyGoalInputSchema,
@@ -69,6 +72,27 @@ export class TrainingV2ContractError extends TrainingV2ApiError {
   }
 }
 
+export class TrainingV2HistoryUnavailableError extends TrainingV2ApiError {
+  constructor() {
+    super('Die Trainingshistorie ist mit dieser API-Version noch nicht verfuegbar.', {
+      code: 'TRAINING_V2_HISTORY_UNAVAILABLE',
+    });
+    this.name = 'TrainingV2HistoryUnavailableError';
+  }
+}
+
+// No fallback to legacy summaries: their missing aggregates are unknown, not zero.
+async function requestSessionHistory(path, schema) {
+  try {
+    return await requestTrainingV2(path, schema);
+  } catch (error) {
+    if (error.status === 404 && error.code !== 'TRAINING_SESSION_NOT_FOUND') {
+      throw new TrainingV2HistoryUnavailableError();
+    }
+    throw error;
+  }
+}
+
 export class TrainingV2ValidationError extends TrainingV2ApiError {
   constructor(code = 'VALIDATION_ERROR', fieldErrors = {}) {
     super('Bitte überprüfe deine Eingaben.', { status: 400, code });
@@ -115,7 +139,7 @@ function responseError(status, code, details) {
   return new TrainingV2ApiError('Die Training-API hat die Anfrage abgelehnt.', { status, code });
 }
 
-async function callTrainingV2(path, { method = 'GET', body } = {}, schema) {
+async function callTrainingV2(path, { method = 'GET', body, expectedOwnerId } = {}, schema) {
   const baseUrl = apiBaseUrl();
   const {
     data: { session } = {},
@@ -125,6 +149,7 @@ async function callTrainingV2(path, { method = 'GET', body } = {}, schema) {
   if (error || !session?.access_token) {
     throw new TrainingV2AuthError(error ? 'TRAINING_V2_SESSION_ERROR' : 'UNAUTHORIZED');
   }
+  if (expectedOwnerId && session.user?.id !== expectedOwnerId) throw new TrainingV2AuthError('TRAINING_V2_OWNER_CHANGED');
 
   let response;
   try {
@@ -141,6 +166,12 @@ async function callTrainingV2(path, { method = 'GET', body } = {}, schema) {
   }
 
   const payload = await responseJson(response);
+  // Never publish an old owner's response into the next account's screen/cache.
+  // Token refresh for the same owner remains valid.
+  if (session.user?.id) {
+    const { data: current, error: currentError } = await supabase.auth.getSession();
+    if (currentError || current?.session?.user?.id !== session.user.id) throw new TrainingV2AuthError('TRAINING_V2_OWNER_CHANGED');
+  }
   if (!response.ok) {
     throw responseError(response.status, payload?.error?.code ?? 'TRAINING_V2_REQUEST_FAILED', payload?.error?.details);
   }
@@ -207,11 +238,11 @@ function parseTrainingV2Input(schema, input) {
   return parsed.data;
 }
 
-export async function createTrainingV2Plan(input) {
+export async function createTrainingV2Plan(input, { ownerId } = {}) {
   const body = parseTrainingV2Input(createTrainingPlanInputSchema, input);
   return (await callTrainingV2(
     '/v1/training/plans',
-    { method: 'POST', body },
+    { method: 'POST', body, expectedOwnerId: ownerId },
     trainingPlanDetailResponseSchema,
   )).plan;
 }
@@ -283,17 +314,30 @@ export async function listTrainingV2Sessions(query = {}) {
     searchParams.set(key, String(value));
   });
   const queryString = searchParams.toString();
-  return requestTrainingV2(
-    `/v1/training/sessions${queryString ? `?${queryString}` : ''}`,
-    listTrainingSessionsResponseSchema,
+  return requestSessionHistory(
+    `/v1/training/session-history${queryString ? `?${queryString}` : ''}`,
+    listTrainingSessionHistoryResponseSchema,
   );
 }
 
 export async function getTrainingV2Session(sessionId) {
-  return (await requestTrainingV2(
-    `/v1/training/sessions/${encodeURIComponent(sessionId)}`,
-    trainingSessionResponseSchema,
+  return (await requestSessionHistory(
+    `/v1/training/session-history/${encodeURIComponent(sessionId)}`,
+    trainingSessionHistoryResponseSchema,
   )).session;
+}
+
+// Owner-scoped totals across all saved sessions, independent of history pagination.
+export async function getTrainingV2SessionStats() {
+  try {
+    return await requestSessionHistory('/v1/training/sessions/stats', trainingSessionStatsResponseSchema);
+  } catch (error) {
+    // Older APIs match 'stats' as a session ID and reject it during parameter validation.
+    if (error.status === 400 && error.code === 'TRAINING_SESSION_VALIDATION_ERROR' && error.fieldErrors.sessionId) {
+      throw new TrainingV2HistoryUnavailableError();
+    }
+    throw error;
+  }
 }
 
 // Read-only lookup for the "Letzte Notiz" hint (last note left on this exercise in any past
@@ -303,6 +347,20 @@ export async function getTrainingV2LastExerciseNote(exerciseId) {
     `/v1/training/exercises/${encodeURIComponent(exerciseId)}/last-note`,
     lastExerciseNoteResponseSchema,
   );
+}
+
+// Read-only lookup for the grey "last time" placeholders in the session screen: this exercise's
+// sets from the most recent saved session. An API without this route (404) just means no hint.
+export async function getTrainingV2LastExerciseSets(exerciseId) {
+  try {
+    return await requestTrainingV2(
+      `/v1/training/exercises/${encodeURIComponent(exerciseId)}/last-sets`,
+      lastExerciseSetsResponseSchema,
+    );
+  } catch (error) {
+    if (error?.status === 404) return { completedAt: null, sets: [] };
+    throw error;
+  }
 }
 
 export async function updateTrainingV2WeeklyGoal(planId, expectedVersion, weeklyGoal) {
@@ -394,3 +452,18 @@ export async function resolveTrainingV2ExerciseNames(plan, cache = new Map()) {
   const details = await resolveTrainingV2ExerciseDetails(plan, cache);
   return Object.fromEntries(Object.entries(details).map(([exerciseId, detail]) => [exerciseId, detail?.name]));
 }
+
+async function requestTrainingAnalytics(resource, query, schema) {
+  const params = new URLSearchParams();
+  Object.entries(query).forEach(([key, value]) => { if (value !== undefined) params.set(key, String(value)); });
+  try { return await requestTrainingV2('/v1/training/analytics/' + resource + '?' + params, schema); }
+  catch (error) {
+    if (error.status === 404 && error.code !== 'TRAINING_SESSION_NOT_FOUND') {
+      throw new TrainingV2ApiError('Die Leistungsauswertung ist mit dieser API-Version noch nicht verfügbar.', { code: 'TRAINING_ANALYTICS_UNAVAILABLE' });
+    }
+    throw error;
+  }
+}
+export const getTrainingV2Records = (query = {}) => requestTrainingAnalytics('records', query, trainingRecordsResponseSchema);
+export const getTrainingV2Progress = (query = {}) => requestTrainingAnalytics('progress', query, trainingProgressResponseSchema);
+export const getTrainingV2ExerciseProgress = (exerciseId, query = {}) => requestTrainingAnalytics('exercises/' + encodeURIComponent(exerciseId), query, trainingExerciseProgressResponseSchema);

@@ -30,6 +30,8 @@ export const UNIT_TYPE_LABELS = {
   strength: 'Kraft',
   run: 'Laufen',
   rest: 'Erholung',
+  mobility: 'Mobility',
+  stretching: 'Dehnen',
 };
 
 export function groupTrainingV2Plans(plans) {

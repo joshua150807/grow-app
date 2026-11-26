@@ -1,3 +1,4 @@
+import { createTrainingAnalyticsService, type TrainingAnalyticsService } from '../../modules/trainingSessions/trainingAnalyticsService.js';
 import type { FastifyPluginAsync } from 'fastify';
 import {
   createTrainingPlanService,
@@ -17,6 +18,7 @@ import {
 } from '../../modules/trainingSessions/trainingSessionService.js';
 
 export type TrainingRoutesOptions = {
+  trainingAnalyticsService?: TrainingAnalyticsService;
   trainingPlanService?: TrainingPlanService;
   trainingExerciseService?: TrainingExerciseService;
   trainingTemplateService?: TrainingTemplateService;
@@ -36,6 +38,8 @@ export const trainingRoutes: FastifyPluginAsync<TrainingRoutesOptions> = async (
   let runtimeSessionService: TrainingSessionService | null = null;
   const sessionService = () => options.trainingSessionService
     ?? (runtimeSessionService ??= createTrainingSessionService());
+  let runtimeAnalyticsService: TrainingAnalyticsService | null = null;
+  const analytics = () => options.trainingAnalyticsService ?? (runtimeAnalyticsService ??= createTrainingAnalyticsService());
   const id = (request: { params: unknown }) => (request.params as { id: string }).id;
 
   app.get('/training/exercises', { preHandler: [app.requireAuth] }, async (request) => (
@@ -97,8 +101,21 @@ export const trainingRoutes: FastifyPluginAsync<TrainingRoutesOptions> = async (
     return reply.code(204).send();
   });
 
+  app.get('/training/analytics/records', { preHandler: [app.requireAuth] }, async request => analytics().records(request.auth.user!, request.query));
+  app.get('/training/analytics/progress', { preHandler: [app.requireAuth] }, async request => analytics().progress(request.auth.user!, request.query));
+  app.get('/training/analytics/exercises/:exerciseId', { preHandler: [app.requireAuth] }, async request => analytics().exercise(request.auth.user!, request.params, request.query));
+
   app.get('/training/sessions', { preHandler: [app.requireAuth] }, async (request) => (
     sessionService().list(request.auth.user!, request.query)
+  ));
+  app.get('/training/session-history', { preHandler: [app.requireAuth] }, async (request) => (
+    sessionService().listHistory(request.auth.user!, request.query)
+  ));
+  app.get('/training/session-history/:sessionId', { preHandler: [app.requireAuth] }, async (request) => (
+    sessionService().getHistory(request.auth.user!, request.params)
+  ));
+  app.get('/training/sessions/stats', { preHandler: [app.requireAuth] }, async (request) => (
+    sessionService().getStats(request.auth.user!)
   ));
   app.get('/training/sessions/:sessionId', { preHandler: [app.requireAuth] }, async (request) => (
     sessionService().get(request.auth.user!, request.params)
@@ -109,5 +126,8 @@ export const trainingRoutes: FastifyPluginAsync<TrainingRoutesOptions> = async (
   });
   app.get('/training/exercises/:exerciseId/last-note', { preHandler: [app.requireAuth] }, async (request) => (
     sessionService().getLastExerciseNote(request.auth.user!, request.params)
+  ));
+  app.get('/training/exercises/:exerciseId/last-sets', { preHandler: [app.requireAuth] }, async (request) => (
+    sessionService().getLastExerciseSets(request.auth.user!, request.params)
   ));
 };

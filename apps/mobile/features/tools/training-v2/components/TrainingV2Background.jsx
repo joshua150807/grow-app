@@ -1,6 +1,7 @@
 import { ImageBackground, StyleSheet, View } from 'react-native';
 
 import { TRAINING_PAGE_BG } from '../../../../constants/toolAssets';
+import { TrainingV2OwnerBoundary } from './TrainingV2OwnerBoundary';
 
 // Training-V2 sub-pages live as flat, sibling routes directly under app/(tabs)/tools/ (not
 // inside the (training) group), so that popping/swiping back from one of them is handled by
@@ -17,7 +18,7 @@ export function TrainingV2Background({ children }) {
       resizeMode="cover"
     >
       <View style={styles.overlay} />
-      <View style={styles.content}>{children}</View>
+      <View style={styles.content}><TrainingV2OwnerBoundary>{children}</TrainingV2OwnerBoundary></View>
     </ImageBackground>
   );
 }

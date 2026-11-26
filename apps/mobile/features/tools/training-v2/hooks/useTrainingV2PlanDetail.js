@@ -12,28 +12,36 @@ export function useTrainingV2PlanDetail(planId) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [fetching, setFetching] = useState(false);
   const requestSequenceRef = useRef(0);
   const exerciseCacheRef = useRef(new Map());
+  const loadedPlanRef = useRef(null);
 
   const load = useCallback(async ({ refresh = false } = {}) => {
     const requestSequence = requestSequenceRef.current + 1;
     requestSequenceRef.current = requestSequence;
-    if (refresh) setRefreshing(true);
-    else setLoading(true);
+    const hasPlan = loadedPlanRef.current?.id === planId;
+    setLoading(!hasPlan);
+    setRefreshing(refresh && hasPlan);
+    setFetching(!refresh && hasPlan);
     setError(null);
 
     try {
       const nextPlan = await getTrainingV2Plan(planId);
       const names = await resolveTrainingV2ExerciseNames(nextPlan, exerciseCacheRef.current);
       if (requestSequence !== requestSequenceRef.current) return;
-      setPlan(mapTrainingV2PlanDetail(nextPlan, names));
+      const mapped = mapTrainingV2PlanDetail(nextPlan, names);
+      loadedPlanRef.current = mapped;
+      setPlan(mapped);
     } catch (nextError) {
       if (requestSequence !== requestSequenceRef.current) return;
+      if (nextError.status === 404) { loadedPlanRef.current = null; setPlan(null); }
       setError(nextError);
     } finally {
       if (requestSequence !== requestSequenceRef.current) return;
       setLoading(false);
       setRefreshing(false);
+      setFetching(false);
     }
   }, [planId]);
 
@@ -52,14 +60,24 @@ export function useTrainingV2PlanDetail(planId) {
   // reactivate/weekly-goal) directly, without an extra GET. The tree's exercise ids
   // are unchanged by those mutations, so the existing name cache is reused as-is.
   const applyServerPlan = useCallback(async (nextPlan) => {
+    if (nextPlan.id !== planId) return;
+    const sequence = ++requestSequenceRef.current;
     const names = await resolveTrainingV2ExerciseNames(nextPlan, exerciseCacheRef.current);
-    setPlan(mapTrainingV2PlanDetail(nextPlan, names));
-  }, []);
+    if (sequence !== requestSequenceRef.current) return;
+    const mapped = mapTrainingV2PlanDetail(nextPlan, names);
+    loadedPlanRef.current = mapped;
+    setPlan(mapped);
+    setLoading(false);
+    setRefreshing(false);
+    setFetching(false);
+  }, [planId]);
 
+  const visiblePlan = plan?.id === planId ? plan : null;
   return {
-    plan,
-    loading,
+    plan: visiblePlan,
+    loading: !visiblePlan && (loading || Boolean(planId && !error)),
     refreshing,
+    fetching,
     error,
     retry: load,
     refresh: useCallback(() => load({ refresh: true }), [load]),

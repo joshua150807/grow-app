@@ -3,7 +3,11 @@ import type {
   ListTrainingSessionsQuery,
   TrainingSession,
   TrainingSessionSummary,
+  TrainingSessionHistory,
+  TrainingSessionHistorySummary,
+  TrainingSessionStatsResponse,
 } from '@grow/shared/src/training/sessions.js';
+import { TRAINING_V2_LIMITS } from '@grow/shared/src/training/primitives.js';
 import { trainingSessionSchema, trainingSessionSummarySchema } from '@grow/shared/src/training/sessions.js';
 import type pg from 'pg';
 import { getPgPool } from '../../db/client.js';
@@ -21,11 +25,18 @@ export type CreateSessionResult =
 export type TrainingSessionRepository = {
   create(userId: string, input: CreateTrainingSessionInput): Promise<CreateSessionResult>;
   findLastExerciseNote(userId: string, exerciseId: string): Promise<{ note: string; completedAt: string } | null>;
+  findLastExerciseSets(userId: string, exerciseId: string): Promise<LastExerciseSets | null>;
   list(
     userId: string,
     query: ListTrainingSessionsQuery,
   ): Promise<{ sessions: TrainingSessionSummary[]; hasMore: boolean }>;
   find(userId: string, sessionId: string): Promise<TrainingSession | null>;
+  listHistory(
+    userId: string,
+    query: ListTrainingSessionsQuery,
+  ): Promise<{ sessions: TrainingSessionHistorySummary[]; hasMore: boolean }>;
+  findHistory(userId: string, sessionId: string): Promise<TrainingSessionHistory | null>;
+  getStats(userId: string): Promise<TrainingSessionStatsResponse>;
 };
 
 type SessionRow = {
@@ -165,6 +176,74 @@ async function listSessions(
   };
 }
 
+// SQL counterpart of calculateSetVolumeKg in shared training/domain.ts. Each logged set
+// contributes only when its catalog load type and its recorded weight/reps define a volume.
+async function loadHistoryAggregates(
+  db: Pick<pg.Pool, 'query'>, userId: string, sessionIds: string[],
+): Promise<Map<string, { exerciseCount: number; volumeKg: number }>> {
+  if (sessionIds.length === 0) return new Map();
+
+  const result = await db.query<{ session_id: string; exercise_count: string; volume_kg: string }>(`
+    select e.session_id, count(distinct e.id) as exercise_count,
+      coalesce(sum(${setVolumeSql}), 0) as volume_kg
+    ${volumeFromSql}
+    where e.user_id=$1 and e.session_id=any($2::uuid[])
+    group by e.session_id
+  `, [userId, sessionIds]);
+  return new Map(result.rows.map((row) => [
+    row.session_id, { exerciseCount: Number(row.exercise_count), volumeKg: Number(row.volume_kg) },
+  ]));
+}
+
+// Sets above the product input limits can no longer be entered (Fixplan B2) but may already be
+// stored (sessions are immutable). They stay visible in the session detail with their raw values,
+// but never count towards volume, statistics or records, so one bad row cannot corrupt or break
+// a user's aggregates (audit F04, Fixplan B5). Same predicate as `eligible` in the analytics repo.
+export const plausibleSetSql = `(s.weight_kg is null or s.weight_kg <= ${TRAINING_V2_LIMITS.maxWeightKg})
+  and (s.reps is null or s.reps <= ${TRAINING_V2_LIMITS.maxReps})`;
+
+export const setVolumeSql = `
+  case
+    when not (${plausibleSetSql}) then null
+    when catalog.load_type in ('total_weight', 'added_weight_only') then s.weight_kg * s.reps
+    when catalog.load_type in ('per_hand', 'per_side') then 2 * s.weight_kg * s.reps
+  end
+`;
+
+// A session whose raw span exceeds the reliable maximum (e.g. a draft resumed the next day,
+// audit F07) keeps its stored timestamps untouched but is not used as a measured duration:
+// it contributes null to duration sums and is not counted as a measured session (Fixplan B10).
+export const reliableTimingSql = `(started_at is not null and ended_at is not null
+  and ended_at - started_at <= make_interval(secs => ${TRAINING_V2_LIMITS.maxReliableSessionSeconds}))`;
+export const measuredSessionDurationSql = `case when ${reliableTimingSql}
+  then extract(epoch from (ended_at - started_at)) - paused_duration_seconds end`;
+
+const volumeFromSql = `
+  from public.training_session_exercises_v2 e
+  join public.training_exercises_v2 catalog on catalog.id=e.exercise_id
+  left join public.training_session_sets_v2 s
+    on s.session_exercise_id=e.id and s.session_id=e.session_id and s.user_id=e.user_id
+`;
+
+async function getSessionStats(
+  db: Pick<pg.Pool, 'query'>, userId: string,
+): Promise<TrainingSessionStatsResponse> {
+  const result = await db.query<{ total_sessions: string; total_duration_seconds: string; total_volume_kg: string }>(`
+    select count(*) as total_sessions,
+      coalesce(sum(${measuredSessionDurationSql}), 0)
+        as total_duration_seconds,
+      (select coalesce(sum(${setVolumeSql}), 0) ${volumeFromSql} where e.user_id=$1) as total_volume_kg
+    from public.training_sessions_v2
+    where user_id=$1
+  `, [userId]);
+  const row = result.rows[0];
+  return {
+    totalSessions: Number(row.total_sessions),
+    totalDurationSeconds: Number(row.total_duration_seconds),
+    totalVolumeKg: Number(row.total_volume_kg),
+  };
+}
+
 async function findSessionByIdempotencyKey(
   client: Client, userId: string, idempotencyKey: string,
 ): Promise<{ id: string; fingerprint: string } | null> {
@@ -197,16 +276,81 @@ async function findLastExerciseNote(
   return row ? { note: row.note, completedAt: iso(row.created_at) } : null;
 }
 
+export type LastExerciseSets = {
+  completedAt: string;
+  sets: { orderIndex: number; setType: 'warmup' | 'work' | 'drop'; weightKg: number | null; reps: number | null }[];
+};
+
+// Same exerciseId scoping as findLastExerciseNote. Picks the user's most recent saved session
+// (completed or incomplete, by endedAt, else save time) in which this exercise has at least one
+// logged set, and returns that exercise's sets in their logged order. If an exercise appears
+// twice in that session, its first occurrence wins.
+async function findLastExerciseSets(
+  db: Pick<pg.Pool, 'query'>, userId: string, exerciseId: string,
+): Promise<LastExerciseSets | null> {
+  const result = await db.query<{
+    done_at: Date | string; order_index: number; set_type: 'warmup' | 'work' | 'drop';
+    weight_kg: string | number | null; reps: number | null;
+  }>(`
+    with last_exercise as (
+      select e.id, coalesce(s.ended_at, s.created_at) as done_at
+      from public.training_session_exercises_v2 e
+      join public.training_sessions_v2 s on s.id = e.session_id and s.user_id = e.user_id
+      where e.user_id = $1 and e.exercise_id = $2
+        and exists (select 1 from public.training_session_sets_v2 st where st.session_exercise_id = e.id)
+      order by coalesce(s.ended_at, s.created_at) desc, s.created_at desc, e.order_index asc
+      limit 1
+    )
+    select le.done_at, st.order_index, st.set_type, st.weight_kg, st.reps
+    from last_exercise le
+    join public.training_session_sets_v2 st on st.session_exercise_id = le.id
+    order by st.order_index
+  `, [userId, exerciseId]);
+  if (!result.rows.length) return null;
+  return {
+    completedAt: iso(result.rows[0].done_at),
+    sets: result.rows.map((row) => ({
+      orderIndex: row.order_index,
+      setType: row.set_type,
+      weightKg: row.weight_kg === null ? null : Number(row.weight_kg),
+      reps: row.reps,
+    })),
+  };
+}
+
 export function createTrainingSessionRepository(db: Database = getPgPool()): TrainingSessionRepository {
   return {
     findLastExerciseNote(userId, exerciseId) {
       return findLastExerciseNote(db, userId, exerciseId);
+    },
+    findLastExerciseSets(userId, exerciseId) {
+      return findLastExerciseSets(db, userId, exerciseId);
     },
     list(userId, query) {
       return listSessions(db, userId, query);
     },
     find(userId, sessionId) {
       return loadSession(db, userId, sessionId);
+    },
+    async listHistory(userId, query) {
+      const { sessions, hasMore } = await listSessions(db, userId, query);
+      const aggregates = await loadHistoryAggregates(db, userId, sessions.map(({ id }) => id));
+      return {
+        sessions: sessions.map((session) => ({
+          ...session,
+          ...(aggregates.get(session.id) ?? { exerciseCount: 0, volumeKg: 0 }),
+        })),
+        hasMore,
+      };
+    },
+    async findHistory(userId, sessionId) {
+      const session = await loadSession(db, userId, sessionId);
+      if (!session) return null;
+      const aggregates = await loadHistoryAggregates(db, userId, [sessionId]);
+      return { ...session, volumeKg: aggregates.get(sessionId)?.volumeKg ?? 0 };
+    },
+    getStats(userId) {
+      return getSessionStats(db, userId);
     },
     create(userId, input) {
       const fingerprint = computeSessionRequestFingerprint(input);
@@ -379,13 +523,24 @@ export function createTrainingSessionRepository(db: Database = getPgPool()): Tra
           // revision the plan's cycle state currently tracks, using the exact same
           // logical-key algorithm trainingPlanRepository.ts's update() already uses for a
           // plan edit (see trainingSessionCycleRemap.ts) -- never a new, invented mapping.
-          const cycleRows = await client.query<{ revision_id: string }>(`
-            select revision_id from public.training_plan_cycle_states_v2
-            where plan_id=$1 and user_id=$2 for update`, [input.planId, userId]);
+          // Late saves (offline retry, audit F08): a session only advances the cycle when it is
+          // not older than the newest session that already advanced it. Its point in time is
+          // least(endedAt, server now()) -- a device clock in the future (audit F14) can therefore
+          // never push the marker ahead of real time and freeze the cycle. A session without
+          // timing counts as "now". The row is locked FOR UPDATE, so concurrent saves compare and
+          // advance strictly one after another.
+          const cycleRows = await client.query<{ revision_id: string; occurred_at: Date; is_latest: boolean }>(`
+            select revision_id,
+              least(coalesce($3::timestamptz, now()), now()) as occurred_at,
+              (last_completed_session_at is null
+                or least(coalesce($3::timestamptz, now()), now()) >= last_completed_session_at) as is_latest
+            from public.training_plan_cycle_states_v2
+            where plan_id=$1 and user_id=$2 for update`, [input.planId, userId, input.endedAt]);
           const cycle = cycleRows.rows[0];
           // No cycle state exists at all (the plan was never activated) -- there is nothing
-          // to advance; the session itself has already been fully saved above regardless.
-          if (cycle) {
+          // to advance; the session itself has already been fully saved above regardless. An
+          // older session than the last advancing one is saved to history but leaves the cycle.
+          if (cycle && cycle.is_latest) {
             const successor = siblingUnits[(unitIndex + 1) % siblingUnits.length];
             let target: CycleRemapUnit = {
               id: successor.id, orderIndex: Number(successor.order_index), logicalUnitKey: String(successor.logical_unit_key),
@@ -410,9 +565,9 @@ export function createTrainingSessionRepository(db: Database = getPgPool()): Tra
             await client.query(`
               update public.training_plan_cycle_states_v2
               set next_unit_id=$1,next_order_index=$2,last_trigger='session_completed',
-                version=version+1,advanced_at=now()
+                version=version+1,advanced_at=now(),last_completed_session_at=$5
               where plan_id=$3 and user_id=$4
-            `, [target.id, target.orderIndex, input.planId, userId]);
+            `, [target.id, target.orderIndex, input.planId, userId, cycle.occurred_at]);
           }
         }
 

@@ -8,7 +8,9 @@ import { useTrainingV2TemplateActions } from '../hooks/useTrainingV2TemplateActi
 import { useTrainingV2TemplateDetail } from '../hooks/useTrainingV2TemplateDetail';
 import { targetSetLabel } from '../models/trainingV2ViewModel';
 import { styles } from '../styles/trainingV2Styles';
+import { useTrainingV2ContentStyle } from '../hooks/useTrainingV2ContentStyle';
 import { TrainingV2StateView } from '../components/TrainingV2StateView';
+import TrainingV2OwnPlanDetail from './TrainingV2OwnPlanDetail';
 
 function actionErrorMessage(error) {
   if (!error) return null;
@@ -21,7 +23,8 @@ function actionErrorMessage(error) {
 // server actions (see trainingTemplateSaveRepository.ts) that transparently create the
 // user's own plan copy on first use — there is nothing to branch on here. No edit flow: Grow
 // content is immutable; editing only ever applies to a user's own plans.
-export default function TrainingV2GrowPlanDetail({ templateId }) {
+export default function TrainingV2GrowPlanDetail({ templateId, planId }) {
+  const contentStyle = useTrainingV2ContentStyle();
   const {
     template, loading, refreshing, error, retry, refresh,
   } = useTrainingV2TemplateDetail(templateId);
@@ -55,14 +58,17 @@ export default function TrainingV2GrowPlanDetail({ templateId }) {
     void (template.isSaved ? actions.unsave() : actions.save());
   }, [actions, template]);
 
-  if (loading || error) {
+  // Existing user instances remain usable when a source template is unpublished.
+  // Their detail view is read-only for Grow content as well.
+  if (!loading && error?.status === 404 && planId) return <TrainingV2OwnPlanDetail planId={planId} />;
+  if (!template && (loading || error)) {
     return <TrainingV2StateView loading={loading} error={error} onRetry={retry} />;
   }
   if (!template) return null;
 
   return (
     <ScrollView
-      contentContainerStyle={styles.content}
+      contentContainerStyle={contentStyle}
       refreshControl={(
         <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={COLORS.softGold} />
       )}
@@ -73,6 +79,7 @@ export default function TrainingV2GrowPlanDetail({ templateId }) {
         <Text style={styles.title}>Plandetail</Text>
       </View>
 
+      {error ? <TrainingV2StateView error={error} onRetry={retry} /> : null}
       {actions.error ? (
         <View style={styles.conflictBanner}>
           <Text style={styles.conflictBannerText}>{actionErrorMessage(actions.error)}</Text>
@@ -83,14 +90,15 @@ export default function TrainingV2GrowPlanDetail({ templateId }) {
       ) : null}
 
       <View style={styles.detailHeader}>
-        <View style={styles.cardTop}>
-          <Text style={styles.detailName}>{template.name}</Text>
-          {template.isActive ? (
-            <View style={[styles.statusBadge, styles.statusBadgeActive]}>
+        {template.isActive ? (
+          <View style={styles.detailStatusRow}>
+            <View style={[styles.statusBadge, styles.statusBadgeActive, styles.detailStatusBadge]}>
               <Text style={[styles.statusBadgeText, styles.statusBadgeTextActive]}>Aktiv</Text>
             </View>
-          ) : null}
-        </View>
+          </View>
+        ) : null}
+        <Text style={styles.detailName}>{template.name}</Text>
+        <Text style={styles.detailMeta}>Revision {template.revision.revisionNumber}</Text>
         {template.description ? <Text style={styles.detailMeta}>{template.description}</Text> : null}
       </View>
 

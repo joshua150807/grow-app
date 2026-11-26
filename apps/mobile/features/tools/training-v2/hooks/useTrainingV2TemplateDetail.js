@@ -18,28 +18,36 @@ export function useTrainingV2TemplateDetail(templateId) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [fetching, setFetching] = useState(false);
   const requestSequenceRef = useRef(0);
   const exerciseCacheRef = useRef(new Map());
+  const loadedTemplateRef = useRef(null);
 
   const load = useCallback(async ({ refresh = false } = {}) => {
     const requestSequence = requestSequenceRef.current + 1;
     requestSequenceRef.current = requestSequence;
-    if (refresh) setRefreshing(true);
-    else setLoading(true);
+    const hasTemplate = loadedTemplateRef.current?.id === templateId;
+    setLoading(!hasTemplate);
+    setRefreshing(refresh && hasTemplate);
+    setFetching(!refresh && hasTemplate);
     setError(null);
 
     try {
       const { template: nextTemplate, userPlan } = await getTrainingV2Template(templateId);
       const names = await resolveTrainingV2ExerciseNames(nextTemplate, exerciseCacheRef.current);
       if (requestSequence !== requestSequenceRef.current) return;
-      setTemplate(mapTrainingV2TemplateDetail(nextTemplate, userPlan, names));
+      const mapped = mapTrainingV2TemplateDetail(nextTemplate, userPlan, names);
+      loadedTemplateRef.current = mapped;
+      setTemplate(mapped);
     } catch (nextError) {
       if (requestSequence !== requestSequenceRef.current) return;
+      if (nextError.status === 404) { loadedTemplateRef.current = null; setTemplate(null); }
       setError(nextError);
     } finally {
       if (requestSequence !== requestSequenceRef.current) return;
       setLoading(false);
       setRefreshing(false);
+      setFetching(false);
     }
   }, [templateId]);
 
@@ -54,10 +62,12 @@ export function useTrainingV2TemplateDetail(templateId) {
     };
   }, [load, templateId]));
 
+  const visibleTemplate = template?.id === templateId ? template : null;
   return {
-    template,
-    loading,
+    template: visibleTemplate,
+    loading: !visibleTemplate && (loading || Boolean(templateId && !error)),
     refreshing,
+    fetching,
     error,
     retry: load,
     refresh: useCallback(() => load({ refresh: true }), [load]),

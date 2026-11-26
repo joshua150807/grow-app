@@ -74,8 +74,8 @@ function loadApi() {
       trainingExerciseDetailResponseSchema: exerciseSchema,
       lastExerciseNoteResponseSchema: lastExerciseNoteSchema,
       listTrainingExercisesResponseSchema: listExercisesSchema,
-      listTrainingSessionsResponseSchema: listSessionsSchema,
-      trainingSessionResponseSchema: sessionDetailSchema,
+      listTrainingSessionHistoryResponseSchema: listSessionsSchema,
+      trainingSessionHistoryResponseSchema: sessionDetailSchema,
       createTrainingPlanInputSchema: createInputSchema,
       updateTrainingPlanInputSchema: updateInputSchema,
       planVersionInputSchema: planVersionSchema,
@@ -373,7 +373,7 @@ test('listTrainingV2Sessions builds a query string from provided filters and dro
   assert.deepEqual(result.sessions, [{ id: 'session-1' }]);
   const [url] = calls[0].split('?');
   const params = new URLSearchParams(calls[0].split('?')[1]);
-  assert.equal(url.endsWith('/v1/training/sessions'), true);
+  assert.equal(url.endsWith('/v1/training/session-history'), true);
   assert.equal(params.get('page'), '1');
   assert.equal(params.has('limit'), false);
   assert.equal(params.has('status'), false);
@@ -391,7 +391,7 @@ test('listTrainingV2Sessions omits the query string entirely when called with no
 
   await api.listTrainingV2Sessions();
 
-  assert.equal(calls[0].endsWith('/v1/training/sessions'), true);
+  assert.equal(calls[0].endsWith('/v1/training/session-history'), true);
   assert.equal(calls[0].includes('?'), false);
 });
 
@@ -408,7 +408,7 @@ test('getTrainingV2Session GETs the session detail by id and returns the full se
 
   assert.equal(session.id, 'session/1');
   assert.equal(calls[0][1].method, 'GET');
-  assert.equal(calls[0][0].endsWith('/v1/training/sessions/session%2F1'), true);
+  assert.equal(calls[0][0].endsWith('/v1/training/session-history/session%2F1'), true);
 });
 
 test('session read functions classify 401/404/network/contract failures the same way other reads do', async (context) => {

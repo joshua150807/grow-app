@@ -1,4 +1,8 @@
 import { createTrainingV2LogicalKey } from '../services/trainingV2LogicalId';
+import {
+  isPlausibleTrainingV2Reps, isPlausibleTrainingV2WeightKg, parseTrainingV2RepsText, parseTrainingV2WeightText,
+  TRAINING_V2_LIMITS, TRAINING_V2_REPS_INPUT_HINT, TRAINING_V2_WEIGHT_INPUT_HINT,
+} from '../utils/trainingV2NumericInput';
 
 // The fallback rest whenever a target set carries no real rest value of its own. 0 — never
 // null — is that "no value" sentinel in practice: training_plan_target_sets_v2.planned_rest_seconds
@@ -67,17 +71,57 @@ function updateSet(state, exerciseIndex, setIndex, updater) {
 // or null, matching the shared weightKgSchema/completedRepsSchema exactly so a later payload
 // build never fails validation on a value the UI itself accepted.
 export function parseSessionWeightInput(text) {
-  const trimmed = typeof text === 'string' ? text.trim().replace(',', '.') : '';
-  if (!trimmed) return null;
-  const value = Number(trimmed);
-  return Number.isFinite(value) && value >= 0 ? value : null;
+  return parseTrainingV2WeightText(text).value;
 }
 
+// Returns the reps number only for a valid entry (1-1000, Fixplan D2); anything else is null. The
+// screen keeps the raw text in `repsInput` (like `weightInput`), so an incomplete or too-large entry
+// stays visible and correctable instead of silently turning into "no value".
 export function parseSessionRepsInput(text) {
-  const trimmed = typeof text === 'string' ? text.trim() : '';
-  if (!trimmed) return null;
-  const value = Number(trimmed);
-  return Number.isInteger(value) && value > 0 ? value : null;
+  return parseTrainingV2RepsText(text).value;
+}
+
+const lastValueNumber = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
+
+// Grey placeholder text for one set's kg/Wdh. fields: the value of the set at the same position
+// in the last saved session of this exercise. Display-only — never written into the draft, so an
+// empty field still saves as "nothing entered". Falls back to the plain field hints.
+export function sessionSetPlaceholders(lastSet) {
+  const weight = lastSet && lastSet.weightKg !== null && lastSet.weightKg !== undefined ? `${lastValueNumber.format(lastSet.weightKg)} kg` : 'kg';
+  const reps = lastSet && lastSet.reps !== null && lastSet.reps !== undefined ? `${lastValueNumber.format(lastSet.reps)} Wdh.` : 'Wdh.';
+  return { weight, reps };
+}
+
+// Why a set cannot be confirmed/saved as entered, or null. Covers the raw text fields and -- for
+// drafts persisted by an older build -- numeric values that bypassed today's parsers.
+export function getSessionSetInputIssue(set) {
+  if (set.weightInput !== undefined && !parseTrainingV2WeightText(set.weightInput).valid) return 'weight';
+  if (set.repsInput !== undefined && !parseTrainingV2RepsText(set.repsInput).valid) return 'reps';
+  if (set.weightKg !== null && set.weightKg !== undefined && !isPlausibleTrainingV2WeightKg(set.weightKg)) return 'weight';
+  if (set.reps !== null && set.reps !== undefined && !isPlausibleTrainingV2Reps(set.reps)) return 'reps';
+  return null;
+}
+
+// The API answers 400 TRAINING_SESSION_VALIDATION_ERROR for a session save only from its input
+// contract check, which runs before any database access (trainingSessionService.create). Such an
+// answer proves nothing was stored, so the draft may be unlocked for correction. Any other error
+// (network, 5xx, contract/parse error, 401/404/409, other 400 codes) leaves the outcome unknown or
+// not correctable by editing, and the locked replay must be kept.
+export function isDefinitiveTrainingV2SessionRejection(error) {
+  return error?.status === 400 && error?.code === 'TRAINING_SESSION_VALIDATION_ERROR';
+}
+
+// Removes the pendingSave lock only; idempotencyKey, endedAt, every set and timestamp stay as they
+// were, so a later save is still the same logical request (no duplicate session can be created).
+export function unlockRejectedTrainingV2SessionDraft(state) {
+  const { pendingSave: _pendingSave, ...unlocked } = state;
+  return unlocked;
+}
+
+export function sessionSetInputIssueMessage(issue) {
+  if (issue === 'weight') return `Bitte korrigiere das Gewicht. ${TRAINING_V2_WEIGHT_INPUT_HINT}`;
+  if (issue === 'reps') return `Bitte korrigiere die Wiederholungen. ${TRAINING_V2_REPS_INPUT_HINT}`;
+  return null;
 }
 
 export function updateSessionSetInput(state, exerciseIndex, setIndex, patch) {
@@ -119,8 +163,13 @@ export function uncompleteSessionSet(state, exerciseIndex, setIndex) {
   }));
 }
 
+// A measured rest above 24 h (e.g. the app sat in the background overnight) is not a valid rest
+// measurement (Fixplan D4): it is recorded as null ("not measured") instead of producing a value the
+// API would reject -- that rejection would otherwise block saving the whole unit.
 export function recordRestSecondsForSet(state, exerciseIndex, setIndex, actualRestSeconds) {
-  return updateSet(state, exerciseIndex, setIndex, (set) => ({ ...set, actualRestSeconds }));
+  const value = Number.isInteger(actualRestSeconds) && actualRestSeconds >= 0
+    && actualRestSeconds <= TRAINING_V2_LIMITS.maxActualRestSeconds ? actualRestSeconds : null;
+  return updateSet(state, exerciseIndex, setIndex, (set) => ({ ...set, actualRestSeconds: value }));
 }
 
 export function setRestTimer(state, restTimer) {
@@ -143,7 +192,7 @@ export function hasSessionProgress(state) {
   return state.exercises.some((exercise) => (
     (exercise.note ?? '').trim().length > 0
     || exercise.sets.some((set) => (
-      set.completed || set.weightKg !== null || set.reps !== null || (set.note ?? '').trim().length > 0
+      set.completed || set.weightKg !== null || set.reps !== null || (set.weightInput ?? '').trim().length > 0 || (set.note ?? '').trim().length > 0
     ))
   ));
 }
@@ -151,6 +200,32 @@ export function hasSessionProgress(state) {
 export function sessionProgressSummary(state) {
   const sets = state.exercises.flatMap((exercise) => exercise.sets);
   return { completedSets: sets.filter((set) => set.completed).length, totalSets: sets.length };
+}
+
+// Refuse saves that would discard entered values: the wire contract only stores
+// confirmed sets. Keep the draft until the user explicitly confirms those sets.
+export function getTrainingV2SessionSaveIssue(state, status) {
+  if (state.exercises.some((exercise) => (exercise.note ?? '').trim().length > 1000
+    || exercise.sets.some((set) => (set.note ?? '').trim().length > 1000))) {
+    return 'Eine Notiz darf höchstens 1000 Zeichen enthalten. Kürze die Notiz vor dem Speichern; dein Entwurf bleibt erhalten.';
+  }
+  const invalid = state.exercises.flatMap((exercise) => exercise.sets.map((set) => getSessionSetInputIssue(set))).find(Boolean);
+  if (invalid === 'weight') return `Bitte korrigiere ungültige Gewichte. ${TRAINING_V2_WEIGHT_INPUT_HINT} Bestätigte Sätze kannst du über „Erledigt“ wieder bearbeiten; dein Entwurf bleibt erhalten.`;
+  if (invalid === 'reps') return `Bitte korrigiere ungültige Wiederholungen. ${TRAINING_V2_REPS_INPUT_HINT} Bestätigte Sätze kannst du über „Erledigt“ wieder bearbeiten; dein Entwurf bleibt erhalten.`;
+  const { completedSets, totalSets } = sessionProgressSummary(state);
+  if (status === 'completed' && (totalSets === 0 || completedSets !== totalSets)) {
+    return 'Bestätige alle Sätze mit „Fertig“, bevor du das Training abschließt. Für einen Teilabschluss wähle „Unvollständig beenden“.';
+  }
+  const pending = state.exercises.some((exercise) => (
+    exercise.sets.some((set) => !set.completed && (
+      set.weightKg !== null || set.reps !== null || (set.weightInput ?? '').trim().length > 0
+      || (set.repsInput ?? '').trim().length > 0 || (set.note ?? '').trim().length > 0
+    ))
+    || ((exercise.note ?? '').trim().length > 0 && !exercise.sets.some((set) => set.completed))
+  ));
+  if (pending) return 'Es gibt Eingaben ohne bestätigten Satz. Bestätige die zugehörigen Sätze mit „Fertig“. Deine Eingaben bleiben bis dahin im Entwurf erhalten.';
+  if (completedSets === 0) return 'Bestätige mindestens einen Satz mit „Fertig“. Dein Training bleibt als Entwurf erhalten.';
+  return null;
 }
 
 // The exact request createTrainingSessionInputSchema expects: only completed sets can ever be

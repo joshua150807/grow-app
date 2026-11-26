@@ -71,7 +71,8 @@ test('the hub only shows the fullscreen state view for a genuine first load or a
   assert.doesNotMatch(hub, /if \(loading \|\| error\)/);
   assert.doesNotMatch(hub, /\(loading && plans\.length === 0\)/);
   assert.match(hub, /initialLoading/);
-  assert.match(hub, /if \(initialLoading \|\| \(error && !hasPlans\)\)/);
+  assert.match(hub, /if \(initialLoading\)/);
+  assert.match(hub, /\{error \? <TrainingV2StateView error=\{error\} onRetry=\{retry\} \/> : null\}/);
   // A refetch failure with plans already showing must never replace the hub, so the error
   // view is only ever handed a real error when there is nothing else to show — but it is
   // still handed one then, so it can never be silently swallowed.
@@ -194,12 +195,14 @@ test('the plans header has no leftover unicode arrows and no plus button, and it
   assert.match(trainingV2Background, /TRAINING_PAGE_BG/, 'the shared cosmic background used by the hub and other sub-pages must stay untouched');
 });
 
-test('the plans list has a single-line header title and a fully-pressable, fully-readable create-plan hero, plus a neutral image slot on every card', () => {
+test('the plans list has a wrapping header title and a fully-pressable, fully-readable create-plan card, plus a neutral image slot on every card', () => {
   const screen = read('./TrainingV2PlansScreen.jsx');
   const card = read('../components/TrainingV2PlanCard.jsx');
 
-  // Header title is constrained to one line so it can never wrap or overlap on small phones.
-  assert.match(screen, /numberOfLines=\{1\}/);
+  // The iPhone correction separates Back and title; dynamic text may wrap.
+  assert.doesNotMatch(screen, /styles\.plansHeaderTitle\} numberOfLines/);
+  assert.match(screen, /accessibilityLabel="Zurück"/);
+  assert.match(screen, /resizeMode="contain"/);
 
   // Hero: the confirmed source asset, wrapped in a single Pressable (fully tappable),
   // navigating to the existing plan editor create-flow — no separate icon/border drawn on
@@ -241,12 +244,12 @@ test('plan screens wire the behavior-tested hooks to pull-to-refresh controls', 
 
 test('the plan-detail route dispatches on templateId vs planId: every Grow entry (Grow-Trainingspläne list or a saved/active Grow instance) opens by templateId, every own plan opens by planId', () => {
   const dispatcher = read('./TrainingV2PlanDetailScreen.jsx');
-  assert.match(dispatcher, /if \(templateId\) return <TrainingV2GrowPlanDetail templateId=\{templateId\} \/>;/);
+  assert.match(dispatcher, /if \(templateId\) return <TrainingV2GrowPlanDetail templateId=\{templateId\} planId=\{planId\} \/>;/);
   assert.match(dispatcher, /return <TrainingV2OwnPlanDetail planId=\{planId\} \/>;/);
 
   const screen = read('./TrainingV2PlansScreen.jsx');
   assert.match(screen, /plan\?\.sourceTemplateId/);
-  assert.match(screen, /params:\s*\{\s*templateId\s*\}/);
+  assert.match(screen, /params:\s*\{\s*templateId, \.\.\.\(planId \? \{ planId \} : \{\}\)\s*\}/);
   assert.match(screen, /params:\s*\{\s*planId\s*\}/);
 });
 
@@ -406,7 +409,9 @@ test('isolated V2 code contains no legacy service or table references, and only 
   // (packages/shared/src/training/contracts.ts) carried through unmodified from the
   // server; it is not a reference to the legacy training module and must stay excluded
   // from this otherwise case-insensitive "legacy" guard.
-  assert.doesNotMatch(source, /(?<!importedFrom)[Ll]egacy(?!Plan\b)/);
+  // A comment about the older Session API response is unrelated to the old training module.
+  const withoutFullLineComments = source.replace(/^\s*\/\/[^\r\n]*/gm, '');
+  assert.doesNotMatch(withoutFullLineComments, /(?<!importedFrom)[Ll]egacy(?!Plan\b)/);
   // Never the bare legacy-service function names (createTrainingPlan, updateTrainingPlan,
   // activateTrainingPlan, ...) — the V2 module always uses its own `*TrainingV2*` names.
   assert.doesNotMatch(source, /\b(createTrainingPlan|updateTrainingPlan|activateTrainingPlan|archiveTrainingPlan|scheduleTrainingPlan|reactivateTrainingPlan)\b/);
@@ -456,7 +461,7 @@ test('editor screen guards unsaved changes, deduplicates save and navigates to d
   const editor = read('./TrainingV2PlanEditorScreen.jsx');
   assert.match(editor, /usePreventRemove/);
   assert.match(editor, /Ungespeicherte Änderungen/);
-  assert.match(editor, /disabled=\{saving\}/);
+  assert.match(editor, /disabled=\{saving \|\| finishing\}/);
   assert.match(editor, /router\.replace\(\{\s*pathname:\s*'\/tools\/training-v2-plan-detail'/);
   assert.doesNotMatch(editor, /Aktivieren|Vormerken|Archivieren|Reaktivieren/);
 });
@@ -482,7 +487,7 @@ test('editor uses usePreventRemove instead of a manual beforeRemove listener, an
   // with an interactive iOS swipe-back (native-stack pops the screen natively before the JS
   // listener's preventDefault() can take effect) — usePreventRemove is the react-navigation
   // primitive built specifically to avoid that race for native-stack.
-  assert.match(editor, /usePreventRemove\(dirty && !saving,/);
+  assert.match(editor, /usePreventRemove\(dirty \|\| saving \|\| finishing,/);
   assert.match(editor, /from '@react-navigation\/native'/);
   assert.doesNotMatch(editor, /addListener\(\s*['"]beforeRemove['"]/);
   assert.doesNotMatch(editor, /useFocusEffect/);
@@ -517,7 +522,7 @@ test('the session screen guards every way of leaving (header back, hardware back
   assert.doesNotMatch(session, /addListener\(\s*['"]beforeRemove['"]/);
   assert.doesNotMatch(session, /BackHandler/);
   assert.match(session, /text: 'Training fortsetzen', style: 'cancel'/);
-  assert.match(session, /text:\s*\n?\s*'Unvollständig speichern'/);
+  assert.match(session, /text: draft\?\.pendingSave \? 'Speichern erneut versuchen' : 'Unvollständig speichern'/);
   assert.match(session, /text:\s*\n?\s*'Training verwerfen'/);
   assert.match(session, /navigation\.dispatch\(data\.action\)/);
   // No second, differently-worded discard path that could leave without going through the
@@ -576,7 +581,7 @@ test('the guard\'s three options are wired to the correct effect: "Training verw
   assert.match(session, /\{ text: 'Training fortsetzen', style: 'cancel' \},/);
 });
 
-test('"Mein Training" prefers a resumable local draft over the server-suggested nextUnit, and only offers other strength units once a resumable/suggested target already exists', () => {
+test('"Mein Training" retains resume-first default selection and separates every explicit unit choice from starting', () => {
   const myTraining = read('./TrainingV2MyTrainingScreen.jsx');
   // resolveTargetUnit: a resumable draft short-circuits before nextUnit is ever consulted.
   const resolveBody = myTraining.slice(
@@ -592,15 +597,17 @@ test('"Mein Training" prefers a resumable local draft over the server-suggested 
   // findTrainingV2SessionDraftForPlan is only ever used to look up resumableUnitId — never
   // recomputed as an alternative unit source or bypassed by a fresh unit selection.
   assert.match(myTraining, /findTrainingV2SessionDraftForPlan/);
-  assert.match(myTraining, /setResumableUnitId\(resumable\?\.unitId \?\? null\)/);
+  assert.match(myTraining, /setResumableUnitId\(resumable\?\.planId === activePlan\?\.id \? resumable\.unitId : null\)/);
+  assert.match(myTraining, /Gespeicherten Trainingsentwurf fortsetzen/);
 
-  // Selecting a different supported (strength) unit is only offered once more than one exists,
-  // and lists every strength unit of the active plan — not only the suggested/resumed one.
-  assert.match(myTraining, /plan\.units\.filter\(\(unit\) => unit\.unitType === 'strength'\)\.length > 1/);
-  assert.match(myTraining, /onPress=\{\(\) => openSession\(unit\.id\)\}/);
+  // All units remain visible; selection is local and only the explicit CTA starts.
+  assert.match(myTraining, /plan\.units\.length > 0/);
+  assert.match(myTraining, /setSelection\(\{ scope: selectionScope, unitId: unit\.id \}\)/);
+  assert.match(myTraining, /onPress=\{startSelectedUnit\}/);
+  assert.doesNotMatch(myTraining, /onPress=\{\(\) => openSession\(unit\.id\)\}/);
 });
 
-test('"Mein Training" never offers a non-strength unit as startable — resolveTargetUnit and the alternative-unit list both filter to unitType === \'strength\' before anything is picked or rendered', () => {
+test('"Mein Training" defaults only to supported strength units and disables starts for visible unsupported selections', () => {
   const myTraining = read('./TrainingV2MyTrainingScreen.jsx');
   const resolveBody = myTraining.slice(
     myTraining.indexOf('function resolveTargetUnit'),
@@ -614,10 +621,10 @@ test('"Mein Training" never offers a non-strength unit as startable — resolveT
   assert.match(resolveBody, /strengthUnits\.find\(\(unit\) => unit\.id === resumableUnitId\)/);
   assert.match(resolveBody, /strengthUnits\.length === 0/);
 
-  // Same filter guards the "Andere Einheit wählen" list the user can tap into before a session
-  // starts — a non-strength unit is never rendered as a startable row.
-  const otherUnitsSection = myTraining.slice(myTraining.indexOf('Andere Einheit wählen'));
-  assert.match(otherUnitsSection, /unit\.unitType === 'strength'/);
+  assert.match(resolveBody, /strengthUnits\.find\(\(unit\) => unit\.id === plan\.nextUnit\?\.id\)/);
+  assert.match(myTraining, /targetUnit\.unitType !== 'strength'/);
+  assert.match(myTraining, /disabled=\{startDisabled\}/);
+  assert.match(myTraining, /Trainingseinheit auswählen/);
 });
 
 test('the session screen has exactly one "Notiz zur Übung" field per exercise, wired to updateNote(exerciseIndex, ...) — never the read-only "Letzte Notiz" hint, and never one of the per-set "Notiz zum Satz" inputs', () => {

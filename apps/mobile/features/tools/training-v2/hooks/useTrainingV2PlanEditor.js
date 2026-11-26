@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { prepareTrainingV2PlanCreate } from '../services/trainingV2DraftStorage';
 
 import {
   createTrainingV2Plan,
@@ -28,8 +29,13 @@ export function useTrainingV2PlanEditor(planId) {
   const [saveError, setSaveError] = useState(null);
   const [conflict, setConflict] = useState(false);
   const savingRef = useRef(false);
+  const savedResultRef = useRef(null);
+  const pendingCreateRef = useRef(false);
 
   const dispatch = useCallback((action) => {
+    if (savingRef.current || savedResultRef.current) return;
+    if (action.type === 'HYDRATE') pendingCreateRef.current = Boolean(action.state?.pendingCreate);
+    else if (pendingCreateRef.current) return;
     setState((previous) => trainingV2EditorReducer(previous, action));
   }, []);
 
@@ -39,6 +45,7 @@ export function useTrainingV2PlanEditor(planId) {
     setLoadError(null);
     try {
       const plan = await getTrainingV2Plan(planId);
+      if (plan.sourceTemplateId) throw new Error('Grow-Pläne können nicht bearbeitet werden. Öffne den Plan unter „Trainingspläne“.');
       const details = await resolveTrainingV2ExerciseDetails(plan);
       const hydrated = mapTrainingPlanToEditorState(plan, details);
       setState(hydrated);
@@ -63,6 +70,9 @@ export function useTrainingV2PlanEditor(planId) {
 
   const save = useCallback(async () => {
     if (savingRef.current) return { ok: false };
+    // The server has succeeded but local draft cleanup/navigation may need a retry.
+    // Return that success again instead of creating another plan.
+    if (savedResultRef.current) return savedResultRef.current;
     const validationIssues = getEditorValidationIssues(state, { mode });
     if (validationIssues.length > 0) {
       setSaveError({ type: 'validation', issues: validationIssues });
@@ -73,15 +83,24 @@ export function useTrainingV2PlanEditor(planId) {
     setSaving(true);
     setSaveError(null);
     try {
-      const plan = mode === 'create'
-        ? await createTrainingV2Plan(buildCreatePlanInput(state))
-        : await updateTrainingV2Plan(planId, buildUpdatePlanInput(state, expectedVersion));
+      let savedState = state;
+      let plan;
+      if (mode === 'create') {
+        const prepared = await prepareTrainingV2PlanCreate(state, buildCreatePlanInput(state));
+        savedState = prepared.editorState;
+        pendingCreateRef.current = true;
+        setState(savedState);
+        plan = await createTrainingV2Plan(savedState.pendingCreate.input, { ownerId: prepared.ownerId });
+      } else {
+        plan = await updateTrainingV2Plan(planId, buildUpdatePlanInput(state, expectedVersion));
+      }
       // The just-saved local state is now the persisted baseline, so `dirty` must
       // deterministically flip to false right away, independent of render/effect timing.
-      setInitialState(state);
-      return { ok: true, plan };
+      setInitialState(savedState);
+      savedResultRef.current = { ok: true, plan };
+      return savedResultRef.current;
     } catch (error) {
-      if (error instanceof TrainingV2ConflictError) setConflict(true);
+      if (mode === 'edit' && error instanceof TrainingV2ConflictError) setConflict(true);
       setSaveError({ type: 'api', error });
       return { ok: false, error };
     } finally {
@@ -107,6 +126,7 @@ export function useTrainingV2PlanEditor(planId) {
     retryLoad: load,
     dirty,
     saving,
+    createPending: mode === 'create' && Boolean(state.pendingCreate),
     saveError,
     conflict,
     save,

@@ -24,6 +24,8 @@ function createSessionHookHarness({
   let cellIndex = 0;
   let refIndex = 0;
   const pendingEffects = [];
+  const callbacks = [];
+  let callbackIndex = 0;
   const react = {
     useState: (initial) => {
       const index = cellIndex++;
@@ -40,11 +42,17 @@ function createSessionHookHarness({
     useEffect: (effect, deps) => {
       pendingEffects.push({ effect, deps });
     },
-    useCallback: (callback) => callback,
+    useCallback: (callback, deps) => {
+      const index = callbackIndex++;
+      const old = callbacks[index];
+      if (!old || deps.some((value, i) => value !== old.deps[i])) callbacks[index] = { callback, deps };
+      return callbacks[index].callback;
+    },
   };
 
   const draftStore = new Map();
   const defaultDraftStorage = {
+    requireTrainingV2SessionOwner: async () => ownerId,
     loadTrainingV2SessionDraft: async (owner, planId, unitId) => draftStore.get(`${owner}:${planId}:${unitId}`) ?? null,
     saveTrainingV2SessionDraft: async (owner, planId, unitId, session) => {
       draftStore.set(`${owner}:${planId}:${unitId}`, session);
@@ -84,6 +92,7 @@ function createSessionHookHarness({
     props = nextProps;
     cellIndex = 0;
     refIndex = 0;
+    callbackIndex = 0;
     pendingEffects.length = 0;
     result = module.useTrainingV2Session(props.planId, props.unitId);
     const nextCleanups = [];
@@ -133,6 +142,14 @@ const plan = {
       },
     ],
   },
+};
+
+const saveablePlan = {
+  ...plan,
+  revision: { units: [{ ...plan.revision.units[0], exercises: [{
+    exerciseId: 'exercise-1', logicalTargetExerciseKey: 'exercise-key', orderIndex: 0,
+    targetSets: [{ logicalTargetSetKey: 'set-key', orderIndex: 0, setType: 'work', targetWeightKg: null, targetReps: null, plannedRestSeconds: 0 }],
+  }] }] },
 };
 
 test('with no persisted draft, load() creates one and immediately persists it (armed for the leave-guard from the very first render)', async () => {
@@ -260,7 +277,7 @@ test('discard() — what "Training verwerfen" on back/hardware-back/iOS-swipe ca
 test('a successful save() — "Unvollständig speichern" or "Training abschließen" — also clears the persisted draft; a failed save leaves it untouched', async () => {
   const outcomes = [];
   const harness = createSessionHookHarness({
-    api: { getTrainingV2Plan: async () => plan },
+    api: { getTrainingV2Plan: async () => saveablePlan },
     sessionSave: {
       saveTrainingV2Session: async (draft, status) => {
         const outcome = outcomes.shift();
@@ -270,6 +287,8 @@ test('a successful save() — "Unvollständig speichern" or "Training abschließ
   });
   harness.render({ planId: 'plan-1', unitId: 'unit-1' });
   await harness.settle();
+  harness.result.completeSet(0, 0);
+  harness.rerender();
   assert.ok(harness.draftStore.has('user-1:plan-1:unit-1'));
 
   outcomes.push({ ok: false, error: new Error('Netzwerkfehler') });
@@ -291,7 +310,7 @@ test('save() stamps endedAt once on the first attempt and a retry after failure 
   const outcomes = [];
   let clock = new Date('2026-08-01T09:30:00.000Z');
   const harness = createSessionHookHarness({
-    api: { getTrainingV2Plan: async () => plan },
+    api: { getTrainingV2Plan: async () => saveablePlan },
     sessionSave: {
       saveTrainingV2Session: async (draft, status) => {
         calls.push(draft.endedAt);
@@ -302,6 +321,8 @@ test('save() stamps endedAt once on the first attempt and a retry after failure 
   });
   harness.render({ planId: 'plan-1', unitId: 'unit-1' });
   await harness.settle();
+  harness.result.completeSet(0, 0, { now: () => clock });
+  harness.rerender();
 
   outcomes.push({ ok: false, error: new Error('Netzwerkfehler') });
   const failed = await harness.result.save('incomplete', { now: () => clock });

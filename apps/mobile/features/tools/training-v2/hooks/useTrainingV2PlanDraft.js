@@ -51,6 +51,9 @@ export function useTrainingV2PlanDraft({
   const [hydrationSettledTick, setHydrationSettledTick] = useState(0);
   const previousOwnerRef = useRef(AUTH_STATE_UNRESOLVED);
   const autosaveTimeoutRef = useRef(null);
+  const writePromiseRef = useRef(Promise.resolve());
+  const clearingRef = useRef(false);
+  const [persistenceError, setPersistenceError] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -108,6 +111,8 @@ export function useTrainingV2PlanDraft({
 
         dispatch({ type: 'HYDRATE', state: draft.editorState });
         setDraftRestored(true);
+      } catch (error) {
+        if (!cancelled) setPersistenceError(error);
       } finally {
         if (!cancelled) {
           hydrationSettledKeyRef.current = key;
@@ -121,9 +126,12 @@ export function useTrainingV2PlanDraft({
 
   useEffect(() => {
     const key = `${userId}:${mode}:${planId ?? ''}`;
-    if (!userId || loading || !dirty || draftConflict || hydrationSettledKeyRef.current !== key) return undefined;
+    if (!userId || loading || !dirty || clearingRef.current || draftConflict || hydrationSettledKeyRef.current !== key) return undefined;
     autosaveTimeoutRef.current = setTimeout(() => {
-      void saveTrainingV2Draft(userId, mode, planId, { basePlanVersion: expectedVersion, editorState: state });
+      writePromiseRef.current = writePromiseRef.current.catch(() => {}).then(() => (
+        saveTrainingV2Draft(userId, mode, planId, { basePlanVersion: expectedVersion, editorState: state })
+      ));
+      void writePromiseRef.current.then(() => setPersistenceError(null), setPersistenceError);
     }, AUTOSAVE_DEBOUNCE_MS);
     return () => clearTimeout(autosaveTimeoutRef.current);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- hydrationSettledTick is a pure
@@ -131,6 +139,7 @@ export function useTrainingV2PlanDraft({
   }, [userId, mode, planId, loading, dirty, draftConflict, expectedVersion, state, hydrationSettledTick]);
 
   const clearDraft = useCallback(async () => {
+    clearingRef.current = true;
     // Cancels a still-pending autosave synchronously rather than relying on React to
     // notice `dirty` turned false and tear the effect down in time — a raw setTimeout
     // keeps counting down against wall-clock time regardless of pending re-renders, so a
@@ -140,14 +149,22 @@ export function useTrainingV2PlanDraft({
       clearTimeout(autosaveTimeoutRef.current);
       autosaveTimeoutRef.current = null;
     }
-    if (!userId) return;
-    setDraftRestored(false);
-    await clearTrainingV2Draft(userId, mode, planId);
+    try {
+      await writePromiseRef.current.catch(() => {});
+      if (userId) await clearTrainingV2Draft(userId, mode, planId);
+      setDraftRestored(false);
+      setPersistenceError(null);
+    } catch (error) {
+      setPersistenceError(error);
+      throw error;
+    } finally {
+      clearingRef.current = false;
+    }
   }, [userId, mode, planId]);
 
   const dismissDraftNotice = useCallback(() => {
     dispatch({ type: 'HYDRATE', state: initialState });
-    void clearDraft();
+    void clearDraft().catch(() => {});
   }, [dispatch, initialState, clearDraft]);
 
   const keepDraft = useCallback(() => {
@@ -159,10 +176,11 @@ export function useTrainingV2PlanDraft({
 
   const loadCurrentPlanInstead = useCallback(() => {
     setDraftConflict(null);
-    void clearDraft();
+    void clearDraft().catch(() => {});
   }, [clearDraft]);
 
   return {
+    persistenceError,
     draftRestored,
     draftConflict,
     keepDraft,

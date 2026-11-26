@@ -1,6 +1,10 @@
 import { resolveUiMuscleGroup } from '@grow/shared';
 
 import { createTrainingV2LogicalKey } from '../services/trainingV2LogicalId';
+import {
+  isPlausibleTrainingV2Reps, isPlausibleTrainingV2WeightKg, parseTrainingV2WeightText, TRAINING_V2_LIMITS,
+  TRAINING_V2_REPS_INPUT_HINT, TRAINING_V2_WEIGHT_INPUT_HINT,
+} from '../utils/trainingV2NumericInput';
 
 export const TRAINING_V2_UNIT_TYPE_OPTIONS = ['strength', 'run', 'rest', 'mobility', 'stretching'];
 export const TRAINING_V2_SET_TYPE_OPTIONS = ['warmup', 'work', 'drop'];
@@ -231,6 +235,9 @@ export function getEditorValidationIssues(state, { mode = 'create' } = {}) {
   if (state.units.length < 1) {
     issues.push({ path: 'units', message: 'Mindestens eine Trainingseinheit wird benötigt.' });
   }
+  if (state.units.length > TRAINING_V2_LIMITS.maxPlanUnits) {
+    issues.push({ path: 'units', message: `Ein Plan kann höchstens ${TRAINING_V2_LIMITS.maxPlanUnits} Einheiten enthalten.` });
+  }
   state.units.forEach((unit, unitIndex) => {
     if (!unit.name.trim()) {
       issues.push({ path: `units.${unitIndex}.name`, message: 'Der Name der Einheit darf nicht leer sein.' });
@@ -241,7 +248,16 @@ export function getEditorValidationIssues(state, { mode = 'create' } = {}) {
     if (unitTypeForbidsExercises(unit.unitType) && unit.exercises.length > 0) {
       issues.push({ path: `units.${unitIndex}.exercises`, message: 'Lauf- und Erholungseinheiten dürfen keine Übungen enthalten.' });
     }
+    if (unit.exercises.length > TRAINING_V2_LIMITS.maxExercisesPerUnit) {
+      issues.push({ path: `units.${unitIndex}.exercises`, message: `Eine Einheit kann höchstens ${TRAINING_V2_LIMITS.maxExercisesPerUnit} Übungen enthalten.` });
+    }
     unit.exercises.forEach((exercise, exerciseIndex) => {
+      if (exercise.targetSets.length > TRAINING_V2_LIMITS.maxSetsPerExercise) {
+        issues.push({
+          path: `units.${unitIndex}.exercises.${exerciseIndex}.targetSets`,
+          message: `Eine Übung kann höchstens ${TRAINING_V2_LIMITS.maxSetsPerExercise} Zielsätze enthalten.`,
+        });
+      }
       const hasDraftName = Boolean(exercise.exerciseDraft?.name?.trim());
       if (!exercise.exerciseId && !hasDraftName) {
         issues.push({
@@ -255,12 +271,30 @@ export function getEditorValidationIssues(state, { mode = 'create' } = {}) {
           message: 'Jede Übung benötigt mindestens einen Zielsatz.',
         });
       }
+      exercise.targetSets.forEach((set, setIndex) => {
+        // Also checks loaded numeric values, so a plan stored before the input limits existed shows
+        // an inline issue instead of a rejected save (the editor draft is never discarded).
+        if ((set.weightInput !== undefined && !parseTrainingV2WeightText(set.weightInput).valid)
+          || (set.targetWeightKg !== null && set.targetWeightKg !== undefined && !isPlausibleTrainingV2WeightKg(set.targetWeightKg))) {
+          issues.push({
+            path: `units.${unitIndex}.exercises.${exerciseIndex}.targetSets.${setIndex}.targetWeightKg`,
+            message: `Bitte gib ein gültiges Gewicht ein. ${TRAINING_V2_WEIGHT_INPUT_HINT}`,
+          });
+        }
+        if (set.targetReps && (!isPlausibleTrainingV2Reps(set.targetReps.minimum) || !isPlausibleTrainingV2Reps(set.targetReps.maximum))) {
+          issues.push({
+            path: `units.${unitIndex}.exercises.${exerciseIndex}.targetSets.${setIndex}.targetReps`,
+            message: `Bitte gib gültige Wiederholungen ein. ${TRAINING_V2_REPS_INPUT_HINT}`,
+          });
+        }
+      });
     });
   });
   if (mode === 'create') {
     const weeklyGoalNumber = Number(state.weeklyGoal);
-    if (!Number.isInteger(weeklyGoalNumber) || weeklyGoalNumber <= 0) {
-      issues.push({ path: 'weeklyGoal', message: 'Das Wochenziel muss eine positive Ganzzahl sein.' });
+    if (!Number.isInteger(weeklyGoalNumber) || weeklyGoalNumber < TRAINING_V2_LIMITS.minWeeklyGoal
+      || weeklyGoalNumber > TRAINING_V2_LIMITS.maxWeeklyGoal) {
+      issues.push({ path: 'weeklyGoal', message: 'Das Wochenziel muss zwischen 1 und 7 Trainingstagen pro Woche liegen.' });
     }
   }
   return issues;

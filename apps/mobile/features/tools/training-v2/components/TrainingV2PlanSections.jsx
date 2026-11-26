@@ -20,7 +20,7 @@ export function TrainingV2PlanSections({
     <>
       {templates.length > 0 ? (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Grow-Trainingspläne</Text>
+          <Text style={[styles.sectionTitle, styles.plansCenteredText]}>Grow-Trainingspläne</Text>
           {templates.map((item) => (
             <TrainingV2TemplateCard key={item.template.id} item={item} onPress={onTemplatePress} />
           ))}
@@ -28,7 +28,7 @@ export function TrainingV2PlanSections({
       ) : null}
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Gespeicherte Pläne</Text>
+        <Text style={[styles.sectionTitle, styles.plansCenteredText]}>Gespeicherte Pläne</Text>
         {savedPlans.length === 0 ? (
           <View style={styles.plansEmptyCard}>
             <Ionicons name="barbell-outline" size={s(28)} color={COLORS.goldBorderLight} />

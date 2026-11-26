@@ -43,6 +43,9 @@ function createEditorHookHarness(planId, apiMocks) {
   const model = loadModule(__dirname, '../models/trainingV2EditorModel.js');
   const module = loadModule(__dirname, './useTrainingV2PlanEditor.js', {
     react,
+    '../services/trainingV2DraftStorage': {
+      prepareTrainingV2PlanCreate: async (state, input) => ({ editorState: { ...state, pendingCreate: { input: { ...input, idempotencyKey: '11111111-1111-4111-8111-111111111111' } } }, ownerId: 'owner' }),
+    },
     '../services/trainingV2Api': apiMocks,
     '../models/trainingV2EditorModel': model,
   });

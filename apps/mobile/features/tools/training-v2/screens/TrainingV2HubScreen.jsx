@@ -19,7 +19,7 @@ export default function TrainingV2HubScreen() {
   // fullscreen state view. A background refetch failure while plans are already showing must
   // not tear the hub down either; it only takes over fullscreen when there is truly nothing
   // to show, so an error is never silently dropped.
-  if (initialLoading || (error && !hasPlans)) {
+  if (initialLoading) {
     return (
       <TrainingV2StateView
         loading={initialLoading}
@@ -51,6 +51,7 @@ export default function TrainingV2HubScreen() {
     >
       <Text style={styles.title}>Trainingsplan</Text>
       <Text style={styles.subtitle}>Wähle deinen Bereich.</Text>
+      {error ? <TrainingV2StateView error={error} onRetry={retry} /> : null}
 
       <HubCard
         icon={TRAINING_V2_HUB_ICONS.myTraining}

@@ -6,3 +6,4 @@ export * from './training/muscleGroups.js';
 export * from './training/primitives.js';
 export * from './training/plans.js';
 export * from './training/sessions.js';
+export * from './training/analytics.js';

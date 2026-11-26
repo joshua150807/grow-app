@@ -1,4 +1,13 @@
-import type { TrainingSession } from '@grow/shared';
+import type { TrainingSession, TrainingSessionHistory, TrainingSessionHistorySummary } from '@grow/shared';
+import {
+  listTrainingSessionHistoryResponseSchema,
+  listTrainingSessionsResponseSchema,
+  trainingSessionDetailResponseSchema,
+  trainingSessionHistoryResponseSchema,
+  trainingSessionResponseSchema,
+  trainingSessionSchema,
+  trainingSessionSummarySchema,
+} from '@grow/shared';
 import { describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
 import type { AuthTokenVerifier } from '../src/auth/types.js';
@@ -39,6 +48,9 @@ const session: TrainingSession = {
 
 const { exercises: _sessionExercises, ...sessionSummary } = session;
 
+const historyDetail: TrainingSessionHistory = { ...session, volumeKg: 0 };
+const historySummary: TrainingSessionHistorySummary = { ...sessionSummary, exerciseCount: 1, volumeKg: 640 };
+
 function createInput(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     planId,
@@ -71,8 +83,12 @@ function repository(overrides: Partial<TrainingSessionRepository> = {}): Trainin
   return {
     create: vi.fn(async (): Promise<CreateSessionResult> => ({ outcome: 'ok', session, created: true })),
     findLastExerciseNote: vi.fn(async () => null),
+    findLastExerciseSets: vi.fn(async () => null),
     list: vi.fn(async () => ({ sessions: [], hasMore: false })),
     find: vi.fn(async () => null),
+    listHistory: vi.fn(async () => ({ sessions: [], hasMore: false })),
+    findHistory: vi.fn(async () => null),
+    getStats: vi.fn(async () => ({ totalSessions: 0, totalDurationSeconds: 0, totalVolumeKg: 0 })),
     ...overrides,
   };
 }
@@ -251,6 +267,42 @@ describe('training session API', () => {
     await server.close();
   });
 
+  it('requires auth for GET /v1/training/exercises/:exerciseId/last-sets', async () => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({ method: 'GET', url: `/v1/training/exercises/${exerciseId}/last-sets` });
+    expect(response.statusCode).toBe(401);
+    expect(value.findLastExerciseSets).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it('returns the sets of the exercise\'s most recent saved session in logged order', async () => {
+    const sets = [
+      { orderIndex: 0, setType: 'warmup' as const, weightKg: 40, reps: 12 },
+      { orderIndex: 1, setType: 'work' as const, weightKg: 82.5, reps: 8 },
+      { orderIndex: 2, setType: 'work' as const, weightKg: null, reps: null },
+    ];
+    const value = repository({ findLastExerciseSets: vi.fn(async () => ({ completedAt: '2026-11-20T18:00:00.000Z', sets })) });
+    const server = app(value);
+    const response = await server.inject({ method: 'GET', url: `/v1/training/exercises/${exerciseId}/last-sets`, headers });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ completedAt: '2026-11-20T18:00:00.000Z', sets });
+    expect(value.findLastExerciseSets).toHaveBeenCalledWith(user.id, exerciseId);
+    await server.close();
+  });
+
+  it('returns completedAt:null, sets:[] (not 404) without history, and rejects a non-uuid exerciseId', async () => {
+    const value = repository();
+    const server = app(value);
+    const empty = await server.inject({ method: 'GET', url: `/v1/training/exercises/${exerciseId}/last-sets`, headers });
+    expect(empty.statusCode).toBe(200);
+    expect(empty.json()).toEqual({ completedAt: null, sets: [] });
+    const invalid = await server.inject({ method: 'GET', url: '/v1/training/exercises/not-a-uuid/last-sets', headers });
+    expect(invalid.statusCode).toBe(400);
+    expect(value.findLastExerciseSets).toHaveBeenCalledTimes(1);
+    await server.close();
+  });
+
   it('requires auth for GET /v1/training/sessions', async () => {
     const value = repository();
     const server = app(value);
@@ -301,6 +353,39 @@ describe('training session API', () => {
     await server.close();
   });
 
+  it('requires auth for GET /v1/training/sessions/stats', async () => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({ method: 'GET', url: '/v1/training/sessions/stats' });
+    expect(response.statusCode).toBe(401);
+    expect(value.getStats).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it('returns owner-scoped totals from the repository, not derived from list()', async () => {
+    const value = repository({
+      getStats: vi.fn(async () => ({ totalSessions: 12, totalDurationSeconds: 43200, totalVolumeKg: 15680 })),
+    });
+    const server = app(value);
+    const response = await server.inject({ method: 'GET', url: '/v1/training/sessions/stats', headers });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ totalSessions: 12, totalDurationSeconds: 43200, totalVolumeKg: 15680 });
+    expect(value.getStats).toHaveBeenCalledWith(user.id);
+    expect(value.list).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it('the static /sessions/stats route is not shadowed by the parametric /sessions/:sessionId route', async () => {
+    const value = repository({
+      getStats: vi.fn(async () => ({ totalSessions: 0, totalDurationSeconds: 0, totalVolumeKg: 0 })),
+    });
+    const server = app(value);
+    const response = await server.inject({ method: 'GET', url: '/v1/training/sessions/stats', headers });
+    expect(response.statusCode).toBe(200);
+    expect(value.find).not.toHaveBeenCalled();
+    await server.close();
+  });
+
   it('requires auth for GET /v1/training/sessions/:sessionId', async () => {
     const value = repository();
     const server = app(value);
@@ -342,5 +427,72 @@ describe('training session API', () => {
     expect(response.statusCode).toBe(400);
     expect(value.find).not.toHaveBeenCalled();
     await server.close();
+  });
+});
+
+// Legacy schemas stay strict. Validate real route responses rather than weakening parsers.
+describe('session wire compatibility', () => {
+  it('keeps legacy strict list/get/save/replay responses free of history fields', async () => {
+    const value = repository({
+      list: vi.fn(async () => ({ sessions: [sessionSummary], hasMore: false })),
+      find: vi.fn(async () => session),
+    });
+    const server = app(value);
+    try {
+      const list = await server.inject({ method: 'GET', url: '/v1/training/sessions', headers });
+      expect(list.statusCode).toBe(200);
+      expect(listTrainingSessionsResponseSchema.parse(list.json()).sessions).toEqual([sessionSummary]);
+      const detail = await server.inject({ method: 'GET', url: `/v1/training/sessions/${session.id}`, headers });
+      expect(detail.statusCode).toBe(200);
+      expect(trainingSessionResponseSchema.parse(detail.json()).session).toEqual(session);
+      for (const created of [true, false]) {
+        value.create = vi.fn(async (): Promise<CreateSessionResult> => ({ outcome: 'ok', session, created }));
+        const save = await server.inject({ method: 'POST', url: '/v1/training/sessions', headers, payload: createInput() });
+        expect(save.statusCode).toBe(created ? 201 : 200);
+        expect(trainingSessionDetailResponseSchema.parse(save.json())).toEqual({ session, created });
+      }
+      expect(trainingSessionSchema.safeParse(historyDetail).success).toBe(false);
+      expect(trainingSessionSummarySchema.safeParse(historySummary).success).toBe(false);
+    } finally { await server.close(); }
+  });
+
+  it('exposes aggregates only through explicit authenticated history reads', async () => {
+    const value = repository({
+      listHistory: vi.fn(async () => ({ sessions: [historySummary], hasMore: true })),
+      findHistory: vi.fn(async () => historyDetail),
+    });
+    const server = app(value);
+    try {
+      for (const url of ['/v1/training/session-history', `/v1/training/session-history/${session.id}`]) {
+        expect((await server.inject({ method: 'GET', url })).statusCode).toBe(401);
+      }
+      expect(value.listHistory).not.toHaveBeenCalled();
+      expect(value.findHistory).not.toHaveBeenCalled();
+      const list = await server.inject({ method: 'GET', url: '/v1/training/session-history?page=2&limit=10', headers });
+      expect(list.statusCode).toBe(200);
+      expect(listTrainingSessionHistoryResponseSchema.parse(list.json())).toEqual({
+        sessions: [historySummary], pagination: { page: 2, limit: 10, hasMore: true },
+      });
+      expect(value.listHistory).toHaveBeenCalledWith(user.id, { page: 2, limit: 10 });
+      const detail = await server.inject({ method: 'GET', url: `/v1/training/session-history/${session.id}`, headers });
+      expect(detail.statusCode).toBe(200);
+      expect(trainingSessionHistoryResponseSchema.parse(detail.json())).toEqual({ session: historyDetail });
+      expect(value.findHistory).toHaveBeenCalledWith(user.id, session.id);
+      expect((await server.inject({ method: 'GET', url: '/v1/training/session-history?limit=0', headers })).statusCode).toBe(400);
+      expect((await server.inject({ method: 'GET', url: '/v1/training/session-history/invalid', headers })).statusCode).toBe(400);
+      value.findHistory = vi.fn(async () => null);
+      expect((await server.inject({ method: 'GET', url: `/v1/training/session-history/${session.id}`, headers })).statusCode).toBe(404);
+    } finally { await server.close(); }
+  });
+
+  it('rejects old or malformed history payloads without weakening either contract', () => {
+    expect(trainingSessionHistoryResponseSchema.safeParse({ session }).success).toBe(false);
+    for (const volumeKg of [-1, '640', null, undefined]) {
+      expect(trainingSessionHistoryResponseSchema.safeParse({ session: { ...historyDetail, volumeKg } }).success).toBe(false);
+    }
+    const pagination = { page: 0, limit: 20, hasMore: false };
+    for (const entry of [sessionSummary, { ...historySummary, exerciseCount: -1 }, { ...historySummary, volumeKg: '640' }]) {
+      expect(listTrainingSessionHistoryResponseSchema.safeParse({ sessions: [entry], pagination }).success).toBe(false);
+    }
   });
 });

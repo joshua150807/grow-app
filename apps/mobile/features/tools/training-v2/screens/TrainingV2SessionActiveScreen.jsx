@@ -8,14 +8,15 @@ import { useNavigation, usePreventRemove } from '@react-navigation/native';
 import { COLORS } from '../../../../constants/colors';
 import { useTrainingV2Session } from '../hooks/useTrainingV2Session';
 import {
-  hasSessionProgress, parseSessionRepsInput, parseSessionWeightInput, sessionProgressSummary,
+  hasSessionProgress, parseSessionRepsInput, parseSessionWeightInput, sessionProgressSummary, sessionSetPlaceholders,
 } from '../models/trainingV2SessionModel';
-import { getTrainingV2LastExerciseNote } from '../services/trainingV2Api';
+import { getTrainingV2LastExerciseNote, getTrainingV2LastExerciseSets } from '../services/trainingV2Api';
 import {
   adjustRestTimerEndsAt, elapsedRestSeconds, formatRestTimer, isRestTimerFinished, remainingRestSeconds,
 } from '../models/trainingV2SessionTimer';
 import { TrainingV2StateView } from '../components/TrainingV2StateView';
 import { styles } from '../styles/trainingV2Styles';
+import { TRAINING_V2_REPS_INPUT_MAX_LENGTH, TRAINING_V2_WEIGHT_INPUT_MAX_LENGTH } from '../utils/trainingV2NumericInput';
 
 function firstParam(value) {
   return Array.isArray(value) ? value[0] : value;
@@ -67,6 +68,31 @@ function useLastExerciseNotes(exerciseIds) {
   }, [key]);
 
   return notes;
+}
+
+// Last session's sets per exercise, for the grey kg/Wdh. placeholders — fetched once per exercise
+// id like the notes above and never copied into the draft. A failed lookup just shows no hint.
+function useLastExerciseSets(exerciseIds) {
+  const [lastSets, setLastSets] = useState({});
+  const key = exerciseIds.join(',');
+
+  useEffect(() => {
+    if (!key) return undefined;
+    let cancelled = false;
+    Promise.all([...new Set(key.split(','))].map(async (exerciseId) => {
+      try {
+        const result = await getTrainingV2LastExerciseSets(exerciseId);
+        return [exerciseId, result.sets.length ? result.sets : null];
+      } catch {
+        return [exerciseId, null];
+      }
+    })).then((entries) => {
+      if (!cancelled) setLastSets(Object.fromEntries(entries.filter(([, value]) => value !== null)));
+    });
+    return () => { cancelled = true; };
+  }, [key]);
+
+  return lastSets;
 }
 
 // The rest timer runs entirely on absolute epoch-ms timestamps (draft.restTimer.endsAt), not a
@@ -136,9 +162,10 @@ function RestTimerOverlay({ draft, restTimer, nowMs, setTimerEndsAt, dismissTime
 }
 
 function SessionSetRow({
-  set, exerciseIndex, setIndex, updateInput, completeSet, uncompleteSet,
+  set, exerciseIndex, setIndex, updateInput, completeSet, uncompleteSet, locked, lastSet,
 }) {
   const hint = targetHintText(set);
+  const placeholders = sessionSetPlaceholders(lastSet);
   return (
     <View style={styles.sessionSetBlock}>
       <View style={styles.sessionSetHeaderRow}>
@@ -150,30 +177,33 @@ function SessionSetRow({
           <Text style={styles.targetSetFieldLabel}>kg</Text>
           <TextInput
             accessibilityLabel="Gewicht in kg"
-            editable={!set.completed}
+            editable={!set.completed && !locked}
             keyboardType="decimal-pad"
-            onChangeText={(text) => updateInput(exerciseIndex, setIndex, { weightKg: parseSessionWeightInput(text) })}
-            placeholder="kg"
+            maxLength={TRAINING_V2_WEIGHT_INPUT_MAX_LENGTH}
+            onChangeText={(text) => updateInput(exerciseIndex, setIndex, { weightInput: text, weightKg: parseSessionWeightInput(text) })}
+            placeholder={placeholders.weight}
             placeholderTextColor={COLORS.textFaint}
             style={[styles.targetSetInput, set.completed && styles.sessionSetInputDisabled]}
-            value={set.weightKg === null ? '' : String(set.weightKg)}
+            value={set.weightInput ?? (set.weightKg === null ? '' : String(set.weightKg))}
           />
         </View>
         <View style={styles.targetSetFieldGroup}>
           <Text style={styles.targetSetFieldLabel}>Wiederholungen</Text>
           <TextInput
             accessibilityLabel="Wiederholungen"
-            editable={!set.completed}
+            editable={!set.completed && !locked}
             keyboardType="number-pad"
-            onChangeText={(text) => updateInput(exerciseIndex, setIndex, { reps: parseSessionRepsInput(text) })}
-            placeholder="Wdh."
+            maxLength={TRAINING_V2_REPS_INPUT_MAX_LENGTH}
+            onChangeText={(text) => updateInput(exerciseIndex, setIndex, { repsInput: text, reps: parseSessionRepsInput(text) })}
+            placeholder={placeholders.reps}
             placeholderTextColor={COLORS.textFaint}
             style={[styles.targetSetInput, set.completed && styles.sessionSetInputDisabled]}
-            value={set.reps === null ? '' : String(set.reps)}
+            value={set.repsInput ?? (set.reps === null ? '' : String(set.reps))}
           />
         </View>
         <Pressable
           accessibilityRole="button"
+          disabled={locked}
           onPress={() => (set.completed
             ? uncompleteSet(exerciseIndex, setIndex)
             : completeSet(exerciseIndex, setIndex))}
@@ -196,12 +226,13 @@ export default function TrainingV2SessionActiveScreen() {
 
   const {
     draft, loading, error, retryLoad, updateInput, updateNote, completeSet, uncompleteSet,
-    setTimerEndsAt, dismissTimer, discard, save, saving, saveError, clearSaveError,
+    setTimerEndsAt, dismissTimer, discard, save, saving, saveError, clearSaveError, locked,
   } = useTrainingV2Session(planId, unitId);
 
   const restTimer = draft?.restTimer ?? null;
   const nowMs = useRestTimerTick(restTimer, draft, dismissTimer);
   const lastNotes = useLastExerciseNotes(draft ? draft.exercises.map((exercise) => exercise.exerciseId) : []);
+  const lastSets = useLastExerciseSets(draft ? draft.exercises.map((exercise) => exercise.exerciseId) : []);
 
   // Set only by finishSave, immediately before its own post-save router.back() — the one
   // navigation this screen ever triggers itself, already confirmed by the user's own "Training
@@ -236,22 +267,26 @@ export default function TrainingV2SessionActiveScreen() {
     if (saving) return;
     Alert.alert(
       'Training verlassen?',
-      'Du hast in dieser Einheit noch nicht gespeicherte Eingaben.',
+      draft?.pendingSave
+        ? 'Der letzte Speichervorgang ist noch nicht bestätigt. Erneutes Speichern prüft denselben Vorgang. Verwerfen entfernt nur den lokalen Entwurf, kein möglicherweise bereits gespeichertes Training.'
+        : 'Du hast in dieser Einheit noch nicht gespeicherte Eingaben. Beim Teilabschluss müssen Sätze mit Eingaben zuvor mit „Fertig“ bestätigt sein.',
       [
         { text: 'Training fortsetzen', style: 'cancel' },
         {
-          text: 'Unvollständig speichern',
+          text: draft?.pendingSave ? 'Speichern erneut versuchen' : 'Unvollständig speichern',
           onPress: async () => {
             const outcome = await save('incomplete');
             if (outcome.ok) navigation.dispatch(data.action);
+            else if (outcome.error) Alert.alert('Speichern nicht möglich', saveErrorMessage(outcome.error));
           },
         },
         {
           text: 'Training verwerfen',
           style: 'destructive',
           onPress: async () => {
-            await discard();
-            navigation.dispatch(data.action);
+            const outcome = await discard();
+            if (outcome.ok) navigation.dispatch(data.action);
+            else if (outcome.error) Alert.alert('Verwerfen nicht möglich', saveErrorMessage(outcome.error));
           },
         },
       ],
@@ -294,6 +329,9 @@ export default function TrainingV2SessionActiveScreen() {
           <Text style={styles.title}>{draft.unitName}</Text>
         </View>
         <Text style={styles.detailMeta}>{draft.planName}</Text>
+        {draft.pendingSave ? (
+          <Text style={styles.formHint}>Der Speichervorgang ist noch nicht bestätigt. Deine Eingaben bleiben erhalten. Versuche denselben Vorgang erneut zu speichern.</Text>
+        ) : null}
 
         {draft.exercises.map((exercise, exerciseIndex) => (
           <View key={exercise.logicalTargetExerciseKey} style={styles.unitCard}>
@@ -305,6 +343,8 @@ export default function TrainingV2SessionActiveScreen() {
             ) : null}
             <TextInput
               accessibilityLabel="Notiz zur Übung"
+              editable={!locked}
+              maxLength={1000}
               onChangeText={(text) => updateNote(exerciseIndex, text)}
               placeholder="Notiz zur Übung (optional)"
               placeholderTextColor={COLORS.textFaint}
@@ -314,8 +354,10 @@ export default function TrainingV2SessionActiveScreen() {
             {exercise.sets.map((set, setIndex) => (
               <SessionSetRow
                 key={set.clientSetId}
+                locked={locked}
                 completeSet={completeSet}
                 exerciseIndex={exerciseIndex}
+                lastSet={lastSets[exercise.exerciseId]?.[setIndex] ?? null}
                 set={set}
                 setIndex={setIndex}
                 uncompleteSet={uncompleteSet}
@@ -334,9 +376,9 @@ export default function TrainingV2SessionActiveScreen() {
             onPress={() => finishSave('completed')}
             style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           >
-            {saving ? <ActivityIndicator color={COLORS.nearBlack} /> : <Text style={styles.saveButtonText}>Training abschließen</Text>}
+            {saving ? <ActivityIndicator color={COLORS.nearBlack} /> : <Text style={styles.saveButtonText}>{draft.pendingSave ? 'Speichern erneut versuchen' : 'Training abschließen'}</Text>}
           </Pressable>
-          {hasSessionProgress(draft) ? (
+          {hasSessionProgress(draft) && !draft.pendingSave ? (
             <Pressable
               accessibilityRole="button"
               disabled={saving}

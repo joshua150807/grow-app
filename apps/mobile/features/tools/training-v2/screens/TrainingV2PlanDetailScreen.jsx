@@ -17,6 +17,6 @@ export default function TrainingV2PlanDetailScreen() {
   const templateId = firstParam(params.templateId);
   const planId = firstParam(params.planId);
 
-  if (templateId) return <TrainingV2GrowPlanDetail templateId={templateId} />;
+  if (templateId) return <TrainingV2GrowPlanDetail templateId={templateId} planId={planId} />;
   return <TrainingV2OwnPlanDetail planId={planId} />;
 }

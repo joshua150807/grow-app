@@ -1,3 +1,4 @@
+import type { TrainingAnalyticsService } from './modules/trainingSessions/trainingAnalyticsService.js';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import { config } from './config/index.js';
@@ -32,6 +33,7 @@ export type BuildAppOptions = {
   trainingExerciseService?: TrainingExerciseService;
   trainingTemplateService?: TrainingTemplateService;
   trainingSessionService?: TrainingSessionService;
+  trainingAnalyticsService?: TrainingAnalyticsService;
 };
 
 export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
@@ -58,6 +60,7 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
     trainingExerciseService: options.trainingExerciseService,
     trainingTemplateService: options.trainingTemplateService,
     trainingSessionService: options.trainingSessionService,
+    trainingAnalyticsService: options.trainingAnalyticsService,
   });
 
   return app;

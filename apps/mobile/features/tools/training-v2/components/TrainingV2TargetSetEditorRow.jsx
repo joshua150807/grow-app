@@ -2,6 +2,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 
 import { TRAINING_V2_SET_TYPE_OPTIONS } from '../models/trainingV2EditorModel';
 import { styles } from '../styles/trainingV2Styles';
+import { parseTrainingV2WeightText } from '../utils/trainingV2NumericInput';
 
 const SET_TYPE_LABELS = { warmup: 'Warm-up', work: 'Work', drop: 'Drop' };
 
@@ -54,11 +55,14 @@ export function TrainingV2TargetSetEditorRow({
         <TextInput
           accessibilityLabel="Gewicht in kg"
           keyboardType="decimal-pad"
-          onChangeText={(text) => setField('targetWeightKg', numberOrNull(text))}
+          onChangeText={(text) => {
+            setField('weightInput', text);
+            setField('targetWeightKg', parseTrainingV2WeightText(text).value);
+          }}
           placeholder="kg"
           placeholderTextColor="#6F6A77"
           style={styles.targetSetInput}
-          value={targetSet.targetWeightKg === null ? '' : String(targetSet.targetWeightKg)}
+          value={targetSet.weightInput ?? (targetSet.targetWeightKg === null ? '' : String(targetSet.targetWeightKg))}
         />
       </View>
       <View style={styles.targetSetFieldGroup}>

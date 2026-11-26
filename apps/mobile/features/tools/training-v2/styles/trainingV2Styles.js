@@ -105,14 +105,48 @@ export const styles = StyleSheet.create({
   // Plans list (Trainingspläne) header — kept isolated from the topRow/backText/title/
   // subtitle/editorLink styles shared with the hub, plan detail, editor and library screens,
   // so this screen's header icons can't affect any of those.
-  plansHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: s(8), marginBottom: sv(4) },
-  plansBackRow: { flexDirection: 'row', alignItems: 'center', gap: s(2) },
+  plansHeaderRow: { flexDirection: 'column', alignItems: 'stretch', gap: sv(8), marginBottom: sv(8) },
+  plansBackRow: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: s(4), minHeight: 44, minWidth: 44, paddingHorizontal: s(8), paddingVertical: sv(8) },
   plansHeaderTitle: {
-    flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
     color: COLORS.textPrimary,
-    fontSize: sf(20),
+    fontSize: sf(26),
     fontWeight: '900',
+    textAlign: 'center',
   },
+  plansCenteredText: { textAlign: 'center' }, // subtitle + "Grow-Trainingspläne" on the plans list only
+
+  // Persönliche Rekorde: plan-card look with two stat tiles (max weight / max reps).
+  recordSearch: {
+    flexDirection: 'row', alignItems: 'center', gap: s(8), marginBottom: sv(16),
+    backgroundColor: 'rgba(10, 9, 17, 0.72)', borderWidth: 1, borderColor: COLORS.borderSubtle, borderRadius: s(12), paddingHorizontal: s(12),
+  },
+  recordSearchInput: { flex: 1, color: COLORS.textPrimary, fontSize: sf(14), paddingVertical: sv(10), minHeight: 44 },
+  recordCard: { padding: s(12), marginBottom: sv(10) },
+  recordStatsRow: { flexDirection: 'row', gap: s(8), marginTop: sv(10) },
+  recordStat: {
+    flex: 1, minWidth: 0, backgroundColor: 'rgba(231, 201, 138, 0.06)', borderWidth: 1, borderColor: COLORS.borderSubtle,
+    borderRadius: s(12), paddingHorizontal: s(10), paddingVertical: sv(8),
+  },
+  recordStatHeader: { flexDirection: 'row', alignItems: 'center', gap: s(4) },
+  recordStatLabel: { color: COLORS.mutedGold, fontSize: sf(10), fontWeight: '900', letterSpacing: 0.6, textTransform: 'uppercase', flexShrink: 1 },
+  recordStatValue: { color: COLORS.paleGold, fontSize: sf(18), fontWeight: '900', marginTop: sv(4) },
+  recordStatMeta: { color: COLORS.textMuted, fontSize: sf(11), lineHeight: sf(15), marginTop: sv(2) },
+  recordStatEmpty: { color: COLORS.textDim, fontSize: sf(14), fontWeight: '700', marginTop: sv(6) },
+  // Exercise detail (Übungsentwicklung)
+  recordDetailStats: { marginTop: 0, marginBottom: sv(22) },
+  recordChips: { justifyContent: 'center', marginBottom: sv(10) },
+  recordChartCard: {
+    backgroundColor: 'rgba(9, 7, 14, 0.78)', borderWidth: 1, borderColor: COLORS.borderSubtle, borderRadius: s(14),
+    paddingHorizontal: s(12), marginBottom: sv(22),
+  },
+  recordDateBadge: {
+    width: s(48), height: s(48), borderRadius: s(11), alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(231, 201, 138, 0.08)', borderWidth: 1, borderColor: COLORS.goldBorderLight,
+  },
+  recordDateDay: { color: COLORS.paleGold, fontSize: sf(13), fontWeight: '900' },
+  recordDateYear: { color: COLORS.textMuted, fontSize: sf(10), marginTop: 1 },
   plansEmptyCard: {
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
@@ -124,16 +158,17 @@ export const styles = StyleSheet.create({
   plansEmptyTitle: { color: COLORS.textPrimary, fontSize: sf(17), fontWeight: '850' },
   plansEmptyText: { color: COLORS.textMuted, fontSize: sf(13), lineHeight: sf(19), textAlign: 'center' },
 
-  // Plans list hero ("Eigenen Plan erstellen") — the hero asset already bakes in its own
-  // rounded gold outline, pencil-circle icon and chevron dot, so only the two text lines are
-  // overlaid here; no extra border or icon layer is drawn on top of it.
-  heroCard: { borderRadius: s(20), overflow: 'hidden', marginBottom: sv(18) },
+  // Preserve the entire existing artwork. Its caption has its own natural height,
+  // rather than fitting dynamic text into the narrow fixed-ratio image overlay.
+  heroCard: { borderRadius: s(20), overflow: 'hidden', marginBottom: sv(18), backgroundColor: 'rgba(10, 9, 17, 0.72)' },
   heroCardPressed: { opacity: 0.92 },
-  heroImage: { width: '100%', aspectRatio: 1200 / 546, justifyContent: 'center' },
+  heroImage: { alignSelf: 'center', position: 'relative' }, // width/height set in TrainingV2PlansScreen
   heroImageInner: { borderRadius: s(20) },
-  heroTextWrap: { paddingLeft: '25%', paddingRight: '38%' },
-  heroTitle: { color: COLORS.paleGold, fontSize: sf(17), fontWeight: '900' },
-  heroSubtitle: { color: COLORS.textSecondary, fontSize: sf(11.5), lineHeight: sf(15), marginTop: sv(4) },
+  // Empty zone of the 1200 × 546 artwork: x 23–65 % (pencil circle ends ~21 %, athlete starts ~66 %),
+  // y 18–79 % (inside the gold frame). Font sizes are set from the image width in the screen.
+  heroTextWrap: { position: 'absolute', left: '23%', right: '35%', top: '18%', bottom: '21%', justifyContent: 'center' },
+  heroTitle: { color: COLORS.paleGold, fontSize: sf(15), fontWeight: '900' },
+  heroSubtitle: { color: COLORS.textSecondary, fontSize: sf(11), lineHeight: sf(14), marginTop: 3 },
 
   emptyCard: {
     borderWidth: 1,
@@ -152,7 +187,9 @@ export const styles = StyleSheet.create({
     padding: s(18),
     marginBottom: sv(18),
   },
-  detailName: { color: COLORS.textPrimary, fontSize: sf(23), fontWeight: '900' },
+  detailStatusRow: { alignSelf: 'stretch', alignItems: 'flex-start', marginBottom: sv(8) },
+  detailStatusBadge: { alignSelf: 'flex-start', maxWidth: '100%', flexShrink: 1 },
+  detailName: { color: COLORS.textPrimary, fontSize: sf(23), fontWeight: '900', minWidth: 0, flexShrink: 1, width: '100%' },
   detailMeta: { color: COLORS.textMuted, fontSize: sf(13), marginTop: sv(7), lineHeight: sf(19) },
   unitCard: {
     backgroundColor: 'rgba(10, 9, 17, 0.72)',
@@ -567,12 +604,12 @@ export const styles = StyleSheet.create({
   mtUnitPickerLabel: {
     color: COLORS.textDim, fontSize: sf(11), fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: sv(7),
   },
-  mtUnitPickerRow: { flexDirection: 'row', gap: s(8) },
+  mtUnitPickerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: s(8) },
   mtUnitChip: {
-    borderWidth: 1, borderColor: COLORS.borderSubtle, borderRadius: s(999), paddingHorizontal: s(14), paddingVertical: sv(8),
+    borderWidth: 1, borderColor: COLORS.borderSubtle, borderRadius: s(999), paddingHorizontal: s(14), paddingVertical: sv(8), minHeight: 44, maxWidth: '100%', justifyContent: 'center',
   },
   mtUnitChipActive: { borderColor: COLORS.goldBorderLight, backgroundColor: 'rgba(231,201,138,0.12)' },
-  mtUnitChipText: { color: COLORS.textSecondary, fontSize: sf(12.5), fontWeight: '750' },
+  mtUnitChipText: { color: COLORS.textSecondary, fontSize: sf(12.5), fontWeight: '750', flexShrink: 1 },
   mtUnitChipTextActive: { color: COLORS.softGold },
 
   mtSectionHeaderRow: { flexDirection: 'row', alignItems: 'flex-start', gap: s(7), marginBottom: sv(8) },

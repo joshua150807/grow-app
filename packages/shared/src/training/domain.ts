@@ -1,4 +1,5 @@
 import type { RunRawValues } from './contracts.js';
+import { TRAINING_V2_LIMITS } from './primitives.js';
 import type {
   LoadType,
   PersistedSessionStatus,
@@ -92,6 +93,11 @@ export function getEffectiveTrainingSessionDurationSeconds(session: {
     return null;
   }
   const grossSeconds = (endedAtMs - startedAtMs) / 1000;
+  // Longer than any plausible single session (e.g. a draft resumed the next day): the raw
+  // timestamps stay stored, but they are not a reliable measured duration (Fixplan B10).
+  if (grossSeconds > TRAINING_V2_LIMITS.maxReliableSessionSeconds) {
+    return null;
+  }
   return Math.max(0, grossSeconds - session.pausedDurationSeconds);
 }
 

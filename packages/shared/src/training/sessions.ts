@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import { persistedSessionStatusSchema, trainingUnitTypeSchema } from './enums.js';
+import { persistedSessionStatusSchema, setTypeSchema, trainingUnitTypeSchema } from './enums.js';
 import {
+  completedRepsSchema,
   durationSecondsSchema,
   exerciseIdSchema,
   idempotencyKeySchema,
@@ -9,12 +10,15 @@ import {
   logicalUnitKeySchema,
   nameSchema,
   orderIndexSchema,
+  pgIntegerDurationSecondsInputSchema,
   planIdSchema,
+  TRAINING_V2_LIMITS,
   planRevisionIdSchema,
   sessionExerciseIdSchema,
   sessionIdSchema,
   shortNoteSchema,
   unitIdSchema,
+  weightKgSchema,
 } from './primitives.js';
 import {
   persistedSessionSetSchema,
@@ -37,7 +41,7 @@ export const sessionCompletionExerciseInputSchema = z.object({
   logicalTargetExerciseKey: logicalTargetExerciseKeySchema.nullable(),
   orderIndex: orderIndexSchema,
   note: shortNoteSchema.nullable().default(null),
-  sets: z.array(sessionCompletionSetInputSchema).min(1),
+  sets: z.array(sessionCompletionSetInputSchema).min(1).max(TRAINING_V2_LIMITS.maxSetsPerExercise),
 }).strict().superRefine((exercise, context) => {
   if (!uniqueBy(exercise.sets.map((set) => set.orderIndex))) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'Set positions must be unique.', path: ['sets'] });
@@ -76,8 +80,8 @@ export const createTrainingSessionInputSchema = z.object({
   idempotencyKey: idempotencyKeySchema,
   startedAt: isoDateTimeSchema.nullable().default(null),
   endedAt: isoDateTimeSchema.nullable().default(null),
-  pausedDurationSeconds: durationSecondsSchema.default(0),
-  exercises: z.array(sessionCompletionExerciseInputSchema),
+  pausedDurationSeconds: pgIntegerDurationSecondsInputSchema.default(0),
+  exercises: z.array(sessionCompletionExerciseInputSchema).max(TRAINING_V2_LIMITS.maxExercisesPerUnit),
 }).strict().superRefine((session, context) => {
   if (!uniqueBy(session.exercises.map((exercise) => exercise.orderIndex))) {
     context.addIssue({ code: z.ZodIssueCode.custom, message: 'Exercise positions must be unique.', path: ['exercises'] });
@@ -97,7 +101,17 @@ export const createTrainingSessionInputSchema = z.object({
     });
     return;
   }
-  if (session.startedAt === null || session.endedAt === null) return;
+  if (session.startedAt === null || session.endedAt === null) {
+    // Without timing there is no gross duration a pause could be part of (Fixplan D5).
+    if (session.pausedDurationSeconds !== 0) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'pausedDurationSeconds must be 0 when no startedAt/endedAt is sent.',
+        path: ['pausedDurationSeconds'],
+      });
+    }
+    return;
+  }
 
   const startedAtMs = Date.parse(session.startedAt);
   const endedAtMs = Date.parse(session.endedAt);
@@ -241,3 +255,45 @@ export const lastExerciseNoteResponseSchema = z.object({
   completedAt: isoDateTimeSchema.nullable(),
 }).strict();
 export type LastExerciseNoteResponse = z.infer<typeof lastExerciseNoteResponseSchema>;
+
+// The sets of this exercise from the user's most recent saved session that contains it, in
+// their logged order — read-only lookup for the grey "last time" placeholders in the session
+// screen (never copied into today's inputs). `completedAt: null` + `sets: []` when the exercise
+// has no session history yet — a valid result, not a 404.
+export const lastExerciseSetsResponseSchema = z.object({
+  completedAt: isoDateTimeSchema.nullable(),
+  sets: z.array(z.object({
+    orderIndex: orderIndexSchema,
+    setType: setTypeSchema,
+    weightKg: weightKgSchema.nullable(),
+    reps: completedRepsSchema.nullable(),
+  }).strict()).max(TRAINING_V2_LIMITS.maxSetsPerExercise),
+}).strict();
+export type LastExerciseSetsResponse = z.infer<typeof lastExerciseSetsResponseSchema>;
+
+export const trainingSessionHistorySummarySchema = trainingSessionSummarySchema.extend({
+  exerciseCount: z.number().int().safe().nonnegative(),
+  volumeKg: weightKgSchema,
+});
+export type TrainingSessionHistorySummary = z.infer<typeof trainingSessionHistorySummarySchema>;
+
+export const trainingSessionHistorySchema = trainingSessionSchema.extend({
+  volumeKg: weightKgSchema,
+});
+export type TrainingSessionHistory = z.infer<typeof trainingSessionHistorySchema>;
+
+export const listTrainingSessionHistoryResponseSchema = listTrainingSessionsResponseSchema.extend({
+  sessions: z.array(trainingSessionHistorySummarySchema),
+});
+
+export const trainingSessionHistoryResponseSchema = trainingSessionResponseSchema.extend({
+  session: trainingSessionHistorySchema,
+});
+
+export const trainingSessionStatsResponseSchema = z.object({
+  totalSessions: z.number().int().safe().nonnegative(),
+  // Sum of measured effective durations. Sessions with no timing contribute no measurement.
+  totalDurationSeconds: z.number().finite().nonnegative(),
+  totalVolumeKg: weightKgSchema,
+}).strict();
+export type TrainingSessionStatsResponse = z.infer<typeof trainingSessionStatsResponseSchema>;

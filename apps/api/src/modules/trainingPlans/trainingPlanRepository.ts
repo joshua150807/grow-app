@@ -10,6 +10,7 @@ import { resolveUiMuscleGroup } from '@grow/shared/src/training/muscleGroups.js'
 import type pg from 'pg';
 import { getPgPool } from '../../db/client.js';
 import { createTrainingExerciseRepository } from '../trainingExercises/trainingExerciseRepository.js';
+import { fingerprintTrainingPlanCreate, TrainingPlanCreateConflictError } from './trainingPlanCreateFingerprint.js';
 
 export type Database = Pick<pg.Pool, 'query' | 'connect'>;
 export type Client = pg.PoolClient;
@@ -87,14 +88,16 @@ const planSummarySelect = `
   -- that was never activated) or point at a unit type this vertical slice cannot start as a
   -- session (rest/run/mobility/stretching -- the next_unit join above already excludes those
   -- via unit_type='strength', leaving it null). Either way, the deterministic substitute is
-  -- the first strength unit of the plan's *current* revision by order_index -- never a client
-  -- guess, and never a unit type that would let "start next session" open a non-strength unit.
+  -- the next strength unit at/after the cycle position, wrapping once when needed.
+  -- Without a cycle it starts at the first strength unit. This read does not advance state.
   left join lateral (
     select unit.id,unit.logical_unit_key,unit.order_index
     from public.training_plan_units_v2 unit
     where unit.revision_id=plan.current_revision_id and unit.plan_id=plan.id and unit.user_id=plan.user_id
       and unit.unit_type='strength'
-    order by unit.order_index asc
+    order by
+      case when unit.order_index >= coalesce(cycle.next_order_index, 0) then 0 else 1 end,
+      unit.order_index asc
     limit 1
   ) fallback_next_unit on next_unit.id is null`;
 
@@ -355,7 +358,8 @@ async function resetCycle(
     on conflict(plan_id) do update set
       user_id=excluded.user_id,revision_id=excluded.revision_id,next_unit_id=excluded.next_unit_id,
       next_order_index=excluded.next_order_index,last_trigger=excluded.last_trigger,
-      version=public.training_plan_cycle_states_v2.version+1,advanced_at=now()
+      version=public.training_plan_cycle_states_v2.version+1,advanced_at=now(),
+      last_completed_session_at=null
   `, [planId, userId, revisionId, first.rows[0].id, first.rows[0].order_index, trigger]);
 }
 
@@ -448,15 +452,34 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
     find(userId, planId) { return loadPlan(db, userId, planId); },
     create(userId, input) {
       return transaction(db, async (client) => {
+        let reservedPlanId: string | null = null;
+        if (input.idempotencyKey) {
+          const fingerprint = fingerprintTrainingPlanCreate(input);
+          // Unique(owner,key) waits for a concurrent winner to commit/roll back.
+          // The deferred FK lets this reservation and the complete plan commit atomically.
+          const claimed = await client.query<{ plan_id: string }>(`
+            insert into public.training_plan_create_requests_v2(user_id,idempotency_key,request_fingerprint)
+            values ($1,$2,$3) on conflict (user_id,idempotency_key) do nothing returning plan_id
+          `, [userId, input.idempotencyKey, fingerprint]);
+          if (!claimed.rows[0]) {
+            const previous = await client.query<{ plan_id: string; request_fingerprint: string }>(`
+              select plan_id,request_fingerprint from public.training_plan_create_requests_v2
+              where user_id=$1 and idempotency_key=$2`, [userId, input.idempotencyKey]);
+            const existing = previous.rows[0];
+            if (!existing || existing.request_fingerprint !== fingerprint) throw new TrainingPlanCreateConflictError();
+            return String(existing.plan_id);
+          }
+          reservedPlanId = String(claimed.rows[0].plan_id);
+        }
         if (input.activateImmediately) {
           await client.query(`update public.training_plans_v2
             set status='archived',archived_at=now(),version=version+1
             where user_id=$1 and status='active'`, [userId]);
         }
         const plans = await client.query<{ id: string }>(`
-          insert into public.training_plans_v2(user_id,name,status,activated_at)
-          values ($1,$2,$3,case when $3='active' then now() else null end) returning id
-        `, [userId, input.name, input.activateImmediately ? 'active' : 'draft']);
+          insert into public.training_plans_v2(user_id,name,status,activated_at,id)
+          values ($1,$2,$3,case when $3='active' then now() else null end,coalesce($4::uuid,gen_random_uuid())) returning id
+        `, [userId, input.name, input.activateImmediately ? 'active' : 'draft', reservedPlanId]);
         const planId = String(plans.rows[0].id);
         const tree = await insertTree(client, userId, planId, 1, input);
         await client.query(`update public.training_plans_v2 set current_revision_id=$1
@@ -472,19 +495,27 @@ export function createTrainingPlanRepository(db: Database = getPgPool()): Traini
     },
     update(userId, planId, input) {
       return transaction(db, async (client): Promise<MutationResult> => {
-        const currentRows = await client.query<{
-          version: number; current_revision_id: string; revision_number: number;
-          source_template_revision_id: string | null;
-        }>(`select plan.version,plan.current_revision_id,revision.revision_number,
-              revision.source_template_revision_id
-            from public.training_plans_v2 plan join public.training_plan_revisions_v2 revision
-              on revision.id=plan.current_revision_id and revision.plan_id=plan.id
-              and revision.user_id=plan.user_id
+        // Lock the plan row on its own first (audit F09). With the revision joined into the
+        // locking query, a PATCH that waited for a concurrent PATCH was re-checked by PostgreSQL
+        // against the plan's NEW current_revision_id but the OLD joined revision row, matched
+        // nothing and surfaced as 404. Locking alone keeps 404 strictly for "missing, deleted or
+        // not yours" (the owner filter is unchanged) and lets a stale version become a 409.
+        const lockedRows = await client.query<{
+          version: number; current_revision_id: string | null; source_template_id: string | null;
+        }>(`select plan.version,plan.current_revision_id,plan.source_template_id
+            from public.training_plans_v2 plan
             where plan.id=$1 and plan.user_id=$2 and plan.deleted_at is null
             for update of plan`, [planId, userId]);
-        const current = currentRows.rows[0];
-        if (!current) return { outcome: 'not_found' };
-        if (Number(current.version) !== input.expectedVersion) return { outcome: 'version_conflict' };
+        const locked = lockedRows.rows[0];
+        if (!locked?.current_revision_id) return { outcome: 'not_found' };
+        if (locked.source_template_id != null) return { outcome: 'status_conflict' };
+        if (Number(locked.version) !== input.expectedVersion) return { outcome: 'version_conflict' };
+        const revisionRows = await client.query<{
+          revision_number: number; source_template_revision_id: string | null;
+        }>(`select revision_number,source_template_revision_id from public.training_plan_revisions_v2
+            where id=$1 and plan_id=$2 and user_id=$3`, [locked.current_revision_id, planId, userId]);
+        if (!revisionRows.rows[0]) return { outcome: 'not_found' };
+        const current = { ...locked, current_revision_id: locked.current_revision_id, ...revisionRows.rows[0] };
         const cycleRows = await client.query<{ logical_unit_key: string; order_index: number }>(`
           select unit.logical_unit_key,unit.order_index from public.training_plan_cycle_states_v2 cycle
           join public.training_plan_units_v2 unit on unit.id=cycle.next_unit_id

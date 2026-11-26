@@ -1,3 +1,4 @@
+import type { TrainingAnalyticsService } from '../../modules/trainingSessions/trainingAnalyticsService.js';
 import type { FastifyPluginAsync } from 'fastify';
 import type {
   BetaRegistrationCompletionService,
@@ -30,6 +31,7 @@ export type V1RoutesOptions = {
   trainingExerciseService?: TrainingExerciseService;
   trainingTemplateService?: TrainingTemplateService;
   trainingSessionService?: TrainingSessionService;
+  trainingAnalyticsService?: TrainingAnalyticsService;
 };
 
 export const v1Routes: FastifyPluginAsync<V1RoutesOptions> = async (app, options) => {
@@ -54,5 +56,6 @@ export const v1Routes: FastifyPluginAsync<V1RoutesOptions> = async (app, options
     trainingExerciseService: options.trainingExerciseService,
     trainingTemplateService: options.trainingTemplateService,
     trainingSessionService: options.trainingSessionService,
+    trainingAnalyticsService: options.trainingAnalyticsService,
   });
 };
