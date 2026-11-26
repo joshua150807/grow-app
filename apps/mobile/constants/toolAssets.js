@@ -32,6 +32,21 @@ export const NOTES_PAGE_BG = require('../assets/tool-icons/backgrounds/notes-pag
 export const JOURNAL_PAGE_BG = require('../assets/tool-icons/backgrounds/journal-page-bg.webp')
 export const LEITFRAGEN_PAGE_BG = require('../assets/tool-icons/backgrounds/leitfragen-page-bg.webp')
 
+export const TRAINING_V2_HUB_ICONS = {
+  myTraining: require('../assets/tool-icons/training-v2/training-hub-my-training.webp'),
+  plans: require('../assets/tool-icons/training-v2/training-hub-plans.webp'),
+  library: require('../assets/tool-icons/training-v2/training-hub-library.webp'),
+};
+
+export const TRAINING_V2_CREATE_PLAN_HERO = require('../assets/tool-icons/training-v2/training-v2-create-plan-hero.webp');
+
+export const TRAINING_V2_MY_TRAINING_ASSETS = {
+  hero: require('../assets/training-v2/my-training/training-v2-my-training-hero.webp'),
+  planCalendar: require('../assets/training-v2/my-training/training-v2-plan-calendar.webp'),
+  progress: require('../assets/training-v2/my-training/training-v2-progress.webp'),
+  recordsTrophy: require('../assets/training-v2/my-training/training-v2-records-trophy.webp'),
+};
+
 export const TOOL_OVERVIEW_IMAGE_ASSETS = [
   ...Object.values(TOOL_IMAGES),
   MENTOR_BG,
