@@ -7,8 +7,8 @@ import type {
   TrainingSessionHistorySummary,
   TrainingSessionStatsResponse,
 } from '@grow/shared/src/training/sessions.js';
-import { TRAINING_V2_LIMITS } from '@grow/shared/src/training/primitives.js';
-import { trainingSessionSchema, trainingSessionSummarySchema } from '@grow/shared/src/training/sessions.js';
+import { TRAINING_V2_LIMITS } from '@grow/shared';
+import { trainingSessionSchema, trainingSessionSummarySchema } from '@grow/shared';
 import type pg from 'pg';
 import { getPgPool } from '../../db/client.js';
 import { transaction, type Client, type Database } from '../trainingPlans/trainingPlanRepository.js';

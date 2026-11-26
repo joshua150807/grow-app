@@ -8,7 +8,7 @@ import {
   trainingTemplateSchema,
   trainingTemplateSummarySchema,
   trainingTemplateUserProjectionSchema,
-} from '@grow/shared/src/training/plans.js';
+} from '@grow/shared';
 import type pg from 'pg';
 import { getPgPool } from '../../db/client.js';
 

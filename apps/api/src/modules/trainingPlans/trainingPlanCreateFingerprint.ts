@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { createTrainingPlanInputSchema, type CreateTrainingPlanInput } from '@grow/shared/src/training/plans.js';
+import { createTrainingPlanInputSchema, type CreateTrainingPlanInput } from '@grow/shared';
 
 function canonical(value: unknown): unknown {
   if (Array.isArray(value)) {

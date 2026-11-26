@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import { z } from 'zod';
 import { buildTrainingRecords, trainingProgressBucketSchema,
-  type TrainingPerformancePoint, type TrainingRecordsQuery } from '@grow/shared/src/training/analytics.js';
+  type TrainingPerformancePoint, type TrainingRecordsQuery } from '@grow/shared';
 import type { LoadType } from '@grow/shared/src/training/enums.js';
 import { getPgPool } from '../../db/client.js';
 import { measuredSessionDurationSql, plausibleSetSql, reliableTimingSql, setVolumeSql } from './trainingSessionRepository.js';

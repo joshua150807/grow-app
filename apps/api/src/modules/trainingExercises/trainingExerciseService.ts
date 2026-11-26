@@ -4,7 +4,7 @@ import {
   listTrainingExercisesResponseSchema,
   trainingExerciseDetailResponseSchema,
   trainingExerciseIdParamsSchema,
-} from '@grow/shared/src/training/exercises.js';
+} from '@grow/shared';
 import { ZodError } from 'zod';
 import type { AuthUser } from '../../auth/types.js';
 import { AppError } from '../../errors/appError.js';

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { buildTrainingProgress, trainingAnalyticsDay, trainingAnalyticsFrom, trainingAnalyticsExerciseParamsSchema,
   trainingExerciseProgressQuerySchema, trainingExerciseProgressResponseSchema, trainingProgressQuerySchema,
-  trainingProgressResponseSchema, trainingRecordsQuerySchema, trainingRecordsResponseSchema } from '@grow/shared/src/training/analytics.js';
+  trainingProgressResponseSchema, trainingRecordsQuerySchema, trainingRecordsResponseSchema } from '@grow/shared';
 import type { AuthUser } from '../../auth/types.js';
 import { AppError } from '../../errors/appError.js';
 import { createTrainingAnalyticsRepository, type TrainingAnalyticsRepository } from './trainingAnalyticsRepository.js';

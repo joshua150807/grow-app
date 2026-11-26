@@ -5,8 +5,8 @@ import type {
 import {
   trainingPlanSchema,
   trainingPlanSummarySchema,
-} from '@grow/shared/src/training/plans.js';
-import { resolveUiMuscleGroup } from '@grow/shared/src/training/muscleGroups.js';
+} from '@grow/shared';
+import { resolveUiMuscleGroup } from '@grow/shared';
 import type pg from 'pg';
 import { getPgPool } from '../../db/client.js';
 import { createTrainingExerciseRepository } from '../trainingExercises/trainingExerciseRepository.js';

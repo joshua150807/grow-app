@@ -1,4 +1,4 @@
-import { trainingTemplateIdParamsSchema } from '@grow/shared/src/training/plans.js';
+import { trainingTemplateIdParamsSchema } from '@grow/shared';
 import { ZodError } from 'zod';
 import type { AuthUser } from '../../auth/types.js';
 import { AppError } from '../../errors/appError.js';

@@ -3,7 +3,7 @@ import {
   type CreateTrainingExerciseInput,
   type ListTrainingExercisesQuery,
   type TrainingExercise,
-} from '@grow/shared/src/training/exercises.js';
+} from '@grow/shared';
 import type pg from 'pg';
 import { getPgPool } from '../../db/client.js';
 

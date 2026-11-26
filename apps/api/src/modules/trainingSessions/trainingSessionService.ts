@@ -10,9 +10,9 @@ import {
   trainingSessionIdParamsSchema,
   trainingSessionResponseSchema,
 } from '@grow/shared';
-// Imported from source (like the repository does), so an API process still running on an older
-// packages/shared/dist keeps loading this module.
-import { lastExerciseSetsResponseSchema } from '@grow/shared/src/training/sessions.js';
+// Runtime schemas resolve through the public, freshly built Shared package.
+// No source-only module resolution is required by the production Node process.
+import { lastExerciseSetsResponseSchema } from '@grow/shared';
 import { z, ZodError } from 'zod';
 import type { AuthUser } from '../../auth/types.js';
 import { AppError } from '../../errors/appError.js';

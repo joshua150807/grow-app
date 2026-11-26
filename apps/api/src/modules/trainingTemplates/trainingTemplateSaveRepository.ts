@@ -3,7 +3,7 @@ import type {
   TrainingTemplate,
   TrainingTemplateUserProjection,
 } from '@grow/shared/src/training/plans.js';
-import { trainingTemplateUserProjectionSchema } from '@grow/shared/src/training/plans.js';
+import { trainingTemplateUserProjectionSchema } from '@grow/shared';
 import {
   applyPlanActivation,
   insertTree,
