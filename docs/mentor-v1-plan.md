@@ -127,7 +127,7 @@ Die 10 Phasen aus dem ChatGPT-Entwurf sind sinnvoll, aber für den Stand des Rep
 
 | # | Ticket | Stufe |
 |---|---|---|
-| M1 | Datenmodell + Migration + RLS (Conversations, Messages, Usage, Settings) | 1 |
+| M1 ✅ | Datenmodell + Migration + RLS (Conversations, Messages, Usage, Settings) | 1 |
 | M2 | Mentor-Modul + Provider-Schicht (Mock) + Prompt-Versionierung + Safety | 1 |
 | M3 | Chat-API (`/v1/mentor/...`, mehrere Chats) + Limits + Tests | 1 |
 | M4 | Provider-Entscheidung + echte Anbindung + Kostenrechnung | 1 |
@@ -152,5 +152,31 @@ Hinweis: Die neuen Backend-Endpunkte werden additiv gebaut. Die App schreibt vor
 | Schreibbare Tools | **Alle Tools in V1**, Start mit Habits/Todos/Training |
 | Chats | **Mehrere Chats**, Memory chatübergreifend |
 | Zeitrahmen | Qualität vor Tempo, ca. 10–14 Wochen akzeptiert |
-| Tageslimit | Offen (Env-konfigurierbar) |
-| Persona | Vorschlag: fix in V1, Wahl in Stufe 2 – offen |
+| Tageslimit | Env-konfigurierbar, Startwert folgt |
+| Persona | Fix in V1 (motivierend, ehrlich, darf fordern), Wahl in Stufe 2 |
+
+## 10. Umsetzungsstand
+
+### M1 – erledigt (Branch `claude/ki-mentor-grow-planning-1v4cp9`)
+
+- Migration: `supabase/migrations/20261127120000_mentor_foundation.sql`
+  - `mentor_conversations`, `mentor_messages`, `mentor_usage_daily`, `mentor_settings`
+  - Rein additiv, keine bestehende Tabelle wird verändert.
+  - RLS aktiv, **kein** Zugriff für `anon`/`authenticated` (auch kein Lesen); nur `service_role` (Backend).
+  - Nachrichten sind über `(conversation_id, user_id)` an eine Konversation desselben Users gebunden.
+  - `on delete cascade` von `auth.users` → Account-Löschung entfernt alle Mentor-Daten.
+  - Trigger: `updated_at`, `last_message_at` der Konversation.
+  - `mentor_memories` und `mentor_actions` folgen mit M6/M7.
+- Tests: `apps/api/tests/mentorFoundationMigration.test.ts` (statisch), `apps/api/tests/mentorFoundationMigration.integration.test.ts` (Postgres: Rechte, Ownership-FK, Constraints, Trigger, Cascade).
+- **Nicht** auf die echte Supabase-Datenbank angewendet. Die laufende Beta ist unberührt; es gibt noch keine neuen API-Routen.
+
+Integrationstests lokal:
+
+```bash
+docker compose -f docker-compose.test.yml up -d
+cd apps/api
+TEST_DATABASE_URL=postgresql://grow_test:grow_test_password@127.0.0.1:55432/grow_api_integration_test \
+ALLOW_INTEGRATION_DB_RESET=true npm run test:integration
+```
+
+Rollout (erst, wenn M3 fertig ist und das Backend die Tabellen nutzt): Migration zuerst auf einem Staging-/Testprojekt anwenden, danach Production. Da additiv, beeinflusst sie bestehende Builds nicht.
