@@ -1,81 +1,145 @@
-# KI Mentor V1 – Plan
+# KI Mentor – Konzept & Plan
 
 Stand: 27.11.2026
-Status: Planung – wartet auf genauere Produktdefinition durch Joshua
+Status: Planung (noch kein Code). Nicht verbindlich, bis Joshua die offenen Entscheidungen bestätigt.
 
 Bezug: `docs/grow_appstore_release_plan.md` (Abschnitt 7), `docs/roadmap/app-store-release-plan.md` (Product Slice 7).
 
 ---
 
-## Ist-Zustand
+## 1. Vision (Kurzform)
 
-- Mobile: `apps/mobile/features/mentor/screens/MentorScreen.jsx` zeigt nur ein Hintergrundbild, keine Chat-Logik.
-- Backend: keine Mentor-Routen, keine Mentor-Tabellen.
-- Backend-Muster vorhanden: Fastify, `/v1`, Zod, `requireAuth` (Supabase JWT), `AppError`, Routes → Service → Repository, Vitest.
+Der KI Mentor ist ein **persönlicher Coach**, kein Allzweck-Chatbot.
+Er ist schmaler als ChatGPT (keine Briefe, kein Allgemeinwissen), dafür:
 
-## Getroffene Entscheidungen
+- erinnert er sich langfristig an den User,
+- kennt er die echten Grow-Daten (Training, Habits, Ziele, Todos, Journal …),
+- kann er direkt in Grow handeln (Habit anlegen, Trainingseinheit eintragen …),
+- motiviert, fordert und hilft er.
 
-| Thema | Entscheidung |
+Kreislauf: Motivation → Handlung → Fortschritt → neue Motivation.
+
+## 2. Themenfelder
+
+| Im Fokus | Nicht im Fokus (höflich ablehnen, zurück zum Coaching) |
 |---|---|
-| KI-Anbieter | Noch offen. V1 startet mit Provider-Schicht + **Mock-Provider**. Echter Anbieter wird später per Env angebunden. |
-| Chat-History | **Wird gespeichert** (Supabase, neue Tabellen). User kann löschen, Account-Löschung löscht mit (`on delete cascade`). |
-| Streaming | **Nicht in V1.** Ladezustand → komplette Antwort. Streaming nach Release/später. |
-| Tageslimit | Offen – kommt mit der Produktdefinition. Wird per Env konfigurierbar. |
+| Training, Fitness, Regeneration (allgemein, keine Diagnose) | Briefe/Texte schreiben |
+| Gewohnheiten, Disziplin, Produktivität, Fokus | Allgemeinwissen, Hausaufgaben, Code |
+| Ziele, Planung, Selbstentwicklung, Mindset | Nachrichten/Politik |
+| Business/Karriere: Ideen, Strategie, Prioritäten | Rechts-/Steuer-/Anlageberatung |
+| Buch-/Lernempfehlungen | Medizinische Diagnosen/Therapie |
 
-## Offen (kommt mit Produktdefinition)
+## 3. Ist-Zustand im Repo (relevant für den Mentor)
 
-- Rolle/Persönlichkeit des Mentors, Tonalität, Themenbereiche
-- Welcher User-Kontext genutzt werden darf (Ziele, Habits, Training, Journal …)
-- Eine Konversation oder mehrere Chats pro User
-- Tageslimit / Quotas
-- Gewünschte UI (Starter-Fragen, Vorschläge, etc.)
+- Backend `apps/api` (Fastify, `/v1`, Zod, Auth, Tests) ist vorhanden und tragfähig.
+- Mentor-Screen ist nur ein Platzhalter-Bild.
+- **Fast alle Tools schreiben direkt aus dem Client nach Supabase** (`training_*`, `habits`, `goals`, `todos`, `journal_entries`, `notes`, `daily_planner_events`, …). Backend-Endpunkte gibt es bisher nur für Profil, Creator, Habit-Collections, Deep Work.
+  → Damit der Mentor sicher schreiben kann, braucht jedes Tool, das er bearbeiten darf, eine **Backend-Schreiblogik**. Das ist der größte Aufwandsblock.
+- Training speichert pro Übung `weight`, `sets`, `reps`, `note` und pro Session eine `note`. **Es gibt keine Links/Rechts-Erfassung.** Ein Seitenungleichgewicht kann der Mentor daher nur erkennen, wenn der User es erwähnt oder einseitige Übungen getrennt einträgt.
 
-## Tickets (je ein Ticket pro Umsetzung)
+## 4. Architektur
 
-### M1 – Datenmodell + Backend-Modul
-- Migration: `mentor_conversations`, `mentor_messages`
-  - FK auf `auth.users` mit `on delete cascade`
-  - Check Constraints (`role in ('user','assistant')`, Längen)
-  - Indizes auf `user_id`, `conversation_id`, `created_at`
-  - RLS aktiv; Client bekommt keinen direkten Schreibzugriff (Backend ist die Grenze)
-- `apps/api/src/modules/mentor/`: Schemas (Zod), Repository, Service
-- Backend prüft Ownership selbst (Service Role)
+### 4.1 Gedächtnis in drei Schichten
 
-### M2 – Provider-Schicht + Safety
-- Interface `MentorProvider` (`generateReply(messages, options)`)
-- `MockMentorProvider` als Default; echter Provider später
-- Versionierter System-Prompt (`promptVersion` wird pro Antwort gespeichert)
-- Safety-Grenzen: keine medizinischen/rechtlichen/finanziellen Versprechen, Krisen-Hinweis auf Hilfsangebote
-- Timeouts, Provider-Fehler → saubere `AppError`s
-- API Key nur als Server-Env, nie im Client
+1. **Gesprächsverlauf** – letzte N Nachrichten der aktuellen Konversation.
+2. **Langzeit-Memory (`mentor_memories`)** – kurze, strukturierte Fakten, die nach jeder Nachricht automatisch extrahiert werden.
+   Beispiel: `{ kategorie: "gesundheit", inhalt: "Verletzung am linken Bein beim Training", datum: 2026-03-12, status: "aktiv", quelle: message_id }`
+   - Der User sieht im Bereich „Was der Mentor über mich weiß“ alle Fakten, kann sie bearbeiten und löschen.
+   - Kategorien: Ziele, Gesundheit/Verletzungen, Vorlieben, Business, Persönlichkeit, Herausforderungen …
+   - In V1 ohne Vektor-Datenbank: Pro User sind es überschaubar viele Fakten, die gefiltert und priorisiert in den Prompt gehen. Embeddings kommen erst, wenn das nicht mehr reicht.
+3. **Live-App-Daten** – nicht pauschal in den Prompt kopiert, sondern **bei Bedarf über Lese-Tools geholt** (Tool Use / Function Calling), z. B. `get_training_history(exercise, zeitraum)`, `get_habits()`, `get_goals()`.
 
-### M3 – Limits
-- Max. Nachrichtenlänge (Zod)
-- Rate Limit pro User (Burst) + Tageskontingent (Wert offen, per Env)
-- Begrenzte History im Prompt (letzte N Nachrichten), Max-Output-Tokens
+Zusätzlich gibt es **rollierende Zusammenfassungen** pro Konversation bzw. Woche, damit lange Verläufe nicht unbegrenzt Tokens kosten.
 
-### M4 – API
-- `POST /v1/mentor/messages` (neue oder bestehende Konversation)
-- `GET /v1/mentor/conversations`
-- `GET /v1/mentor/conversations/:id/messages` (paginiert)
-- `DELETE /v1/mentor/conversations/:id`
-- Tests: Auth, Ownership (fremde IDs), Validation, Quota, Provider-Fehler
+### 4.2 Handlungen (Schreibzugriff)
 
-### M5 – Mobile Chat-UI
-- `MentorScreen` zu Chat umbauen (bestehenden Hintergrund/Stil wiederverwenden)
-- States: Laden, Fehler, leer, Quota erreicht, Safety-Hinweis
-- KI-Hinweis ("Antworten können fehlerhaft sein, kein Ersatz für Fachleute")
-- API-Client analog `features/profile/services/profiles.js`
+- Der Mentor schlägt Aktionen über Tools vor (`create_habit`, `log_training_session`, `create_todo`, `create_goal` …).
+- **V1: Jede Schreibaktion erzeugt eine Bestätigungskarte in der App** („Gewohnheit ‚10 Seiten lesen‘ täglich anlegen? ✓ / ✗“). Ausgeführt wird erst nach dem Tap.
+- **Kein Löschen durch den Mentor in V1.**
+- Die Ausführung läuft im Backend. Als User-ID gilt immer die aus dem JWT, nie eine vom Modell gelieferte ID. Validierung erfolgt mit denselben Zod-Schemas wie bei normalen API-Calls.
+- Jede ausgeführte Aktion wird protokolliert (`mentor_actions`) und ist für den User nachvollziehbar.
+- Später optional „Auto-Modus“ pro Aktionstyp, wenn sich die Bestätigungen bewährt haben.
 
-### M6 – Nach V1
-- Streaming
-- Personalisierung mit User-Kontext
-- Feedback (👍/👎) pro Antwort
-- Admin-Diagnose (Nutzung, Fehler, Kosten)
+### 4.3 Provider
 
-## Risiken
+- Provider-Schicht mit Mock zuerst (Entscheidung von Joshua).
+- Für Memory-Extraktion und Tool Use braucht es später ein **starkes Modell mit zuverlässigem Function Calling**. Die Auswahl fällt vor Ticket M4, inklusive Kostenrechnung pro aktivem User/Monat.
+- API Key nur im Backend.
 
-- Kosten ohne Limits → M3 ist Release-Muss.
-- App Store: KI-Hinweise + Altersfreigabe prüfen.
-- Datenschutz: Chat-Inhalte sind sensibel → Löschfunktion, Datenschutzerklärung ergänzen, keine Inhalte in Logs.
-- EAS Updates: neue Endpunkte sind additiv, alte Builds brechen nicht.
+### 4.4 Datenmodell (Entwurf)
+
+- `mentor_conversations` (id, user_id, title, summary, created_at, updated_at)
+- `mentor_messages` (id, conversation_id, user_id, role, content, prompt_version, token_usage, created_at)
+- `mentor_memories` (id, user_id, category, content, status, source_message_id, valid_from, created_at, updated_at)
+- `mentor_actions` (id, user_id, message_id, type, payload, status `proposed|confirmed|rejected|failed`, result_ref, created_at)
+- `mentor_usage` (user_id, day, messages, tokens) für Quotas
+- `mentor_settings` (user_id, persona, memory_enabled, data_access_scopes, consent_at)
+
+Alle Tabellen bekommen RLS, FK auf `auth.users` mit `on delete cascade` und Check Constraints. Der Client hat keinen direkten Schreibzugriff, die Grenze ist das Backend.
+
+## 5. Recht, Datenschutz, App Store (Release-relevant)
+
+- **Gesundheitsdaten** (Verletzungen, Training) sind besondere Kategorien nach Art. 9 DSGVO → **ausdrückliche Einwilligung** nötig, bevor der Mentor sie speichert oder an den KI-Anbieter schickt.
+- Weitergabe an einen KI-Anbieter: Auftragsverarbeitungsvertrag, Datenschutzerklärung, Angaben im App Store.
+- Apple verlangt Transparenz und Zustimmung, bevor personenbezogene Daten an Dritt-KI gehen → Onboarding-Screen mit Opt-in für den Mentor.
+- Bei Gesundheitsthemen gibt der Mentor allgemeine Tipps und verweist bei Schmerzen/Verletzungen klar an Arzt/Physio. Bei Krisensignalen nennt er Hilfsangebote.
+- Keine Inhalte aus Chats in Logs.
+- Datenexport/Löschung: Chats und Memory werden mit dem Account gelöscht und sind zusätzlich einzeln löschbar.
+
+## 6. Stufen & grobe Zeitschätzung
+
+Annahme: 1 Entwickler mit KI-Unterstützung, Vollzeit-nah. Die Werte sind grob, Risiko eher nach oben.
+
+### Stufe 1 – Mentor V1 (Release-Muss), ca. 6–9 Wochen
+- Chat + gespeicherter Verlauf, Lade-/Fehler-/Quota-States
+- Persona + Themenbegrenzung + Safety
+- Langzeit-Memory mit Ansicht „Was der Mentor über mich weiß“
+- Lese-Zugriff auf Ziele, Habits, Todos, Training (Zusammenfassungen + Abfragen)
+- Schreib-Aktionen mit Bestätigung für **Habit, Todo, Trainingseinheit** (inkl. der dafür nötigen Backend-Endpunkte)
+- Rate Limits, Tageskontingent, Kostendeckel
+- Einwilligung/Opt-in, Datenschutztexte
+- Tests (Ownership, Validation, Quota, Aktionen) + interne Beta
+
+### Stufe 2 – Nach Release, ca. 4–6 Wochen
+- Weitere Tools lesen/schreiben (Journal, Planner, Goals bearbeiten, Deep Work, Leitfragen)
+- Fortschrittsanalyse: wöchentliche Auswertung der echten Daten
+- Persona-Wahl (fordernd / unterstützend / analytisch)
+- Feedback 👍/👎 + Auswertung, Admin-Diagnose
+
+### Stufe 3 – Später, ca. 6–8 Wochen
+- Proaktives Coaching (Check-ins, Wochenreview per Push)
+- Mustererkennung über Monate (z. B. Leistungsentwicklung je Übung, ggf. Links/Rechts-Erfassung im Training)
+- Streaming, Embeddings/semantische Suche falls nötig
+- Evaluations-Set für Coaching-Qualität
+
+## 7. Planungsphasen (verdichtet)
+
+Die 10 Phasen aus dem ChatGPT-Entwurf sind sinnvoll, aber für den Stand des Repos zu schwer. Vorschlag in 4 Schritten:
+
+1. **Produkt-Entscheidungen** (dieses Dokument): Scope V1, Themen, Persona, Datenzugriff, Bestätigungslogik, Limits.
+2. **Memory- und Aktions-Design**: Fakt-Schema, Extraktionsregeln, Tool-Liste mit genauen Parametern.
+3. **Technische Tickets M1–M8** (unten), je eines nach dem anderen.
+4. **UI/UX** parallel zu M5–M7.
+
+## 8. Tickets (Entwurf)
+
+| # | Ticket | Stufe |
+|---|---|---|
+| M1 | Datenmodell + Migration + RLS (Conversations, Messages, Usage, Settings) | 1 |
+| M2 | Mentor-Modul + Provider-Schicht (Mock) + Prompt-Versionierung + Safety | 1 |
+| M3 | Chat-API (`/v1/mentor/...`) + Limits + Tests | 1 |
+| M4 | Provider-Entscheidung + echte Anbindung + Kostenrechnung | 1 |
+| M5 | Mobile Chat-UI + Opt-in/Einwilligung | 1 |
+| M6 | Langzeit-Memory (Extraktion, Speicherung, Ansicht/Löschen) | 1 |
+| M7 | Lese-Tools (Ziele, Habits, Todos, Training) | 1 |
+| M8 | Backend-Schreibendpunkte + Aktionen mit Bestätigung (Habit, Todo, Training) | 1 |
+| M9+ | Stufe 2/3 | 2–3 |
+
+## 9. Offene Entscheidungen
+
+- Bestätigung jeder Schreibaktion in V1 → empfohlen: **ja**
+- Welche 3 Tools zuerst beschreibbar → Vorschlag: Habits, Todos, Training
+- Persona in V1 fix oder wählbar → Vorschlag: fix, Wahl in Stufe 2
+- Ein Chat oder mehrere → Vorschlag: ein fortlaufender Coach-Chat (das Memory trägt den Kontext)
+- Tageslimit
+- KI-Anbieter (spätestens vor M4)
