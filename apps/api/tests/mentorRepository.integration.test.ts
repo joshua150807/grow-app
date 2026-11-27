@@ -2,6 +2,10 @@ import { readFile } from 'node:fs/promises';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Pool } from 'pg';
 import { createMentorRepository, type MentorRepository } from '../src/modules/mentor/mentorRepository.js';
+import {
+  createMentorMemoryRepository,
+  type MentorMemoryRepository,
+} from '../src/modules/mentor/memory/mentorMemoryRepository.js';
 
 const expectedDatabaseName = 'grow_api_integration_test';
 const expectedPort = '55432';
@@ -9,6 +13,7 @@ const userA = '11111111-1111-4111-8111-111111111111';
 const userB = '22222222-2222-4222-8222-222222222222';
 
 const dropMentorObjects = `
+  drop table if exists public.mentor_memories cascade;
   drop table if exists public.mentor_messages, public.mentor_conversations,
     public.mentor_usage_daily, public.mentor_settings cascade;
   drop function if exists public.touch_mentor_conversation();
@@ -43,6 +48,7 @@ const assistant = {
 describe('mentor repository PostgreSQL integration', () => {
   let pool: Pool;
   let repository: MentorRepository;
+  let memories: MentorMemoryRepository;
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: guardedUrl(), max: 12 });
@@ -59,11 +65,16 @@ describe('mentor repository PostgreSQL integration', () => {
       new URL('../../../supabase/migrations/20261127120000_mentor_foundation.sql', import.meta.url),
       'utf8',
     ));
+    await pool.query(await readFile(
+      new URL('../../../supabase/migrations/20261127130000_mentor_memories.sql', import.meta.url),
+      'utf8',
+    ));
     repository = createMentorRepository(() => pool);
+    memories = createMentorMemoryRepository(() => pool);
   });
 
   beforeEach(async () => {
-    await pool.query(`truncate public.mentor_messages, public.mentor_conversations,
+    await pool.query(`truncate public.mentor_memories, public.mentor_messages, public.mentor_conversations,
       public.mentor_usage_daily, public.mentor_settings, auth.users cascade`);
     await pool.query('insert into auth.users (id) values ($1), ($2)', [userA, userB]);
   });
@@ -210,5 +221,72 @@ describe('mentor repository PostgreSQL integration', () => {
     expect(await repository.deleteConversation(userA, newer!.conversation.id)).toBe(true);
     const remaining = await pool.query('select count(*)::int as count from public.mentor_messages');
     expect(remaining.rows[0].count).toBe(4);
+  });
+
+  it('stores memories per user, ignores foreign ids and keeps resolved facts', async () => {
+    await memories.applyOperations(userA, [
+      { type: 'add', category: 'health', content: 'Linkes Knie verletzt' },
+      { type: 'add', category: 'goals', content: '10 km laufen' },
+    ], null);
+    await memories.applyOperations(userB, [{ type: 'add', category: 'other', content: 'B-Fakt' }], null);
+    const listA = await memories.list(userA, 10);
+    expect(listA.map((m) => m.content).sort()).toEqual(['10 km laufen', 'Linkes Knie verletzt']);
+    const knee = listA.find((m) => m.content.includes('Knie'))!;
+    const factOfB = (await memories.list(userB, 10))[0];
+
+    await memories.applyOperations(userA, [
+      { type: 'resolve', id: knee.id },
+      { type: 'update', id: factOfB.id, content: 'hijack' },
+      { type: 'resolve', id: factOfB.id },
+    ], null);
+    expect((await memories.list(userB, 10))[0]).toMatchObject({ content: 'B-Fakt', status: 'active' });
+    expect((await memories.list(userA, 10)).find((m) => m.id === knee.id)?.status).toBe('resolved');
+    expect(await memories.countActive(userA)).toBe(1);
+
+    expect(await memories.update(userB, knee.id, { content: 'x' })).toBeNull();
+    expect(await memories.delete(userB, knee.id)).toBe(false);
+    expect((await memories.update(userA, knee.id, { content: 'Knie wieder fit' }))?.content).toBe('Knie wieder fit');
+    expect(await memories.deleteAll(userA)).toBe(2);
+    expect(await memories.list(userB, 10)).toHaveLength(1);
+  });
+
+  it('enforces memory constraints, denies client roles and cascades', async () => {
+    await expect(memories.applyOperations(userA, [{ type: 'add', category: 'nope' as never, content: 'x' }], null))
+      .rejects.toMatchObject({ code: '23514' });
+    await expect(memories.applyOperations(userA, [{ type: 'add', category: 'other', content: 'x'.repeat(301) }], null))
+      .rejects.toMatchObject({ code: '23514' });
+    expect(await memories.list(userA, 10)).toEqual([]);
+
+    const saved = await repository.saveExchange({
+      userId: userA, conversationId: null, newConversationTitle: 'T', userContent: 'Knie verletzt',
+      userCreatedAt: new Date(), assistant, usageDate: '2026-11-27',
+    });
+    await memories.applyOperations(userA, [{ type: 'add', category: 'health', content: 'Knie verletzt' }], saved!.userMessage.id);
+
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('set local role authenticated');
+      await expect(client.query('select * from public.mentor_memories')).rejects.toMatchObject({ code: '42501' });
+    } finally {
+      await client.query('rollback');
+      client.release();
+    }
+
+    await repository.deleteConversation(userA, saved!.conversation.id);
+    const kept = await pool.query('select source_message_id from public.mentor_memories');
+    expect(kept.rows).toEqual([{ source_message_id: null }]);
+
+    await pool.query('delete from auth.users where id = $1', [userA]);
+    expect((await pool.query('select 1 from public.mentor_memories')).rowCount).toBe(0);
+  });
+
+  it('upserts memory setting and adds token usage', async () => {
+    expect((await repository.setMemoryEnabled(userA, false)).memory_enabled).toBe(false);
+    expect((await repository.getSettings(userA))?.consent_version).toBeNull();
+    await repository.addTokenUsage(userA, '2026-11-27', 100, 10);
+    await repository.addTokenUsage(userA, '2026-11-27', 50, 5);
+    const usage = await pool.query('select message_count, input_tokens, output_tokens from public.mentor_usage_daily');
+    expect(usage.rows[0]).toEqual({ message_count: 0, input_tokens: '150', output_tokens: '15' });
   });
 });

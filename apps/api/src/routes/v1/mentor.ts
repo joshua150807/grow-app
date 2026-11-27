@@ -17,6 +17,29 @@ export const mentorRoutes: FastifyPluginAsync<MentorRoutesOptions> = async (app,
     settings: await getService().getSettings(request.auth.user!),
   }));
 
+  app.patch('/mentor/settings', { preHandler: [app.requireAuth], bodyLimit }, async (request) => ({
+    settings: await getService().updateSettings(request.auth.user!, request.body),
+  }));
+
+  app.get('/mentor/memories', { preHandler: [app.requireAuth] }, async (request) => ({
+    memories: await getService().memories.list(request.auth.user!),
+  }));
+
+  app.patch('/mentor/memories/:id', { preHandler: [app.requireAuth], bodyLimit }, async (request) => {
+    const { id } = request.params as { id: string };
+    return { memory: await getService().memories.update(request.auth.user!, id, request.body) };
+  });
+
+  app.delete('/mentor/memories/:id', { preHandler: [app.requireAuth] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    await getService().memories.delete(request.auth.user!, id);
+    return reply.code(204).send();
+  });
+
+  app.delete('/mentor/memories', { preHandler: [app.requireAuth] }, async (request) => (
+    getService().memories.deleteAll(request.auth.user!)
+  ));
+
   app.put('/mentor/consent', { preHandler: [app.requireAuth], bodyLimit }, async (request) => ({
     settings: await getService().grantConsent(request.auth.user!, request.body),
   }));

@@ -12,6 +12,9 @@ import type {
 import { createMentorService, deriveConversationTitle } from '../src/modules/mentor/mentorService.js';
 import { MentorProviderError } from '../src/modules/mentor/provider/mentorProvider.js';
 import { createMentorReplyEngine } from '../src/modules/mentor/mentorReplyEngine.js';
+import { createMockMemoryExtractor, type MentorMemoryExtractor } from '../src/modules/mentor/memory/mentorMemoryExtractor.js';
+import type { MentorMemoryRecord, MentorMemoryRepository } from '../src/modules/mentor/memory/mentorMemoryRepository.js';
+import { createMentorMemoryService } from '../src/modules/mentor/memory/mentorMemoryService.js';
 
 const userA = { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', email: 'a@example.com', role: 'authenticated' };
 const userB = { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', email: 'b@example.com', role: 'authenticated' };
@@ -27,6 +30,8 @@ const baseConfig = {
   ANTHROPIC_API_KEY: '',
   MENTOR_ANTHROPIC_MODEL: 'claude-sonnet-5-5',
   MENTOR_ANTHROPIC_EFFORT: 'low' as const,
+  MENTOR_MEMORY_MODEL: 'claude-haiku-5-5',
+  MENTOR_MEMORY_MAX_ACTIVE: 3,
   MENTOR_PROVIDER_TIMEOUT_MS: 1000,
   MENTOR_MAX_OUTPUT_TOKENS: 256,
   MENTOR_HISTORY_MESSAGES: 6,
@@ -67,6 +72,19 @@ function createInMemoryRepository() {
       value.consented_at = null;
       return value;
     },
+    async setMemoryEnabled(userId, enabled) {
+      const value = settings.get(userId) ?? {
+        consent_version: null,
+        consented_at: null,
+        memory_enabled: true,
+        journal_access_enabled: false,
+        notes_access_enabled: false,
+      };
+      value.memory_enabled = enabled;
+      settings.set(userId, value);
+      return value;
+    },
+    async addTokenUsage() {},
     async listConversations(userId, limit, offset) {
       return conversations
         .filter((c) => c.user_id === userId)
@@ -156,23 +174,92 @@ function createInMemoryRepository() {
   return { repository, usage, messages };
 }
 
+function createInMemoryMemoryRepository() {
+  const memories: Array<MentorMemoryRecord & { user_id: string }> = [];
+  let counter = 0;
+  const strip = ({ user_id: _ignored, ...rest }: MentorMemoryRecord & { user_id: string }) => rest;
+  const repository: MentorMemoryRepository = {
+    async list(userId, limit) {
+      return memories.filter((m) => m.user_id === userId).slice(0, limit).map(strip);
+    },
+    async countActive(userId) {
+      return memories.filter((m) => m.user_id === userId && m.status === 'active').length;
+    },
+    async update(userId, id, changes) {
+      const found = memories.find((m) => m.id === id && m.user_id === userId);
+      if (!found) return null;
+      if (changes.content !== undefined) found.content = changes.content;
+      if (changes.status !== undefined) found.status = changes.status;
+      return strip(found);
+    },
+    async delete(userId, id) {
+      const index = memories.findIndex((m) => m.id === id && m.user_id === userId);
+      if (index === -1) return false;
+      memories.splice(index, 1);
+      return true;
+    },
+    async deleteAll(userId) {
+      const before = memories.length;
+      for (let index = memories.length - 1; index >= 0; index -= 1) {
+        if (memories[index].user_id === userId) memories.splice(index, 1);
+      }
+      return before - memories.length;
+    },
+    async applyOperations(userId, operations) {
+      for (const operation of operations) {
+        if (operation.type === 'add') {
+          counter += 1;
+          memories.unshift({
+            id: `00000000-0000-4000-8000-${String(counter).padStart(12, '0')}`,
+            user_id: userId,
+            category: operation.category,
+            content: operation.content,
+            status: 'active',
+            created_at: '2026-11-27T10:00:00.000Z',
+            updated_at: '2026-11-27T10:00:00.000Z',
+          });
+        } else {
+          const found = memories.find((m) => m.id === operation.id && m.user_id === userId);
+          if (!found) continue;
+          if (operation.type === 'update') found.content = operation.content;
+          else found.status = 'resolved';
+        }
+      }
+    },
+  };
+  return { repository, memories };
+}
+
 function setup(options: {
   replyEngine?: MentorReplyEngine;
   config?: Partial<typeof baseConfig>;
   mentorEnabled?: boolean;
+  extractor?: MentorMemoryExtractor;
 } = {}) {
   const store = createInMemoryRepository();
+  const memoryStore = createInMemoryMemoryRepository();
+  const background: Promise<void>[] = [];
   const config = { ...baseConfig, ...options.config };
   const replyEngine = options.replyEngine ?? createMentorReplyEngine(
     { name: 'fake', generateReply: async () => ({ content: 'Coach-Antwort', model: 'fake', inputTokens: 3, outputTokens: 4, truncated: false }) },
     config,
   );
+  const memoryService = createMentorMemoryService({
+    repository: memoryStore.repository,
+    extractor: options.extractor ?? createMockMemoryExtractor(),
+    maxActive: config.MENTOR_MEMORY_MAX_ACTIVE,
+    timeZone: config.MENTOR_QUOTA_TIME_ZONE,
+    timeoutMs: 1000,
+  });
   const mentorService = createMentorService({
     repository: store.repository,
     replyEngine,
     config,
     now: () => new Date('2026-11-27T10:00:00Z'),
+    memoryService,
+    runInBackground: (task) => { background.push(task()); },
   });
+  const flush = () => Promise.all(background.splice(0));
   const app = buildApp({
     authTokenVerifier: verifier,
     mentorEnabled: options.mentorEnabled ?? true,
@@ -186,7 +273,7 @@ function setup(options: {
       ...(payload === undefined ? {} : { payload: payload as Record<string, unknown> }),
     });
   const consent = (token: string) => call('PUT', '/v1/mentor/consent', token, { version: 'v1' });
-  return { app, call, consent, store };
+  return { app, call, consent, store, memoryStore, flush };
 }
 
 describe('mentor feature flag', () => {
@@ -415,5 +502,119 @@ describe('conversation titles', () => {
     const long = deriveConversationTitle('a'.repeat(100));
     expect(long).toHaveLength(60);
     expect(long.endsWith('…')).toBe(true);
+  });
+});
+
+describe('mentor memory', () => {
+  function capturingEngine() {
+    const seen: Array<Array<{ content: string; status: string }>> = [];
+    const replyEngine: MentorReplyEngine = {
+      async generateReply(input) {
+        seen.push((input.memories ?? []).map((m) => ({ content: m.content, status: m.status })));
+        return {
+          content: 'Antwort', promptVersion: 'test', provider: 'fake', model: 'fake',
+          inputTokens: null, outputTokens: null, truncated: false, crisisSignal: input.userMessage.includes('nicht mehr leben'),
+        };
+      },
+    };
+    return { replyEngine, seen };
+  }
+
+  it('remembers facts after a reply and uses them in later chats', async () => {
+    const { replyEngine, seen } = capturingEngine();
+    const { app, call, consent, flush } = setup({ replyEngine });
+    await consent('token-a');
+
+    await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Merke dir: Linkes Knie am 27.11.2026 verletzt.' });
+    await flush();
+    const list = await call('GET', '/v1/mentor/memories', 'token-a');
+    expect(list.json().memories).toMatchObject([
+      { category: 'other', content: 'Linkes Knie am 27.11.2026 verletzt.', status: 'active' },
+    ]);
+
+    await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Neuer Chat: mein rechtes Bein ist stärker.' });
+    expect(seen.at(-1)).toEqual([{ content: 'Linkes Knie am 27.11.2026 verletzt.', status: 'active' }]);
+    expect((await call('GET', '/v1/mentor/memories', 'token-b')).json().memories).toEqual([]);
+    await app.close();
+  });
+
+  it('stops remembering and using memories when disabled', async () => {
+    const { replyEngine, seen } = capturingEngine();
+    const { app, call, consent, flush, memoryStore } = setup({ replyEngine });
+    await consent('token-a');
+    await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Merke dir: Ziel 10 km laufen.' });
+    await flush();
+
+    const disabled = await call('PATCH', '/v1/mentor/settings', 'token-a', { memory_enabled: false });
+    expect(disabled.json().settings.memory_enabled).toBe(false);
+    await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Merke dir: Noch ein Fakt.' });
+    await flush();
+
+    expect(seen.at(-1)).toEqual([]);
+    expect(memoryStore.memories).toHaveLength(1);
+    expect((await call('PATCH', '/v1/mentor/settings', 'token-a', { memory_enabled: 'nein' })).statusCode).toBe(400);
+    await app.close();
+  });
+
+  it('does not extract memories from crisis messages', async () => {
+    const extract = vi.fn(async () => ({ operations: [], inputTokens: 0, outputTokens: 0 }));
+    const { replyEngine } = capturingEngine();
+    const { app, call, consent, flush } = setup({ replyEngine, extractor: { name: 'spy', extract } });
+    await consent('token-a');
+    await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Ich will nicht mehr leben' });
+    await flush();
+    expect(extract).not.toHaveBeenCalled();
+    await app.close();
+  });
+
+  it('keeps the chat working when memory extraction fails', async () => {
+    const extractor: MentorMemoryExtractor = { name: 'broken', extract: async () => { throw new Error('boom'); } };
+    const { app, call, consent, flush } = setup({ extractor });
+    await consent('token-a');
+    const response = await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Hallo' });
+    await flush();
+    expect(response.statusCode).toBe(201);
+    await app.close();
+  });
+
+  it('caps the number of active memories', async () => {
+    const { app, call, consent, flush, memoryStore } = setup();
+    await consent('token-a');
+    for (let index = 0; index < 5; index += 1) {
+      await call('POST', '/v1/mentor/messages', 'token-a', { content: `Merke dir: Fakt ${index}` });
+      await flush();
+    }
+    expect(memoryStore.memories).toHaveLength(baseConfig.MENTOR_MEMORY_MAX_ACTIVE);
+    await app.close();
+  });
+
+  it('lets users edit, resolve and delete only their own memories', async () => {
+    const { app, call, consent, flush } = setup();
+    await consent('token-a');
+    await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Merke dir: Knie verletzt' });
+    await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Merke dir: Will ein Buch pro Monat lesen' });
+    await flush();
+    const [first, second] = (await call('GET', '/v1/mentor/memories', 'token-a')).json().memories;
+
+    for (const response of [
+      await call('PATCH', `/v1/mentor/memories/${first.id}`, 'token-b', { status: 'resolved' }),
+      await call('DELETE', `/v1/mentor/memories/${first.id}`, 'token-b'),
+      await call('PATCH', '/v1/mentor/memories/not-a-uuid', 'token-a', { status: 'resolved' }),
+    ]) {
+      expect(response.statusCode).toBe(404);
+      expect(response.json().error.code).toBe('MENTOR_MEMORY_NOT_FOUND');
+    }
+
+    const resolved = await call('PATCH', `/v1/mentor/memories/${first.id}`, 'token-a', { status: 'resolved' });
+    expect(resolved.json().memory.status).toBe('resolved');
+    const edited = await call('PATCH', `/v1/mentor/memories/${first.id}`, 'token-a', { content: '  Knie wieder fit  ' });
+    expect(edited.json().memory.content).toBe('Knie wieder fit');
+    expect((await call('PATCH', `/v1/mentor/memories/${first.id}`, 'token-a', {})).statusCode).toBe(400);
+    expect((await call('PATCH', `/v1/mentor/memories/${first.id}`, 'token-a', { content: 'x'.repeat(301) })).statusCode).toBe(400);
+
+    expect((await call('DELETE', `/v1/mentor/memories/${second.id}`, 'token-a')).statusCode).toBe(204);
+    expect((await call('DELETE', '/v1/mentor/memories', 'token-a')).json()).toEqual({ deleted: 1 });
+    expect((await call('GET', '/v1/mentor/memories', 'token-a')).json().memories).toEqual([]);
+    await app.close();
   });
 });

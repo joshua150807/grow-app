@@ -17,6 +17,8 @@ const envSchema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1).optional().or(z.literal('')),
   MENTOR_ANTHROPIC_MODEL: z.string().min(1).default('claude-sonnet-5-5'),
   MENTOR_ANTHROPIC_EFFORT: z.enum(['low', 'medium', 'high', 'xhigh', 'max']).default('low'),
+  MENTOR_MEMORY_MODEL: z.string().min(1).default('claude-haiku-5-5'),
+  MENTOR_MEMORY_MAX_ACTIVE: z.coerce.number().int().min(10).max(500).default(100),
   MENTOR_PROVIDER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
   MENTOR_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(256).max(16000).default(4096),
   MENTOR_HISTORY_MESSAGES: z.coerce.number().int().min(2).max(100).default(20),

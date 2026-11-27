@@ -1,6 +1,6 @@
 import type { AppConfig } from '../../config/index.js';
 import { AppError } from '../../errors/appError.js';
-import { buildMentorSystemPrompt, MENTOR_PROMPT_VERSION } from './mentorPrompt.js';
+import { buildMentorSystemPrompt, MENTOR_PROMPT_VERSION, type MentorPromptMemory } from './mentorPrompt.js';
 import { detectCrisisSignal, ensureCrisisResources } from './mentorSafety.js';
 import {
   MentorProviderError,
@@ -24,6 +24,7 @@ export type GenerateMentorReplyInput = {
   userMessage: string;
   now?: Date;
   timeZone?: string;
+  memories?: MentorPromptMemory[];
 };
 
 export type MentorReply = {
@@ -101,6 +102,7 @@ export function createMentorReplyEngine(
         now: input.now ?? new Date(),
         timeZone: input.timeZone,
         crisisSignal,
+        memories: input.memories,
       });
       const messages: MentorChatMessage[] = [
         ...selectHistoryWindow(input.history, config.MENTOR_HISTORY_MESSAGES - 1),

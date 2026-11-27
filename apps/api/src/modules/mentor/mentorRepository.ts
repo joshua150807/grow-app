@@ -56,6 +56,8 @@ export type MentorRepository = {
   getSettings(userId: string): Promise<MentorSettingsRecord | null>;
   grantConsent(userId: string, version: string): Promise<MentorSettingsRecord>;
   withdrawConsent(userId: string): Promise<MentorSettingsRecord | null>;
+  setMemoryEnabled(userId: string, enabled: boolean): Promise<MentorSettingsRecord>;
+  addTokenUsage(userId: string, usageDate: string, inputTokens: number, outputTokens: number): Promise<void>;
   listConversations(userId: string, limit: number, offset: number): Promise<MentorConversationRecord[]>;
   findConversation(userId: string, conversationId: string): Promise<MentorConversationRecord | null>;
   /** Newest first. Returns null when the `before` message does not belong to the conversation. */
@@ -125,6 +127,28 @@ export function createMentorRepository(
         [userId],
       );
       return result.rows[0] ?? null;
+    },
+
+    async setMemoryEnabled(userId, enabled) {
+      const result = await db().query<MentorSettingsRecord>(
+        `insert into public.mentor_settings (user_id, memory_enabled)
+         values ($1, $2)
+         on conflict (user_id) do update set memory_enabled = excluded.memory_enabled
+         returning ${settingsColumns}`,
+        [userId, enabled],
+      );
+      return result.rows[0];
+    },
+
+    async addTokenUsage(userId, usageDate, inputTokens, outputTokens) {
+      await db().query(
+        `insert into public.mentor_usage_daily (user_id, usage_date, input_tokens, output_tokens)
+         values ($1, $2, $3, $4)
+         on conflict (user_id, usage_date) do update
+           set input_tokens = public.mentor_usage_daily.input_tokens + excluded.input_tokens,
+               output_tokens = public.mentor_usage_daily.output_tokens + excluded.output_tokens`,
+        [userId, usageDate, inputTokens, outputTokens],
+      );
     },
 
     async listConversations(userId, limit, offset) {

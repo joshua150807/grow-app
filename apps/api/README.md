@@ -167,6 +167,12 @@ Mentor routes are registered **only** when `MENTOR_ENABLED=true`. They require t
 - `PATCH /v1/mentor/conversations/:id` with `{ "title": "..." }` renames. `DELETE /v1/mentor/conversations/:id` deletes the conversation and its messages (`204`).
 - `POST /v1/mentor/messages` with `{ "content": "...", "conversation_id"?: "<uuid>" }` sends a message. Without `conversation_id` a new conversation is created after a successful reply. Returns `201` with `conversation`, `user_message`, `assistant_message`, `safety` and `usage`.
 
+Memory (M6): after each reply the backend extracts durable facts from the user's message in the background (`MENTOR_MEMORY_MODEL`, default `claude-haiku-5-5`; the mock extractor only stores messages starting with "Merke dir:") and passes up to 80 facts to the mentor's system prompt. At most `MENTOR_MEMORY_MAX_ACTIVE` active facts per user; crisis messages are never stored. Requires migration `20261127130000_mentor_memories.sql`.
+
+- `PATCH /v1/mentor/settings` with `{ "memory_enabled": false }` turns memory off (no new facts, none used).
+- `GET /v1/mentor/memories` lists facts (`category`, `content`, `status` `active`/`resolved`).
+- `PATCH /v1/mentor/memories/:id` with `{ "content"?, "status"? }` edits, `DELETE /v1/mentor/memories/:id` deletes one, `DELETE /v1/mentor/memories` deletes all. Other users' ids return `404 MENTOR_MEMORY_NOT_FOUND`.
+
 Provider: `MENTOR_PROVIDER=mock` (default, no network, no costs) or `MENTOR_PROVIDER=anthropic` (requires server-only `ANTHROPIC_API_KEY`; startup fails without it). Model `MENTOR_ANTHROPIC_MODEL` (default `claude-sonnet-5-5`), effort `MENTOR_ANTHROPIC_EFFORT` (default `low`). Requests use prompt caching and the server-side refusal fallback (`fallbacks: "default"`). Test conversations: `npm run eval:mentor` (paid provider requires `MENTOR_EVAL_CONFIRM=yes`, about 0.30 USD per run; reports go to the git-ignored `evals/mentor/reports/`).
 
 Errors: `403 MENTOR_CONSENT_REQUIRED`, `404 MENTOR_CONVERSATION_NOT_FOUND` (also for other users' conversations), `429 MENTOR_DAILY_LIMIT_REACHED`, `429 MENTOR_RATE_LIMITED`, `502 MENTOR_PROVIDER_UNAVAILABLE`, `503 MENTOR_PROVIDER_RATE_LIMITED`, `504 MENTOR_PROVIDER_TIMEOUT`. A failed reply refunds the daily quota and stores nothing. Message content is never logged.

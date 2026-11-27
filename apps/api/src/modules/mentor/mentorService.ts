@@ -24,6 +24,13 @@ import {
   sendMentorMessageRequestSchema,
 } from './mentorSchemas.js';
 import { createMentorProvider } from './provider/createMentorProvider.js';
+import { createMemoryExtractor } from './memory/mentorMemoryExtractor.js';
+import { createMentorMemoryRepository } from './memory/mentorMemoryRepository.js';
+import { updateMentorSettingsRequestSchema } from './memory/mentorMemorySchemas.js';
+import {
+  createMentorMemoryService,
+  type MentorMemoryService,
+} from './memory/mentorMemoryService.js';
 
 export type MentorServiceConfig = Pick<
   AppConfig,
@@ -31,6 +38,8 @@ export type MentorServiceConfig = Pick<
   | 'ANTHROPIC_API_KEY'
   | 'MENTOR_ANTHROPIC_MODEL'
   | 'MENTOR_ANTHROPIC_EFFORT'
+  | 'MENTOR_MEMORY_MODEL'
+  | 'MENTOR_MEMORY_MAX_ACTIVE'
   | 'MENTOR_PROVIDER_TIMEOUT_MS'
   | 'MENTOR_MAX_OUTPUT_TOKENS'
   | 'MENTOR_HISTORY_MESSAGES'
@@ -45,6 +54,9 @@ export type MentorServiceDependencies = {
   config?: MentorServiceConfig;
   now?: () => Date;
   logger?: MentorReplyLogger;
+  memoryService?: MentorMemoryService;
+  /** Runs work after the response; tests inject a collector to await it. */
+  runInBackground?: (task: () => Promise<void>) => void;
 };
 
 export type MentorService = ReturnType<typeof createMentorService>;
@@ -133,6 +145,22 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
     ?? createMentorReplyEngine(createMentorProvider(config), config, dependencies.logger);
   const now = dependencies.now ?? (() => new Date());
   const burstLimiter = createBurstLimiter(config.MENTOR_BURST_LIMIT_PER_MINUTE);
+  const runInBackground = dependencies.runInBackground ?? ((task) => { void task(); });
+  const memoryService = dependencies.memoryService ?? createMentorMemoryService({
+    repository: createMentorMemoryRepository(),
+    extractor: createMemoryExtractor(config),
+    maxActive: config.MENTOR_MEMORY_MAX_ACTIVE,
+    timeZone: config.MENTOR_QUOTA_TIME_ZONE,
+    timeoutMs: config.MENTOR_PROVIDER_TIMEOUT_MS,
+    recordTokens: (userId, inputTokens, outputTokens) => repository.addTokenUsage(
+      userId,
+      dateKey(localParts(now(), config.MENTOR_QUOTA_TIME_ZONE)),
+      inputTokens,
+      outputTokens,
+    ),
+    logger: dependencies.logger,
+    now,
+  });
 
   function usageWindow(instant: Date) {
     const today = localParts(instant, config.MENTOR_QUOTA_TIME_ZONE);
@@ -149,11 +177,12 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
 
   async function requireConsent(userId: string) {
     const settings = await repository.getSettings(userId);
-    if (settings?.consent_version !== MENTOR_CONSENT_VERSION) {
+    if (!settings || settings.consent_version !== MENTOR_CONSENT_VERSION) {
       throw new AppError(403, 'MENTOR_CONSENT_REQUIRED', 'Please agree to the KI Mentor terms first.', {
         consent_required_version: MENTOR_CONSENT_VERSION,
       });
     }
+    return settings;
   }
 
   async function requireConversation(userId: string, conversationIdValue: unknown) {
@@ -177,6 +206,13 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
     async withdrawConsent(user: AuthUser) {
       return mapSettings(await repository.withdrawConsent(user.id));
     },
+
+    async updateSettings(user: AuthUser, body: unknown) {
+      const input = updateMentorSettingsRequestSchema.parse(body);
+      return mapSettings(await repository.setMemoryEnabled(user.id, input.memory_enabled));
+    },
+
+    memories: memoryService,
 
     async getUsage(user: AuthUser) {
       const window = usageWindow(now());
@@ -227,7 +263,7 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
 
     async sendMessage(user: AuthUser, body: unknown) {
       const input = sendMentorMessageRequestSchema.parse(body);
-      await requireConsent(user.id);
+      const settings = await requireConsent(user.id);
 
       const conversation = input.conversation_id
         ? await requireConversation(user.id, input.conversation_id)
@@ -256,11 +292,16 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
           ? await repository.recentMessages(user.id, conversation.id, config.MENTOR_HISTORY_MESSAGES)
           : [];
 
+        const memories = settings.memory_enabled
+          ? await memoryService.forPrompt(user.id).catch(() => [])
+          : [];
+
         const reply = await replyEngine.generateReply({
           history: history.map((message) => ({ role: message.role, content: message.content })),
           userMessage: input.content,
           now: receivedAt,
           timeZone: config.MENTOR_QUOTA_TIME_ZONE,
+          memories,
         });
 
         const saved = await repository.saveExchange({
@@ -280,6 +321,15 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
           usageDate: window.usageDate,
         });
         if (!saved) throw conversationNotFound();
+
+        if (settings.memory_enabled && !reply.crisisSignal) {
+          runInBackground(() => memoryService.processExchange({
+            userId: user.id,
+            userMessage: input.content,
+            assistantReply: reply.content,
+            sourceMessageId: saved.userMessage.id,
+          }));
+        }
 
         return {
           conversation: mapConversation(saved.conversation),
