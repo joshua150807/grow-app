@@ -39,9 +39,12 @@ export const updateMentorMemoryRequestSchema = z
 
 export const updateMentorSettingsRequestSchema = z
   .object({
-    memory_enabled: z.boolean(),
+    memory_enabled: z.boolean().optional(),
+    journal_access_enabled: z.boolean().optional(),
+    notes_access_enabled: z.boolean().optional(),
   })
-  .strict();
+  .strict()
+  .refine((value) => Object.values(value).some((entry) => entry !== undefined), 'Nothing to update.');
 
 /** JSON schema sent to the LLM for structured output. */
 export const memoryExtractionJsonSchema = {

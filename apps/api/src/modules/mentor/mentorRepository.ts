@@ -10,6 +10,11 @@ export type MentorSettingsRecord = {
   notes_access_enabled: boolean;
 };
 
+export type MentorSettingsChanges = Partial<Pick<
+  MentorSettingsRecord,
+  'memory_enabled' | 'journal_access_enabled' | 'notes_access_enabled'
+>>;
+
 export type MentorConversationRecord = {
   id: string;
   title: string | null;
@@ -59,7 +64,7 @@ export type MentorRepository = {
   getSettings(userId: string): Promise<MentorSettingsRecord | null>;
   grantConsent(userId: string, version: string): Promise<MentorSettingsRecord>;
   withdrawConsent(userId: string): Promise<MentorSettingsRecord | null>;
-  setMemoryEnabled(userId: string, enabled: boolean): Promise<MentorSettingsRecord>;
+  updateSettings(userId: string, changes: MentorSettingsChanges): Promise<MentorSettingsRecord>;
   addTokenUsage(userId: string, usageDate: string, inputTokens: number, outputTokens: number): Promise<void>;
   listConversations(userId: string, limit: number, offset: number): Promise<MentorConversationRecord[]>;
   findConversation(userId: string, conversationId: string): Promise<MentorConversationRecord | null>;
@@ -132,13 +137,22 @@ export function createMentorRepository(
       return result.rows[0] ?? null;
     },
 
-    async setMemoryEnabled(userId, enabled) {
+    async updateSettings(userId, changes) {
+      // null keeps the current (or default) value.
       const result = await db().query<MentorSettingsRecord>(
-        `insert into public.mentor_settings (user_id, memory_enabled)
-         values ($1, $2)
-         on conflict (user_id) do update set memory_enabled = excluded.memory_enabled
+        `insert into public.mentor_settings (user_id, memory_enabled, journal_access_enabled, notes_access_enabled)
+         values ($1, coalesce($2, true), coalesce($3, false), coalesce($4, false))
+         on conflict (user_id) do update set
+           memory_enabled = coalesce($2, public.mentor_settings.memory_enabled),
+           journal_access_enabled = coalesce($3, public.mentor_settings.journal_access_enabled),
+           notes_access_enabled = coalesce($4, public.mentor_settings.notes_access_enabled)
          returning ${settingsColumns}`,
-        [userId, enabled],
+        [
+          userId,
+          changes.memory_enabled ?? null,
+          changes.journal_access_enabled ?? null,
+          changes.notes_access_enabled ?? null,
+        ],
       );
       return result.rows[0];
     },

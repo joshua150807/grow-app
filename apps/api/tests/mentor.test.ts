@@ -81,7 +81,7 @@ function createInMemoryRepository() {
       value.consented_at = null;
       return value;
     },
-    async setMemoryEnabled(userId, enabled) {
+    async updateSettings(userId, changes) {
       const value = settings.get(userId) ?? {
         consent_version: null,
         consented_at: null,
@@ -89,7 +89,7 @@ function createInMemoryRepository() {
         journal_access_enabled: false,
         notes_access_enabled: false,
       };
-      value.memory_enabled = enabled;
+      Object.assign(value, Object.fromEntries(Object.entries(changes).filter(([, entry]) => entry !== undefined)));
       settings.set(userId, value);
       return value;
     },
@@ -314,6 +314,13 @@ function setup(options: {
     repository: store.actionRepository,
     registry: createMentorActionRegistry(options.actionDefinitions ?? []),
     maxAgeMs: options.actionMaxAgeMs,
+    getAccessSettings: async (userId) => {
+      const current = await store.repository.getSettings(userId);
+      return {
+        journal_access_enabled: current?.journal_access_enabled === true,
+        notes_access_enabled: current?.notes_access_enabled === true,
+      };
+    },
   });
   const mentorService = createMentorService({
     repository: store.repository,
@@ -872,6 +879,98 @@ describe('mentor actions', () => {
     await consent('token-a');
     await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Hallo' });
     expect(requests[0].tools).toEqual([]);
+    await app.close();
+  });
+});
+
+describe('mentor data-access switches', () => {
+  function journalDefinitions() {
+    const written: string[] = [];
+    const definitions: MentorActionDefinition[] = [
+      {
+        type: 'stats.read',
+        kind: 'read',
+        description: 'Ungated tool.',
+        inputSchema: z.object({}).strict(),
+        jsonSchema: { type: 'object', properties: {} },
+        summarize: () => 'Statistik lesen',
+        async execute() { return { data: {} }; },
+      },
+      {
+        type: 'journal.list',
+        kind: 'read',
+        requiresSetting: 'journal_access_enabled',
+        description: 'Read journal.',
+        inputSchema: z.object({}).strict(),
+        jsonSchema: { type: 'object', properties: {} },
+        summarize: () => 'Journal lesen',
+        async execute() { return { data: { entries: ['privat'] } }; },
+      },
+      {
+        type: 'journal_entry.create',
+        kind: 'write',
+        requiresSetting: 'journal_access_enabled',
+        description: 'Write journal.',
+        inputSchema: z.object({ text: z.string() }).strict(),
+        jsonSchema: { type: 'object', properties: { text: { type: 'string' } } },
+        summarize: () => 'Journal-Eintrag anlegen',
+        async execute(_userId: string, input: { text: string }) { written.push(input.text); return {}; },
+      },
+    ];
+    return { definitions, written };
+  }
+
+  function engineWith(calls: Array<{ name: string; input: unknown }>) {
+    const offered: string[][] = [];
+    const results: string[] = [];
+    const engine = createMentorReplyEngine({
+      name: 'scripted',
+      async generateReply(request) {
+        offered.push((request.tools ?? []).map((tool) => tool.name));
+        for (const callItem of calls) {
+          const result = await request.onToolCall?.(callItem);
+          if (result) results.push(`${result.isError ? 'ERR' : 'OK'}: ${result.content}`);
+        }
+        return { content: 'ok', model: 'scripted', inputTokens: null, outputTokens: null, truncated: false };
+      },
+    }, baseConfig);
+    return { engine, offered, results };
+  }
+
+  it('hides and blocks journal tools until the user turns access on', async () => {
+    const { definitions } = journalDefinitions();
+    const { engine, offered, results } = engineWith([{ name: 'journal__list', input: {} }]);
+    const { app, call, consent } = setup({ replyEngine: engine, actionDefinitions: definitions });
+    await consent('token-a');
+
+    await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Was steht im Journal?' });
+    expect(offered[0]).toEqual(['stats__read']);
+    expect(results[0]).toMatch(/^ERR: The user has not allowed access/);
+
+    const enabled = await call('PATCH', '/v1/mentor/settings', 'token-a', { journal_access_enabled: true });
+    expect(enabled.json().settings).toMatchObject({ journal_access_enabled: true, notes_access_enabled: false, memory_enabled: true });
+    await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Und jetzt?' });
+    expect(offered[1]).toEqual(['stats__read', 'journal__list', 'journal_entry__create']);
+    expect(results[1]).toBe('OK: {"entries":["privat"]}');
+
+    expect((await call('PATCH', '/v1/mentor/settings', 'token-a', {})).statusCode).toBe(400);
+    expect((await call('PATCH', '/v1/mentor/settings', 'token-a', { notes_access_enabled: 'ja' })).statusCode).toBe(400);
+    await app.close();
+  });
+
+  it('does not execute a journal proposal after access was turned off', async () => {
+    const { definitions, written } = journalDefinitions();
+    const { engine } = engineWith([{ name: 'journal_entry__create', input: { text: 'Heute war gut' } }]);
+    const { app, call, consent } = setup({ replyEngine: engine, actionDefinitions: definitions });
+    await consent('token-a');
+    await call('PATCH', '/v1/mentor/settings', 'token-a', { journal_access_enabled: true });
+    const actionId = (await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Schreib ins Journal' }))
+      .json().assistant_message.actions[0].id;
+
+    await call('PATCH', '/v1/mentor/settings', 'token-a', { journal_access_enabled: false });
+    const confirmed = await call('POST', `/v1/mentor/actions/${actionId}/confirm`, 'token-a');
+    expect(confirmed.json().action).toMatchObject({ status: 'failed', error_code: 'ACCESS_DISABLED' });
+    expect(written).toEqual([]);
     await app.close();
   });
 });

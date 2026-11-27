@@ -4,9 +4,13 @@ import {
   type MentorActionContext,
   type MentorActionRegistry,
 } from '../actions/mentorActionRegistry.js';
+import { createAffirmationActions } from './affirmationActions.js';
 import { createDeepWorkActions } from './deepWorkActions.js';
 import { createGoalActions } from './goalActions.js';
 import { createHabitActions } from './habitActions.js';
+import { createJournalActions } from './journalActions.js';
+import { createLeitfragenActions } from './leitfragenActions.js';
+import { createNoteActions } from './noteActions.js';
 import { createPlannerActions } from './plannerActions.js';
 import { createTodoActions } from './todoActions.js';
 import type { Queryable } from './toolShared.js';
@@ -15,7 +19,8 @@ import type { Queryable } from './toolShared.js';
  * Actions available to the mentor in production.
  * M8: habits, todos. Training follows once its data model is clarified.
  * M9: goals, daily planner, deep work (read-only).
- * M10 adds journal, notes, affirmations, guiding questions.
+ * M10: journal and notes (behind the user's data-access switches),
+ *      affirmations, guiding questions (Leitfragen).
  */
 export function createDefaultMentorActionRegistry(
   context: MentorActionContext,
@@ -27,5 +32,9 @@ export function createDefaultMentorActionRegistry(
     ...createGoalActions(db, context),
     ...createPlannerActions(db, context),
     ...createDeepWorkActions(db, context),
+    ...createJournalActions(db, context),
+    ...createNoteActions(db, context),
+    ...createAffirmationActions(db, context),
+    ...createLeitfragenActions(db, context),
   ]);
 }

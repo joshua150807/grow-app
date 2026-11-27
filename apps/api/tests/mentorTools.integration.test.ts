@@ -27,6 +27,7 @@ function guardedUrl(): string {
 
 const dropObjects = `
   drop table if exists public.deep_work_sessions, public.daily_planner_events, public.goals cascade;
+  drop table if exists public.journal_entries, public.notes, public.affirmations, public.leitfragen_answers cascade;
   drop table if exists public.todo_completion_events, public.todos,
     public.habit_completions, public.habits cascade;
   drop function if exists public.record_todo_first_completion();
@@ -62,6 +63,45 @@ describe('mentor habit and todo actions (PostgreSQL)', () => {
       create or replace function auth.uid() returns uuid language sql stable as $$
         select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
       $$;
+      create table public.journal_entries (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references auth.users(id) on delete cascade,
+        entry_date date not null,
+        gratitude text,
+        did_well text,
+        improve_tomorrow text,
+        habits_completed boolean,
+        missed_habits text,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz
+      );
+      create table public.notes (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references auth.users(id) on delete cascade,
+        body text not null,
+        pinned boolean default false,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz not null default now()
+      );
+      create table public.affirmations (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references auth.users(id) on delete cascade,
+        text text not null,
+        category text,
+        last_repeated_date date,
+        total_repetitions integer default 0,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz
+      );
+      create table public.leitfragen_answers (
+        id uuid primary key default gen_random_uuid(),
+        user_id uuid not null references auth.users(id) on delete cascade,
+        question_key text not null,
+        answer text,
+        created_at timestamptz not null default now(),
+        updated_at timestamptz,
+        unique (user_id, question_key)
+      );
       create table public.goals (
         id uuid primary key default gen_random_uuid(),
         user_id uuid not null references auth.users(id) on delete cascade,
@@ -125,6 +165,7 @@ describe('mentor habit and todo actions (PostgreSQL)', () => {
 
   beforeEach(async () => {
     await pool.query('truncate public.deep_work_sessions, public.daily_planner_events, public.goals cascade');
+    await pool.query('truncate public.journal_entries, public.notes, public.affirmations, public.leitfragen_answers cascade');
     await pool.query('truncate public.todo_completion_events, public.todos, public.habit_completions, public.habits, auth.users cascade');
     await pool.query('insert into auth.users (id) values ($1), ($2)', [userA, userB]);
   });
@@ -145,6 +186,13 @@ describe('mentor habit and todo actions (PostgreSQL)', () => {
       'read:goals.list', 'write:goal.create', 'write:goal.update', 'write:goal.complete',
       'read:planner.list', 'write:planner_event.create', 'write:planner_event.update',
       'read:deep_work.stats',
+      'read:journal.list', 'write:journal_entry.create',
+      'read:notes.list', 'write:note.create', 'write:note.append', 'write:note.pin',
+      'read:affirmations.list', 'write:affirmation.create', 'write:affirmation.update',
+      'read:leitfragen.list', 'write:leitfrage.answer',
+    ]);
+    expect(registry.list().filter((definition) => definition.requiresSetting).map((definition) => definition.type)).toEqual([
+      'journal.list', 'journal_entry.create', 'notes.list', 'note.create', 'note.append', 'note.pin',
     ]);
     for (const definition of registry.list()) {
       expect(definition.jsonSchema).toMatchObject({ type: 'object' });
@@ -326,5 +374,92 @@ describe('mentor habit and todo actions (PostgreSQL)', () => {
     expect(data).toMatchObject({ sessions: 1, total_minutes: 50, average_minutes_per_session: 50 });
     expect(data.minutes_per_day).toEqual([{ day: '2026-11-27', minutes: 50 }]);
     expect(registry.list().filter((definition) => definition.type.startsWith('deep_work') && definition.kind === 'write')).toEqual([]);
+  });
+
+  it('reads and creates journal entries for the user only, one per day', async () => {
+    await pool.query(
+      `insert into public.journal_entries (user_id, entry_date, gratitude, did_well) values
+       ($1, '2026-11-20', 'Familie', 'Training'), ($1, '2026-10-01', 'Alt', null), ($2, '2026-11-26', 'Fremd', null)`,
+      [userA, userB],
+    );
+    const { data } = await action('journal.list').run({ days: 14 }) as { data: any };
+    expect(data.entries).toEqual([expect.objectContaining({ date: '2026-11-20', gratitude: 'Familie', did_well: 'Training' })]);
+
+    const create = action('journal_entry.create');
+    expect(() => create.parse({ day: 'today' })).toThrow();
+    expect(await create.summarize({ gratitude: 'Gutes Gespräch', improve_tomorrow: 'Früher schlafen' }))
+      .toBe('Journal-Eintrag für 27.11.2026 anlegen (Dankbarkeit, was besser wird)');
+    await create.run({ gratitude: 'Gutes Gespräch', habits_completed: true, missed_habits: 'ignoriert' });
+    await expect(create.run({ did_well: 'Nochmal' })).rejects.toMatchObject({ code: 'MENTOR_ACTION_CONFLICT' });
+    await create.run({ did_well: 'Gestern lief es', day: 'yesterday' });
+    const rows = await pool.query(
+      `select to_char(entry_date, 'YYYY-MM-DD') as day, habits_completed, missed_habits from public.journal_entries
+       where user_id = $1 and entry_date >= '2026-11-26' order by entry_date`,
+      [userA],
+    );
+    expect(rows.rows).toEqual([
+      { day: '2026-11-26', habits_completed: null, missed_habits: null },
+      { day: '2026-11-27', habits_completed: true, missed_habits: null },
+    ]);
+  });
+
+  it('creates, appends and pins own notes without rewriting text', async () => {
+    const create = action('note.create');
+    expect(await create.summarize({ body: 'Trainingsplan Dezember\nMo: Beine' })).toBe('Notiz „Trainingsplan Dezember“ anlegen');
+    const { resultRef } = await create.run({ body: 'Trainingsplan Dezember\nMo: Beine' });
+    await create.run({ body: 'Fremd' }, userB);
+    const noteId = resultRef!.note_id as string;
+
+    await expect(action('note.append').summarize({ note_id: noteId, text: 'x' }, userB))
+      .rejects.toMatchObject({ code: 'MENTOR_ACTION_TARGET_NOT_FOUND' });
+    await action('note.append').run({ note_id: noteId, text: 'Mi: Rücken' });
+    await action('note.pin').run({ note_id: noteId, pinned: true });
+    expect((await pool.query('select body, pinned from public.notes where id = $1', [noteId])).rows[0])
+      .toEqual({ body: 'Trainingsplan Dezember\nMo: Beine\n\nMi: Rücken', pinned: true });
+
+    await pool.query(`update public.notes set body = repeat('a', 19500) where id = $1`, [noteId]);
+    await expect(action('note.append').run({ note_id: noteId, text: 'b'.repeat(1000) }))
+      .rejects.toMatchObject({ code: 'MENTOR_ACTION_CONFLICT' });
+
+    const { data } = await action('notes.list').run({}) as { data: any };
+    expect(data.notes).toHaveLength(1);
+    expect(data.notes[0].body.length).toBeLessThanOrEqual(1501);
+  });
+
+  it('creates and updates own affirmations with the app categories', async () => {
+    const create = action('affirmation.create');
+    expect(() => create.parse({ text: 'x'.repeat(161), category: 'Fokus' })).toThrow();
+    expect(() => create.parse({ text: 'Ich bin stark', category: 'Reichtum' })).toThrow();
+    const { resultRef } = await create.run({ text: 'Ich bin   diszipliniert', category: 'Disziplin' });
+    const id = resultRef!.affirmation_id as string;
+
+    expect(await action('affirmation.update').summarize({ affirmation_id: id, category: 'Fokus' }))
+      .toBe('Affirmation „Ich bin diszipliniert“ ändern: Kategorie Fokus');
+    await expect(action('affirmation.update').run({ affirmation_id: id, text: 'x' }, userB))
+      .rejects.toMatchObject({ code: 'MENTOR_ACTION_TARGET_NOT_FOUND' });
+    await action('affirmation.update').run({ affirmation_id: id, category: 'Fokus' });
+
+    const { data } = await action('affirmations.list').run({}) as { data: any };
+    expect(data.affirmations).toEqual([expect.objectContaining({ text: 'Ich bin diszipliniert', category: 'Fokus', total_repetitions: 0 })]);
+  });
+
+  it('reads all guiding questions and saves answers per user', async () => {
+    const { data } = await action('leitfragen.list').run({}) as { data: any };
+    expect(data.questions).toHaveLength(9);
+    expect(data.questions.every((question: any) => question.answer === null)).toBe(true);
+
+    const answer = action('leitfrage.answer');
+    expect(() => answer.parse({ question_key: 'favorite_food', answer: 'Pizza' })).toThrow();
+    expect(await answer.summarize({ question_key: 'where_one_year', answer: 'Eigene Firma' }))
+      .toBe('Leitfrage „Wo sehe ich mich in 1 Jahr?“ beantworten');
+    await answer.run({ question_key: 'where_one_year', answer: 'Eigene Firma' });
+    await answer.run({ question_key: 'where_one_year', answer: 'Andere Antwort' }, userB);
+    expect(await answer.summarize({ question_key: 'where_one_year', answer: 'Eigene Firma mit 3 Leuten' }))
+      .toBe('Leitfrage „Wo sehe ich mich in 1 Jahr?“ neu beantworten (ersetzt deine bisherige Antwort)');
+    await answer.run({ question_key: 'where_one_year', answer: 'Eigene Firma mit 3 Leuten' });
+
+    const after = await action('leitfragen.list').run({}) as { data: any };
+    expect(after.data.questions.find((question: any) => question.key === 'where_one_year').answer).toBe('Eigene Firma mit 3 Leuten');
+    expect((await pool.query('select count(*)::int as count from public.leitfragen_answers')).rows[0].count).toBe(2);
   });
 });

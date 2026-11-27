@@ -26,7 +26,15 @@ export type MentorActionDefinition<TSchema extends z.ZodTypeAny = z.ZodTypeAny> 
    */
   summarize(input: z.infer<TSchema>, userId: string): string | Promise<string>;
   execute(userId: string, input: z.infer<TSchema>): Promise<MentorActionResult>;
+  /**
+   * Data-access switch the user must have turned on (mentor_settings). Without
+   * it the tool is not offered and cannot be confirmed.
+   */
+  requiresSetting?: MentorAccessSetting;
 };
+
+export type MentorAccessSetting = 'journal_access_enabled' | 'notes_access_enabled';
+export type MentorAccessSettings = Partial<Record<MentorAccessSetting, boolean>>;
 
 export type MentorActionResult = {
   /** Reference to what was created or changed, e.g. { habit_id }. */

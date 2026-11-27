@@ -159,6 +159,13 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
   const actionService = dependencies.actionService ?? createMentorActionService({
     repository: createMentorActionRepository(),
     registry: createDefaultMentorActionRegistry({ timeZone: config.MENTOR_QUOTA_TIME_ZONE, now }),
+    getAccessSettings: async (userId) => {
+      const settings = await repository.getSettings(userId);
+      return {
+        journal_access_enabled: settings?.journal_access_enabled === true,
+        notes_access_enabled: settings?.notes_access_enabled === true,
+      };
+    },
     logger: dependencies.logger,
   });
   const memoryService = dependencies.memoryService ?? createMentorMemoryService({
@@ -224,7 +231,7 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
 
     async updateSettings(user: AuthUser, body: unknown) {
       const input = updateMentorSettingsRequestSchema.parse(body);
-      return mapSettings(await repository.setMemoryEnabled(user.id, input.memory_enabled));
+      return mapSettings(await repository.updateSettings(user.id, input));
     },
 
     memories: memoryService,
@@ -323,7 +330,12 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
           user.id,
           history.filter((message) => message.role === 'assistant').map((message) => message.id),
         );
-        const toolSession = actionService.hasTools() ? actionService.createToolSession(user.id) : null;
+        const toolSession = actionService.hasTools()
+          ? actionService.createToolSession(user.id, {
+            journal_access_enabled: settings.journal_access_enabled === true,
+            notes_access_enabled: settings.notes_access_enabled === true,
+          })
+          : null;
 
         const memories = settings.memory_enabled
           ? await memoryService.forPrompt(user.id).catch(() => [])

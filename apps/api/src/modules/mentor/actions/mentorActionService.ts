@@ -5,6 +5,8 @@ import type { MentorActionRecord, MentorActionRepository } from './mentorActionR
 import {
   toolNameForType,
   typeForToolName,
+  type MentorAccessSettings,
+  type MentorActionDefinition,
   type MentorActionRegistry,
 } from './mentorActionRegistry.js';
 import { z } from 'zod';
@@ -76,8 +78,15 @@ export function createMentorActionService(options: {
   registry: MentorActionRegistry;
   logger?: MentorActionLogger;
   maxAgeMs?: number;
+  /** Current data-access switches of a user (re-checked on confirm). */
+  getAccessSettings?: (userId: string) => Promise<MentorAccessSettings>;
 }) {
   const { repository, registry } = options;
+  const getAccessSettings = options.getAccessSettings ?? (async () => ({}));
+
+  function isAllowed(definition: MentorActionDefinition, settings: MentorAccessSettings) {
+    return !definition.requiresSetting || settings[definition.requiresSetting] === true;
+  }
   const maxAgeMs = options.maxAgeMs ?? MENTOR_ACTION_MAX_AGE_MS;
 
   async function requireOwnAction(userId: string, actionIdValue: unknown) {
@@ -101,9 +110,10 @@ export function createMentorActionService(options: {
      * Creates the tool set for one reply. Write calls are only collected as
      * proposals; read calls run immediately for the authenticated user.
      */
-    createToolSession(userId: string) {
+    createToolSession(userId: string, accessSettings: MentorAccessSettings = {}) {
       const proposals: ProposedMentorAction[] = [];
-      const tools: MentorToolDefinition[] = registry.list().map((definition) => ({
+      const available = registry.list().filter((definition) => isAllowed(definition, accessSettings));
+      const tools: MentorToolDefinition[] = available.map((definition) => ({
         name: toolNameForType(definition.type),
         description: definition.kind === 'write'
           ? `${definition.description} This only creates a proposal the user must confirm.`
@@ -114,6 +124,9 @@ export function createMentorActionService(options: {
       async function onToolCall(call: MentorToolCall): Promise<MentorToolResult> {
         const definition = registry.get(typeForToolName(call.name));
         if (!definition) return { content: 'Unknown tool.', isError: true };
+        if (!isAllowed(definition, accessSettings)) {
+          return { content: 'The user has not allowed access to this data. Do not try again; mention the setting if relevant.', isError: true };
+        }
 
         const parsed = definition.inputSchema.safeParse(call.input);
         if (!parsed.success) {
@@ -181,6 +194,10 @@ export function createMentorActionService(options: {
       const definition = registry.get(claimed.type);
       if (!definition || definition.kind !== 'write') {
         const failed = await repository.finish(user.id, claimed.id, { status: 'failed', errorCode: 'ACTION_UNAVAILABLE' });
+        return mapAction(failed ?? claimed);
+      }
+      if (definition.requiresSetting && !isAllowed(definition, await getAccessSettings(user.id))) {
+        const failed = await repository.finish(user.id, claimed.id, { status: 'failed', errorCode: 'ACCESS_DISABLED' });
         return mapAction(failed ?? claimed);
       }
 

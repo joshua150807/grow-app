@@ -293,7 +293,13 @@ describe('mentor repository PostgreSQL integration', () => {
   });
 
   it('upserts memory setting and adds token usage', async () => {
-    expect((await repository.setMemoryEnabled(userA, false)).memory_enabled).toBe(false);
+    expect((await repository.updateSettings(userA, { memory_enabled: false })).memory_enabled).toBe(false);
+    expect(await repository.updateSettings(userA, { journal_access_enabled: true })).toMatchObject({
+      memory_enabled: false, journal_access_enabled: true, notes_access_enabled: false,
+    });
+    expect((await repository.updateSettings(userB, { notes_access_enabled: true }))).toMatchObject({
+      memory_enabled: true, journal_access_enabled: false, notes_access_enabled: true,
+    });
     expect((await repository.getSettings(userA))?.consent_version).toBeNull();
     await repository.addTokenUsage(userA, '2026-11-27', 100, 10);
     await repository.addTokenUsage(userA, '2026-11-27', 50, 5);
