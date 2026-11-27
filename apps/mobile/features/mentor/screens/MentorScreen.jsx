@@ -1,143 +1,289 @@
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Asset } from 'expo-asset';
-import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Pressable, Text, View } from 'react-native';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import AppButton from '../../../components/ui/AppButton';
+import PressableScale from '../../../components/ui/PressableScale';
 import ScreenContainer from '../../../components/ui/ScreenContainer';
 import { COLORS } from '../../../constants/colors';
-import { s, sv, sf } from '../../../constants/layout';
+import { s } from '../../../constants/layout';
+import logger from '../../../lib/logger';
+import MentorConsentView from '../components/MentorConsentView';
+import MentorHeader from '../components/MentorHeader';
+import MentorPlaceholder from '../components/MentorPlaceholder';
+import MentorRenameModal from '../components/MentorRenameModal';
+import {
+  deleteMentorConversation,
+  getMentorSettings,
+  getMentorUsage,
+  grantMentorConsent,
+  isMentorApiEnabled,
+  listMentorConversations,
+  MentorApiError,
+  renameMentorConversation,
+} from '../services/mentorApi';
+import { mentorStyles as styles } from '../styles/mentorStyles';
 
-const MENTOR_PAGE_BG = require('../../../assets/tool-icons/backgrounds/mentor-page-bg.webp');
-const GROW_LOADING_LOGO = require('../../../assets/images/grow-loading.png');
+function userMessageFor(error) {
+  return error instanceof MentorApiError
+    ? error.userMessage
+    : 'Etwas ist schiefgelaufen. Versuch es bitte noch einmal.';
+}
 
-export default function KIMentorScreen() {
+function formatConversationDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date();
+  const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  if (date.toDateString() === now.toDateString()) return `Heute, ${time}`;
+  return `${String(date.getDate()).padStart(2, '0')}.${String(date.getMonth() + 1).padStart(2, '0')}.${date.getFullYear()}`;
+}
+
+function MentorHome() {
   const router = useRouter();
-  const [imageAssetReady, setImageAssetReady] = useState(false);
-  const [imageVisible, setImageVisible] = useState(false);
+  const [status, setStatus] = useState('loading'); // loading | unavailable | error | consent | ready
+  const [errorText, setErrorText] = useState('');
+  const [conversations, setConversations] = useState([]);
+  const [usage, setUsage] = useState(null);
+  const [consentSubmitting, setConsentSubmitting] = useState(false);
+  const [consentError, setConsentError] = useState('');
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [renameSaving, setRenameSaving] = useState(false);
+  const mountedRef = useRef(true);
 
-  useEffect(() => {
-    let mounted = true;
-
-    Asset.loadAsync([MENTOR_PAGE_BG])
-      .catch(() => {
-        // Local bundled assets normally load reliably. If preloading fails,
-        // still render the image so the screen does not get stuck loading.
-      })
-      .finally(() => {
-        if (mounted) {
-          setImageAssetReady(true);
-        }
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   const handleBack = () => {
     if (router.canGoBack?.()) {
       router.back();
       return;
     }
-
     router.replace('/tools');
   };
 
-  return (
-    <ScreenContainer style={styles.container}>
-      <View style={styles.imageWrap}>
-        {imageAssetReady && (
-          <Image
-            source={MENTOR_PAGE_BG}
-            style={[styles.mentorImage, !imageVisible && styles.hiddenImage]}
-            resizeMode="contain"
-            onLoadEnd={() => setImageVisible(true)}
-          />
-        )}
+  const loadConversations = useCallback(async () => {
+    const [list, usageResult] = await Promise.all([
+      listMentorConversations(),
+      getMentorUsage().catch(() => null),
+    ]);
+    if (!mountedRef.current) return;
+    setConversations(list.conversations);
+    setUsage(usageResult);
+  }, []);
 
-        {!imageVisible && (
-          <View style={styles.loadingOverlay}>
-            <Image
-              source={GROW_LOADING_LOGO}
-              style={styles.loadingLogo}
-              resizeMode="contain"
-            />
-            <ActivityIndicator color={COLORS.softGold} size="small" />
-            <Text style={styles.loadingText}>KI Mentor wird geladen...</Text>
+  const load = useCallback(async () => {
+    setStatus('loading');
+    try {
+      const settings = await getMentorSettings();
+      if (!settings.hasConsent) {
+        if (mountedRef.current) setStatus('consent');
+        return;
+      }
+      await loadConversations();
+      if (mountedRef.current) setStatus('ready');
+    } catch (error) {
+      if (!mountedRef.current) return;
+      if (error instanceof MentorApiError && error.isUnavailable) {
+        setStatus('unavailable');
+        return;
+      }
+      logger.warn('[Mentor] Failed to load mentor home', error?.code);
+      setErrorText(userMessageFor(error));
+      setStatus('error');
+    }
+  }, [loadConversations]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // Refresh the list when returning from a chat.
+  const statusRef = useRef(status);
+  statusRef.current = status;
+  useFocusEffect(
+    useCallback(() => {
+      if (statusRef.current === 'ready') {
+        loadConversations().catch((error) => logger.warn('[Mentor] Refresh failed', error?.code));
+      }
+    }, [loadConversations]),
+  );
+
+  const handleAcceptConsent = async () => {
+    setConsentSubmitting(true);
+    setConsentError('');
+    try {
+      await grantMentorConsent();
+      await loadConversations();
+      if (mountedRef.current) setStatus('ready');
+    } catch (error) {
+      if (mountedRef.current) setConsentError(userMessageFor(error));
+    } finally {
+      if (mountedRef.current) setConsentSubmitting(false);
+    }
+  };
+
+  const openChat = (conversationId) => {
+    router.push(
+      conversationId
+        ? { pathname: '/tools/mentor-chat', params: { conversationId } }
+        : '/tools/mentor-chat',
+    );
+  };
+
+  const confirmDelete = (conversation) => {
+    Alert.alert(
+      'Chat löschen?',
+      `„${conversation.title}“ und alle Nachrichten darin werden endgültig gelöscht.`,
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Löschen',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteMentorConversation(conversation.id);
+              setConversations((current) => current.filter((item) => item.id !== conversation.id));
+            } catch (error) {
+              Alert.alert('Löschen fehlgeschlagen', userMessageFor(error));
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const openOptions = (conversation) => {
+    Alert.alert(conversation.title, undefined, [
+      { text: 'Umbenennen', onPress: () => setRenameTarget(conversation) },
+      { text: 'Löschen', style: 'destructive', onPress: () => confirmDelete(conversation) },
+      { text: 'Abbrechen', style: 'cancel' },
+    ]);
+  };
+
+  const handleRename = async (title) => {
+    if (!renameTarget || !title) return;
+    setRenameSaving(true);
+    try {
+      const updated = await renameMentorConversation(renameTarget.id, title);
+      setConversations((current) => current.map((item) => (
+        item.id === renameTarget.id ? { ...item, title: updated?.title ?? title } : item
+      )));
+      setRenameTarget(null);
+    } catch (error) {
+      Alert.alert('Umbenennen fehlgeschlagen', userMessageFor(error));
+    } finally {
+      setRenameSaving(false);
+    }
+  };
+
+  if (status === 'unavailable') {
+    return <MentorPlaceholder />;
+  }
+
+  const renderBody = () => {
+    if (status === 'loading') {
+      return (
+        <View style={styles.centered}>
+          <ActivityIndicator color={COLORS.softGold} />
+          <Text style={styles.loadingText}>KI Mentor wird geladen...</Text>
+        </View>
+      );
+    }
+
+    if (status === 'error') {
+      return (
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>{errorText}</Text>
+          <AppButton title="Erneut versuchen" onPress={load} />
+        </View>
+      );
+    }
+
+    if (status === 'consent') {
+      return (
+        <MentorConsentView
+          onAccept={handleAcceptConsent}
+          onOpenPrivacy={() => router.push('/tools/privacy')}
+          submitting={consentSubmitting}
+          error={consentError}
+        />
+      );
+    }
+
+    return (
+      <FlatList
+        data={conversations}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.listContent}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={(
+          <View>
+            <View style={styles.hero}>
+              <Text style={styles.heroTitle}>KI MENTOR</Text>
+              <Text style={styles.heroSubtitle}>
+                Dein persönlicher Coach für Training, Gewohnheiten, Ziele und Business.
+              </Text>
+            </View>
+            <PressableScale onPress={() => openChat(null)} style={styles.newChatButton} haptic="light">
+              <Ionicons name="add" size={s(20)} color={COLORS.lightGold} />
+              <Text style={styles.newChatText}>Neuer Chat</Text>
+            </PressableScale>
+            {conversations.length > 0 ? <Text style={styles.sectionLabel}>Deine Chats</Text> : null}
           </View>
         )}
+        ListEmptyComponent={(
+          <Text style={styles.emptyText}>
+            Noch keine Chats. Starte deinen ersten Chat und erzähl deinem Mentor, woran du gerade arbeitest.
+          </Text>
+        )}
+        ListFooterComponent={usage ? (
+          <Text style={styles.usageText}>
+            Heute noch {usage.remaining} von {usage.limit} Nachrichten
+          </Text>
+        ) : null}
+        renderItem={({ item }) => (
+          <Pressable
+            onPress={() => openChat(item.id)}
+            onLongPress={() => openOptions(item)}
+            style={styles.conversationRow}
+            accessibilityRole="button"
+            accessibilityHint="Lange drücken zum Umbenennen oder Löschen"
+          >
+            <Ionicons name="chatbubble-ellipses-outline" size={s(18)} color={COLORS.toolsGold} />
+            <View style={styles.conversationTextWrap}>
+              <Text style={styles.conversationTitle} numberOfLines={1}>{item.title}</Text>
+              <Text style={styles.conversationMeta}>{formatConversationDate(item.lastMessageAt ?? item.createdAt)}</Text>
+            </View>
+            <Pressable onPress={() => openOptions(item)} hitSlop={10} style={styles.iconButton}>
+              <Ionicons name="ellipsis-horizontal" size={s(18)} color={COLORS.toolsTextDim} />
+            </Pressable>
+          </Pressable>
+        )}
+      />
+    );
+  };
 
-        <Pressable onPress={handleBack} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={s(22)} color={COLORS.softGold} />
-          <Text style={styles.backText}>Tools</Text>
-        </Pressable>
-      </View>
+  return (
+    <ScreenContainer style={styles.screen}>
+      <MentorHeader backLabel="Tools" onBack={handleBack} />
+      {renderBody()}
+      <MentorRenameModal
+        visible={Boolean(renameTarget)}
+        initialTitle={renameTarget?.title}
+        saving={renameSaving}
+        onCancel={() => setRenameTarget(null)}
+        onSave={handleRename}
+      />
     </ScreenContainer>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: 'black',
-  },
-
-  imageWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: sv(62),
-    overflow: 'visible',
-  },
-
-  mentorImage: {
-    width: '110%',
-    height: '110%',
-  },
-
-  hiddenImage: {
-    opacity: 0,
-  },
-
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#000000',
-    paddingBottom: sv(62),
-    zIndex: 5,
-  },
-
-  loadingLogo: {
-    width: s(120),
-    height: s(120),
-    marginBottom: sv(18),
-  },
-
-  loadingText: {
-    color: COLORS.textDim,
-    fontSize: sf(13),
-    fontWeight: '600',
-    marginTop: sv(10),
-    textAlign: 'center',
-  },
-
-  backButton: {
-    position: 'absolute',
-    top: sv(34),
-    left: s(18),
-    zIndex: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: sv(6),
-    paddingRight: s(12),
-  },
-
-  backText: {
-    color: COLORS.softGold,
-    fontSize: sf(15),
-    fontWeight: '500',
-    marginLeft: s(2),
-  },
-});
+export default function MentorScreen() {
+  // Feature flag off: keep the original placeholder untouched.
+  if (!isMentorApiEnabled()) {
+    return <MentorPlaceholder />;
+  }
+  return <MentorHome />;
+}

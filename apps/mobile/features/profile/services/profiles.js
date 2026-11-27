@@ -4,11 +4,12 @@ const FALLBACK_ROLE = 'user';
 const PROFILE_API_V1_ENABLED = process.env.EXPO_PUBLIC_PROFILE_API_V1_ENABLED === 'true';
 
 export class ProfileApiError extends Error {
-  constructor(message, { status = null, code = null } = {}) {
+  constructor(message, { status = null, code = null, details = null } = {}) {
     super(message);
     this.name = 'ProfileApiError';
     this.status = status;
     this.code = code;
+    this.details = details;
   }
 }
 
@@ -143,6 +144,7 @@ export async function requestProfileV1(path, options = {}, normalizeResponse = n
     throw new ProfileApiError('Profile API request was rejected.', {
       status: response.status,
       code: payload?.code ?? payload?.error?.code ?? 'PROFILE_API_REQUEST_FAILED',
+      details: payload?.error?.details ?? null,
     });
   }
 

@@ -131,7 +131,7 @@ Die 10 Phasen aus dem ChatGPT-Entwurf sind sinnvoll, aber für den Stand des Rep
 | M2 ✅ | Mentor-Modul + Provider-Schicht (Mock) + Prompt-Versionierung + Safety | 1 |
 | M3 ✅ | Chat-API (`/v1/mentor/...`, mehrere Chats) + Limits + Tests | 1 |
 | M4 | Provider-Entscheidung + echte Anbindung + Kostenrechnung | 1 |
-| M5 | Mobile Chat-UI (Chatliste + Chat) + Opt-in/Einwilligung | 1 |
+| M5 ✅ | Mobile Chat-UI (Chatliste + Chat) + Opt-in/Einwilligung | 1 |
 | M6 | Langzeit-Memory (Extraktion, Speicherung, Ansicht/Löschen) | 1 |
 | M7 | Aktions-Framework (`mentor_actions`, Bestätigungskarte, Ausführung, Protokoll) | 1 |
 | M8 | Welle A: Backend-Lese/Schreib-Endpunkte + Mentor-Tools für Habits, Todos, Training | 1 |
@@ -207,3 +207,19 @@ Rollout (erst, wenn M3 fertig ist und das Backend die Tabellen nutzt): Migration
 - Tests: `apps/api/tests/mentor.test.ts` (Routen/Service), `apps/api/tests/mentorRepository.integration.test.ts` (Postgres, inkl. Parallelitäts-Test fürs Tageslimit).
 
 Aktivierung (später, nach Freigabe): Migration auf Staging anwenden → `MENTOR_ENABLED=true` nur auf Staging → testen → danach Production.
+
+### M5 – erledigt (vor M4 gezogen, läuft gegen den Mock-Provider)
+
+- Client-Feature-Flag `EXPO_PUBLIC_MENTOR_API_ENABLED` (Default aus). Aus **oder** Backend antwortet `404 NOT_FOUND` → exakt der bisherige Platzhalter (`features/mentor/components/MentorPlaceholder.jsx`). `eas.json` wurde nicht geändert → OTA-Updates verändern die Beta nicht.
+- `features/mentor/services/mentorApi.js` (nutzt `requestProfileV1`), `mentorNormalizers.js` (+ `mentorNormalizers.test.cjs`)
+- `MentorScreen`: Laden → Einwilligung → Chatliste (neuer Chat, Umbenennen/Löschen per Long-Press oder „…“, Tageskontingent)
+- `MentorChatScreen` (Route `/tools/mentor-chat`): Starter-Fragen, Nachrichten (invertierte Liste, ältere nachladen), „Mentor denkt nach…“, Fehlerbanner mit „Nochmal“, Tageslimit-Hinweis inkl. Uhrzeit, Text bleibt bei Fehler erhalten, KI-Hinweis
+- Kleine additive Änderung: `ProfileApiError` reicht jetzt `details` aus Fehlerantworten durch (für Limit-Uhrzeit).
+- Geprüft: Node-Tests, iOS-Bundle (`expo export`), Ende-zu-Ende gegen lokales Backend + Postgres + Mock.
+- **Noch nicht geprüft:** Darstellung auf echten Geräten (Tastatur, Tab-Bar-Abstand, kleine iPhones, Android).
+
+Lokal testen: Backend mit `MENTOR_ENABLED=true` + `DATABASE_URL` (Migration angewendet) starten, App mit `EXPO_PUBLIC_MENTOR_API_ENABLED=true` und `EXPO_PUBLIC_API_URL=<lokales Backend>`.
+
+### Gefunden, separates Ticket (nicht Mentor)
+
+- `apps/api/src/errors/errorHandler.ts` mappt alle Fastify-Clientfehler (z. B. leerer JSON-Body, ungültiges JSON) auf `500 INTERNAL_ERROR` statt `400`. Betrifft alle Routen. Vorschlag: `FastifyError` mit `statusCode` 4xx als `400 BAD_REQUEST` zurückgeben.
