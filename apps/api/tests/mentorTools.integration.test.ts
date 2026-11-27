@@ -59,6 +59,9 @@ describe('mentor habit and todo actions (PostgreSQL)', () => {
       do $$ begin create role authenticated nologin; exception when duplicate_object then null; end $$;
       do $$ begin create role service_role nologin bypassrls; exception when duplicate_object then null; end $$;
       create table auth.users (id uuid primary key);
+      create or replace function auth.uid() returns uuid language sql stable as $$
+        select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
+      $$;
       create table public.goals (
         id uuid primary key default gen_random_uuid(),
         user_id uuid not null references auth.users(id) on delete cascade,
