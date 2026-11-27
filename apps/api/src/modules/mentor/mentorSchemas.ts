@@ -21,9 +21,42 @@ export const mentorConversationIdSchema = z.string().uuid();
 
 export const sendMentorMessageRequestSchema = z
   .object({
-    conversationId: mentorConversationIdSchema.optional(),
+    conversation_id: mentorConversationIdSchema.optional(),
     content: mentorMessageContentSchema,
   })
   .strict();
 
 export type SendMentorMessageRequest = z.infer<typeof sendMentorMessageRequestSchema>;
+
+export const MENTOR_CONVERSATION_TITLE_MAX_LENGTH = 80;
+
+export const renameMentorConversationRequestSchema = z
+  .object({
+    title: z
+      .string()
+      .transform((value) => value.normalize('NFC').replace(/\s+/g, ' ').trim())
+      .pipe(z.string().min(1).max(MENTOR_CONVERSATION_TITLE_MAX_LENGTH)),
+  })
+  .strict();
+
+export const listMentorConversationsQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+    page: z.coerce.number().int().min(0).max(1000).default(0),
+  })
+  .strict();
+
+export const listMentorMessagesQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+    before: mentorConversationIdSchema.optional(),
+  })
+  .strict();
+
+export const MENTOR_CONSENT_VERSION = 'v1';
+
+export const grantMentorConsentRequestSchema = z
+  .object({
+    version: z.literal(MENTOR_CONSENT_VERSION),
+  })
+  .strict();

@@ -7,12 +7,14 @@ import type { ProfileService } from '../../modules/profiles/profileService.js';
 import type { ProfileStatsService } from '../../modules/profileStats/profileStatsService.js';
 import type { DeepWorkSessionService } from '../../modules/profileStats/deepWorkSessionService.js';
 import type { HabitCollectionService } from '../../modules/habitCollections/habitCollectionService.js';
+import type { MentorService } from '../../modules/mentor/mentorService.js';
 import { authRoutes } from './auth.js';
 import { creatorRoutes } from './creator.js';
 import { healthRoutes } from './health.js';
 import { meRoutes } from './me.js';
 import { profileRoutes } from './profile.js';
 import { habitCollectionRoutes } from './habitCollections.js';
+import { mentorRoutes } from './mentor.js';
 
 export type V1RoutesOptions = {
   betaRegistrationCompletionService?: BetaRegistrationCompletionService;
@@ -21,6 +23,8 @@ export type V1RoutesOptions = {
   profileStatsService?: ProfileStatsService;
   deepWorkSessionService?: DeepWorkSessionService;
   habitCollectionService?: HabitCollectionService;
+  mentorEnabled?: boolean;
+  mentorService?: MentorService;
 };
 
 export const v1Routes: FastifyPluginAsync<V1RoutesOptions> = async (app, options) => {
@@ -40,4 +44,10 @@ export const v1Routes: FastifyPluginAsync<V1RoutesOptions> = async (app, options
   await app.register(habitCollectionRoutes, {
     habitCollectionService: options.habitCollectionService,
   });
+  // Feature flag: mentor routes do not exist unless explicitly enabled.
+  if (options.mentorEnabled) {
+    await app.register(mentorRoutes, {
+      mentorService: options.mentorService,
+    });
+  }
 };

@@ -70,7 +70,7 @@ describe('mentor message schema', () => {
       { content: 'x'.repeat(MENTOR_MESSAGE_MAX_LENGTH + 1) },
       { content: 'hi\u0000' },
       { content: 'hi', userId: 'someone-else' },
-      { content: 'hi', conversationId: 'not-a-uuid' },
+      { content: 'hi', conversation_id: 'not-a-uuid' },
       {},
     ];
     for (const body of invalid) {

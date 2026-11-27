@@ -155,6 +155,20 @@ curl -X PATCH http://127.0.0.1:4000/v1/admin/creator/applications/APPLICATION_ID
   -d "{\"decision\":\"rejected\",\"rejection_reason\":\"Please add a clearer content focus.\"}"
 ```
 
+### KI Mentor (feature flag, ticket M3)
+
+Mentor routes are registered **only** when `MENTOR_ENABLED=true`. They require the migration `supabase/migrations/20261127120000_mentor_foundation.sql` and `DATABASE_URL`. With the default `MENTOR_ENABLED=false` the routes do not exist (`404`), so existing deployments are unaffected. All routes require `Authorization: Bearer <supabase-access-token>` and only ever use the authenticated `user.id`.
+
+- `GET /v1/mentor/settings` returns consent state and data-access toggles (defaults when no row exists).
+- `PUT /v1/mentor/consent` with `{ "version": "v1" }` grants the current consent version. `DELETE /v1/mentor/consent` withdraws it.
+- `GET /v1/mentor/usage` returns `{ used, limit, remaining, resets_at }` for the current day (`MENTOR_QUOTA_TIME_ZONE`).
+- `GET /v1/mentor/conversations?limit=20&page=0` lists own conversations by latest activity.
+- `GET /v1/mentor/conversations/:id/messages?limit=50&before=<message-id>` returns messages oldest first; `before` loads older pages.
+- `PATCH /v1/mentor/conversations/:id` with `{ "title": "..." }` renames. `DELETE /v1/mentor/conversations/:id` deletes the conversation and its messages (`204`).
+- `POST /v1/mentor/messages` with `{ "content": "...", "conversation_id"?: "<uuid>" }` sends a message. Without `conversation_id` a new conversation is created after a successful reply. Returns `201` with `conversation`, `user_message`, `assistant_message`, `safety` and `usage`.
+
+Errors: `403 MENTOR_CONSENT_REQUIRED`, `404 MENTOR_CONVERSATION_NOT_FOUND` (also for other users' conversations), `429 MENTOR_DAILY_LIMIT_REACHED`, `429 MENTOR_RATE_LIMITED`, `502 MENTOR_PROVIDER_UNAVAILABLE`, `503 MENTOR_PROVIDER_RATE_LIMITED`, `504 MENTOR_PROVIDER_TIMEOUT`. A failed reply refunds the daily quota and stores nothing. Message content is never logged.
+
 ## PostgreSQL Integration Test
 
 The profile Drizzle read repository has a real local PostgreSQL integration test backed by `docker-compose.test.yml`. It uses a dedicated local database named `grow_api_integration_test` on `127.0.0.1:55432`.

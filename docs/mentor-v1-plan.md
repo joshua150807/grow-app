@@ -129,7 +129,7 @@ Die 10 Phasen aus dem ChatGPT-Entwurf sind sinnvoll, aber für den Stand des Rep
 |---|---|---|
 | M1 ✅ | Datenmodell + Migration + RLS (Conversations, Messages, Usage, Settings) | 1 |
 | M2 ✅ | Mentor-Modul + Provider-Schicht (Mock) + Prompt-Versionierung + Safety | 1 |
-| M3 | Chat-API (`/v1/mentor/...`, mehrere Chats) + Limits + Tests | 1 |
+| M3 ✅ | Chat-API (`/v1/mentor/...`, mehrere Chats) + Limits + Tests | 1 |
 | M4 | Provider-Entscheidung + echte Anbindung + Kostenrechnung | 1 |
 | M5 | Mobile Chat-UI (Chatliste + Chat) + Opt-in/Einwilligung | 1 |
 | M6 | Langzeit-Memory (Extraktion, Speicherung, Ansicht/Löschen) | 1 |
@@ -194,3 +194,16 @@ Rollout (erst, wenn M3 fertig ist und das Backend die Tabellen nutzt): Migration
 - Neue Env-Variablen (alle mit sicheren Defaults): `MENTOR_PROVIDER`, `MENTOR_PROVIDER_TIMEOUT_MS`, `MENTOR_MAX_OUTPUT_TOKENS`, `MENTOR_HISTORY_MESSAGES`
 - Tests: `apps/api/tests/mentorReplyEngine.test.ts`
 - Weiterhin keine Routen registriert → laufendes Backend unverändert.
+
+### M3 – erledigt
+
+- Feature-Flag `MENTOR_ENABLED` (Default `false`): Ohne Flag werden die Mentor-Routen gar nicht registriert → laufende Beta unverändert, auch wenn der Stand deployt wird.
+- Routen unter `/v1/mentor/...`: Settings, Einwilligung (geben/zurückziehen), Nutzung, Chatliste, Nachrichten (paginiert), umbenennen, löschen, Nachricht senden. Details: `apps/api/README.md`.
+- Einwilligung wird **serverseitig** erzwungen (`403 MENTOR_CONSENT_REQUIRED`), versioniert (`v1`).
+- Tageslimit atomar in der DB (`MENTOR_DAILY_MESSAGE_LIMIT`, vorläufig 30, Zeitzone `MENTOR_QUOTA_TIME_ZONE`), plus Kurzzeit-Limit pro Minute (`MENTOR_BURST_LIMIT_PER_MINUTE`, 6).
+- Fehlgeschlagene Antworten kosten kein Kontingent und speichern nichts; neuer Chat entsteht erst nach erfolgreicher Antwort.
+- Chat-Titel vorerst aus der ersten Nachricht abgeleitet (KI-Titel später mit echtem Provider).
+- Fremde Chats liefern immer `404` (keine Information, ob es sie gibt).
+- Tests: `apps/api/tests/mentor.test.ts` (Routen/Service), `apps/api/tests/mentorRepository.integration.test.ts` (Postgres, inkl. Parallelitäts-Test fürs Tageslimit).
+
+Aktivierung (später, nach Freigabe): Migration auf Staging anwenden → `MENTOR_ENABLED=true` nur auf Staging → testen → danach Production.
