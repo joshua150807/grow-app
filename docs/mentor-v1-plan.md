@@ -128,7 +128,7 @@ Die 10 Phasen aus dem ChatGPT-Entwurf sind sinnvoll, aber für den Stand des Rep
 | # | Ticket | Stufe |
 |---|---|---|
 | M1 ✅ | Datenmodell + Migration + RLS (Conversations, Messages, Usage, Settings) | 1 |
-| M2 | Mentor-Modul + Provider-Schicht (Mock) + Prompt-Versionierung + Safety | 1 |
+| M2 ✅ | Mentor-Modul + Provider-Schicht (Mock) + Prompt-Versionierung + Safety | 1 |
 | M3 | Chat-API (`/v1/mentor/...`, mehrere Chats) + Limits + Tests | 1 |
 | M4 | Provider-Entscheidung + echte Anbindung + Kostenrechnung | 1 |
 | M5 | Mobile Chat-UI (Chatliste + Chat) + Opt-in/Einwilligung | 1 |
@@ -180,3 +180,17 @@ ALLOW_INTEGRATION_DB_RESET=true npm run test:integration
 ```
 
 Rollout (erst, wenn M3 fertig ist und das Backend die Tabellen nutzt): Migration zuerst auf einem Staging-/Testprojekt anwenden, danach Production. Da additiv, beeinflusst sie bestehende Builds nicht.
+
+### M2 – erledigt
+
+- Modul `apps/api/src/modules/mentor/`:
+  - `provider/mentorProvider.ts` – Provider-Schnittstelle + `MentorProviderError` (unavailable, rate_limited, timeout, invalid_response)
+  - `provider/mockMentorProvider.ts` – deterministischer Test-Provider ohne Netzwerk
+  - `provider/createMentorProvider.ts` – Auswahl per `MENTOR_PROVIDER` (aktuell nur `mock`)
+  - `mentorPrompt.ts` – versionierter System-Prompt (`mentor-v1.0`): Persona, Themen, Out-of-Scope, Safety, Datum/Zeitzone
+  - `mentorSafety.ts` – deterministisches Krisen-Sicherheitsnetz (fügt Hilfsangebote garantiert an)
+  - `mentorSchemas.ts` – Zod: Nachricht 1–4000 Zeichen, keine Steuerzeichen, `strict()` (keine fremden Felder wie `userId`)
+  - `mentorReplyEngine.ts` – baut Prompt, begrenzt History, Timeout + Abort, mappt Fehler auf `AppError` (502/503/504), loggt nur Metadaten, nie Inhalte
+- Neue Env-Variablen (alle mit sicheren Defaults): `MENTOR_PROVIDER`, `MENTOR_PROVIDER_TIMEOUT_MS`, `MENTOR_MAX_OUTPUT_TOKENS`, `MENTOR_HISTORY_MESSAGES`
+- Tests: `apps/api/tests/mentorReplyEngine.test.ts`
+- Weiterhin keine Routen registriert → laufendes Backend unverändert.

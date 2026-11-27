@@ -12,6 +12,10 @@ const envSchema = z.object({
   SUPABASE_ANON_KEY: z.string().min(1).optional().or(z.literal('')),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional().or(z.literal('')),
   SUPABASE_JWT_SECRET: z.string().min(1).optional().or(z.literal('')),
+  MENTOR_PROVIDER: z.enum(['mock']).default('mock'),
+  MENTOR_PROVIDER_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120000).default(30000),
+  MENTOR_MAX_OUTPUT_TOKENS: z.coerce.number().int().min(64).max(8192).default(1024),
+  MENTOR_HISTORY_MESSAGES: z.coerce.number().int().min(2).max(100).default(20),
 });
 
 export type AppConfig = z.infer<typeof envSchema>;
