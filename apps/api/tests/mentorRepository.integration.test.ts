@@ -6,6 +6,10 @@ import {
   createMentorMemoryRepository,
   type MentorMemoryRepository,
 } from '../src/modules/mentor/memory/mentorMemoryRepository.js';
+import {
+  createMentorActionRepository,
+  type MentorActionRepository,
+} from '../src/modules/mentor/actions/mentorActionRepository.js';
 
 const expectedDatabaseName = 'grow_api_integration_test';
 const expectedPort = '55432';
@@ -13,6 +17,7 @@ const userA = '11111111-1111-4111-8111-111111111111';
 const userB = '22222222-2222-4222-8222-222222222222';
 
 const dropMentorObjects = `
+  drop table if exists public.mentor_actions cascade;
   drop table if exists public.mentor_memories cascade;
   drop table if exists public.mentor_messages, public.mentor_conversations,
     public.mentor_usage_daily, public.mentor_settings cascade;
@@ -49,6 +54,7 @@ describe('mentor repository PostgreSQL integration', () => {
   let pool: Pool;
   let repository: MentorRepository;
   let memories: MentorMemoryRepository;
+  let actions: MentorActionRepository;
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: guardedUrl(), max: 12 });
@@ -69,12 +75,17 @@ describe('mentor repository PostgreSQL integration', () => {
       new URL('../../../supabase/migrations/20261127130000_mentor_memories.sql', import.meta.url),
       'utf8',
     ));
+    await pool.query(await readFile(
+      new URL('../../../supabase/migrations/20261127140000_mentor_actions.sql', import.meta.url),
+      'utf8',
+    ));
     repository = createMentorRepository(() => pool);
     memories = createMentorMemoryRepository(() => pool);
+    actions = createMentorActionRepository(() => pool);
   });
 
   beforeEach(async () => {
-    await pool.query(`truncate public.mentor_memories, public.mentor_messages, public.mentor_conversations,
+    await pool.query(`truncate public.mentor_actions, public.mentor_memories, public.mentor_messages, public.mentor_conversations,
       public.mentor_usage_daily, public.mentor_settings, auth.users cascade`);
     await pool.query('insert into auth.users (id) values ($1), ($2)', [userA, userB]);
   });
@@ -288,5 +299,75 @@ describe('mentor repository PostgreSQL integration', () => {
     await repository.addTokenUsage(userA, '2026-11-27', 50, 5);
     const usage = await pool.query('select message_count, input_tokens, output_tokens from public.mentor_usage_daily');
     expect(usage.rows[0]).toEqual({ message_count: 0, input_tokens: '150', output_tokens: '15' });
+  });
+
+  async function proposeOne(userId: string, title = 'Lesen') {
+    const saved = await repository.saveExchange({
+      userId, conversationId: null, newConversationTitle: 'T', userContent: 'Leg an',
+      userCreatedAt: new Date(), assistant, usageDate: '2026-11-27',
+      proposedActions: [{ type: 'habit.create', payload: { name: title }, summary: `Gewohnheit „${title}“ anlegen` }],
+    });
+    return saved!;
+  }
+
+  it('stores proposals with the assistant message in the same transaction', async () => {
+    const saved = await proposeOne(userA);
+    expect(saved.actions).toHaveLength(1);
+    expect(saved.actions[0]).toMatchObject({
+      type: 'habit.create', payload: { name: 'Lesen' }, status: 'proposed', message_id: saved.assistantMessage.id,
+    });
+    expect(await actions.listForMessages(userA, [saved.assistantMessage.id])).toHaveLength(1);
+    expect(await actions.listForMessages(userB, [saved.assistantMessage.id])).toEqual([]);
+  });
+
+  it('claims an action exactly once under concurrent confirms', async () => {
+    const actionId = (await proposeOne(userA)).actions[0].id;
+    const claims = await Promise.all(Array.from({ length: 8 }, () => actions.claim(userA, actionId, 60_000)));
+    expect(claims.filter(Boolean)).toHaveLength(1);
+    expect(await actions.claim(userB, actionId, 60_000)).toBeNull();
+
+    const done = await actions.finish(userA, actionId, { status: 'executed', resultRef: { habit_id: 'h1' } });
+    expect(done).toMatchObject({ status: 'executed', result_ref: { habit_id: 'h1' } });
+    expect(await actions.finish(userA, actionId, { status: 'failed', errorCode: 'X' })).toBeNull();
+    expect(await actions.decide(userA, actionId, 'rejected')).toBeNull();
+  });
+
+  it('respects ownership, expiry and decisions', async () => {
+    const actionId = (await proposeOne(userA)).actions[0].id;
+    expect(await actions.find(userB, actionId)).toBeNull();
+    expect(await actions.decide(userB, actionId, 'rejected')).toBeNull();
+
+    await pool.query(`update public.mentor_actions set created_at = now() - interval '8 days' where id = $1`, [actionId]);
+    expect(await actions.claim(userA, actionId, 7 * 24 * 60 * 60 * 1000)).toBeNull();
+    expect((await actions.decide(userA, actionId, 'expired'))?.status).toBe('expired');
+    expect(await actions.claim(userA, actionId, Number.MAX_SAFE_INTEGER)).toBeNull();
+  });
+
+  it('enforces action constraints, denies client roles and cascades', async () => {
+    const saved = await proposeOne(userA);
+    const bad = (type: string, payload: unknown, summary: string) => pool.query(
+      `insert into public.mentor_actions (user_id, type, payload, summary) values ($1, $2, $3, $4)`,
+      [userA, type, payload, summary],
+    );
+    await expect(bad('Habit Create', { a: 1 }, 'x')).rejects.toMatchObject({ code: '23514' });
+    await expect(bad('habit.create', JSON.stringify([1, 2]), 'x')).rejects.toMatchObject({ code: '23514' });
+    await expect(bad('habit.create', { a: 1 }, ' ')).rejects.toMatchObject({ code: '23514' });
+    await expect(pool.query(`update public.mentor_actions set status = 'done'`)).rejects.toMatchObject({ code: '23514' });
+
+    const client = await pool.connect();
+    try {
+      await client.query('begin');
+      await client.query('set local role authenticated');
+      await expect(client.query('select * from public.mentor_actions')).rejects.toMatchObject({ code: '42501' });
+    } finally {
+      await client.query('rollback');
+      client.release();
+    }
+
+    await repository.deleteConversation(userA, saved.conversation.id);
+    expect((await pool.query('select conversation_id, message_id from public.mentor_actions')).rows)
+      .toEqual([{ conversation_id: null, message_id: null }]);
+    await pool.query('delete from auth.users where id = $1', [userA]);
+    expect((await pool.query('select 1 from public.mentor_actions')).rowCount).toBe(0);
   });
 });

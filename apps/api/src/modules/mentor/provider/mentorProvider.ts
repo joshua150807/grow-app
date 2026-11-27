@@ -5,11 +5,33 @@ export type MentorChatMessage = {
   content: string;
 };
 
+export type MentorToolDefinition = {
+  /** ^[a-zA-Z0-9_-]+$ */
+  name: string;
+  description: string;
+  inputSchema: Record<string, unknown>;
+};
+
+export type MentorToolCall = {
+  name: string;
+  input: unknown;
+};
+
+export type MentorToolResult = {
+  content: string;
+  isError?: boolean;
+};
+
 export type MentorProviderRequest = {
   system: string;
   messages: MentorChatMessage[];
   maxOutputTokens: number;
   signal: AbortSignal;
+  /** Tools the model may call. The provider runs the tool loop itself. */
+  tools?: MentorToolDefinition[];
+  onToolCall?: (call: MentorToolCall) => Promise<MentorToolResult>;
+  /** Maximum model round trips caused by tool calls (default 0 = no tools). */
+  maxToolRounds?: number;
 };
 
 export type MentorProviderResponse = {

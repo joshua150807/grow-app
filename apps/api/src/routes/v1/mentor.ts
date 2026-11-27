@@ -40,6 +40,16 @@ export const mentorRoutes: FastifyPluginAsync<MentorRoutesOptions> = async (app,
     getService().memories.deleteAll(request.auth.user!)
   ));
 
+  app.post('/mentor/actions/:id/confirm', { preHandler: [app.requireAuth] }, async (request) => {
+    const { id } = request.params as { id: string };
+    return { action: await getService().confirmAction(request.auth.user!, id) };
+  });
+
+  app.post('/mentor/actions/:id/reject', { preHandler: [app.requireAuth] }, async (request) => {
+    const { id } = request.params as { id: string };
+    return { action: await getService().rejectAction(request.auth.user!, id) };
+  });
+
   app.put('/mentor/consent', { preHandler: [app.requireAuth], bodyLimit }, async (request) => ({
     settings: await getService().grantConsent(request.auth.user!, request.body),
   }));

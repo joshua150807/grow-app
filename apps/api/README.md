@@ -173,6 +173,12 @@ Memory (M6): after each reply the backend extracts durable facts from the user's
 - `GET /v1/mentor/memories` lists facts (`category`, `content`, `status` `active`/`resolved`).
 - `PATCH /v1/mentor/memories/:id` with `{ "content"?, "status"? }` edits, `DELETE /v1/mentor/memories/:id` deletes one, `DELETE /v1/mentor/memories` deletes all. Other users' ids return `404 MENTOR_MEMORY_NOT_FOUND`.
 
+Actions (M7): tools register `read` or `write` actions in `modules/mentor/actions/mentorActionRegistry.ts` (empty until M8). The model calls them as tools; read actions run immediately for the authenticated user, write actions are only stored as proposals in `mentor_actions` (migration `20261127140000_mentor_actions.sql`) and returned on the assistant message as `actions: [{ id, type, summary, status }]`. Nothing changes until the user confirms. In mock mode, `/aktion <tool_name> <json>` triggers a tool call for local testing.
+
+- `POST /v1/mentor/actions/:id/confirm` executes a proposal once (concurrent confirms are safe) and returns the action with status `executed` or `failed` (`error_code`).
+- `POST /v1/mentor/actions/:id/reject` rejects it.
+- Errors: `404 MENTOR_ACTION_NOT_FOUND` (also for other users), `409 MENTOR_ACTION_ALREADY_DECIDED`, `409 MENTOR_ACTION_EXPIRED` (older than 7 days).
+
 Provider: `MENTOR_PROVIDER=mock` (default, no network, no costs) or `MENTOR_PROVIDER=anthropic` (requires server-only `ANTHROPIC_API_KEY`; startup fails without it). Model `MENTOR_ANTHROPIC_MODEL` (default `claude-sonnet-5-5`), effort `MENTOR_ANTHROPIC_EFFORT` (default `low`). Requests use prompt caching and the server-side refusal fallback (`fallbacks: "default"`). Test conversations: `npm run eval:mentor` (paid provider requires `MENTOR_EVAL_CONFIRM=yes`, about 0.30 USD per run; reports go to the git-ignored `evals/mentor/reports/`).
 
 Errors: `403 MENTOR_CONSENT_REQUIRED`, `404 MENTOR_CONVERSATION_NOT_FOUND` (also for other users' conversations), `429 MENTOR_DAILY_LIMIT_REACHED`, `429 MENTOR_RATE_LIMITED`, `502 MENTOR_PROVIDER_UNAVAILABLE`, `503 MENTOR_PROVIDER_RATE_LIMITED`, `504 MENTOR_PROVIDER_TIMEOUT`. A failed reply refunds the daily quota and stores nothing. Message content is never logged.

@@ -6,6 +6,9 @@ import {
   MentorProviderError,
   type MentorChatMessage,
   type MentorProvider,
+  type MentorToolCall,
+  type MentorToolDefinition,
+  type MentorToolResult,
 } from './provider/mentorProvider.js';
 
 export type MentorReplyEngineConfig = Pick<
@@ -25,7 +28,12 @@ export type GenerateMentorReplyInput = {
   now?: Date;
   timeZone?: string;
   memories?: MentorPromptMemory[];
+  tools?: MentorToolDefinition[];
+  onToolCall?: (call: MentorToolCall) => Promise<MentorToolResult>;
 };
+
+/** Model round trips allowed for tool calls in one reply. */
+export const MENTOR_MAX_TOOL_ROUNDS = 3;
 
 export type MentorReply = {
   content: string;
@@ -103,6 +111,7 @@ export function createMentorReplyEngine(
         timeZone: input.timeZone,
         crisisSignal,
         memories: input.memories,
+        actionsAvailable: Boolean(input.tools?.length),
       });
       const messages: MentorChatMessage[] = [
         ...selectHistoryWindow(input.history, config.MENTOR_HISTORY_MESSAGES - 1),
@@ -116,6 +125,9 @@ export function createMentorReplyEngine(
           messages,
           maxOutputTokens: config.MENTOR_MAX_OUTPUT_TOKENS,
           signal,
+          ...(input.tools?.length && input.onToolCall
+            ? { tools: input.tools, onToolCall: input.onToolCall, maxToolRounds: MENTOR_MAX_TOOL_ROUNDS }
+            : {}),
         }));
       } catch (error) {
         const appError = toAppError(error);

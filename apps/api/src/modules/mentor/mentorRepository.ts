@@ -1,5 +1,6 @@
 import type pg from 'pg';
 import { getPgPool } from '../../db/client.js';
+import { actionColumns, type MentorActionRecord } from './actions/mentorActionRepository.js';
 
 export type MentorSettingsRecord = {
   consent_version: string | null;
@@ -40,12 +41,14 @@ export type SaveMentorExchangeInput = {
     outputTokens: number | null;
   };
   usageDate: string;
+  proposedActions?: Array<{ type: string; payload: Record<string, unknown>; summary: string }>;
 };
 
 export type SaveMentorExchangeResult = {
   conversation: MentorConversationRecord;
   userMessage: MentorMessageRecord;
   assistantMessage: MentorMessageRecord;
+  actions: MentorActionRecord[];
 };
 
 /**
@@ -315,6 +318,17 @@ export function createMentorRepository(
           ],
         );
 
+        const actions: MentorActionRecord[] = [];
+        for (const proposal of input.proposedActions ?? []) {
+          const inserted = await client.query<MentorActionRecord>(
+            `insert into public.mentor_actions (user_id, conversation_id, message_id, type, payload, summary)
+             values ($1, $2, $3, $4, $5, $6)
+             returning ${actionColumns}`,
+            [input.userId, conversationId, assistantMessage.rows[0].id, proposal.type, proposal.payload, proposal.summary],
+          );
+          actions.push(inserted.rows[0]);
+        }
+
         await client.query(
           `update public.mentor_usage_daily
            set input_tokens = input_tokens + $3, output_tokens = output_tokens + $4
@@ -332,6 +346,7 @@ export function createMentorRepository(
           conversation: conversation.rows[0],
           userMessage: userMessage.rows[0],
           assistantMessage: assistantMessage.rows[0],
+          actions,
         };
       } catch (error) {
         await client.query('rollback');

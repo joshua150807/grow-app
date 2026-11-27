@@ -57,52 +57,90 @@ export function createAnthropicMentorProvider(
     name: 'anthropic',
 
     async generateReply(request: MentorProviderRequest): Promise<MentorProviderResponse> {
-      let message: BetaMessage;
-      try {
-        message = await anthropic.beta.messages.create(
-          {
-            model: config.MENTOR_ANTHROPIC_MODEL,
-            max_tokens: request.maxOutputTokens,
-            system: request.system,
-            messages: request.messages.map((item) => ({ role: item.role, content: item.content })),
-            output_config: { effort: config.MENTOR_ANTHROPIC_EFFORT },
-            // Caches the stable prefix (system prompt + earlier turns).
-            cache_control: { type: 'ephemeral' },
-            // On a safety decline, let the API retry on a suitable fallback model.
-            betas: ['server-side-fallback-2026-07-01'],
-            fallbacks: 'default',
-          },
-          { signal: request.signal },
-        );
-      } catch (error) {
-        throw mapSdkError(error);
-      }
+      const messages: Anthropic.Beta.Messages.BetaMessageParam[] = request.messages
+        .map((item) => ({ role: item.role, content: item.content }));
+      const tools = request.tools?.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        input_schema: tool.inputSchema as Anthropic.Beta.Messages.BetaTool.InputSchema,
+      }));
+      const maxRounds = request.onToolCall && tools?.length ? (request.maxToolRounds ?? 0) : 0;
 
-      const text = message.content
-        .filter((block): block is Anthropic.Beta.Messages.BetaTextBlock => block.type === 'text')
-        .map((block) => block.text)
-        .join('\n')
-        .trim();
+      const texts: string[] = [];
+      let inputTokens = 0;
+      let outputTokens = 0;
+      let message: BetaMessage | null = null;
 
-      const usage = {
-        inputTokens: (message.usage.input_tokens ?? 0)
+      for (let round = 0; ; round += 1) {
+        try {
+          message = await anthropic.beta.messages.create(
+            {
+              model: config.MENTOR_ANTHROPIC_MODEL,
+              max_tokens: request.maxOutputTokens,
+              system: request.system,
+              messages,
+              ...(tools?.length ? { tools } : {}),
+              output_config: { effort: config.MENTOR_ANTHROPIC_EFFORT },
+              // Caches the stable prefix (tools, system prompt, earlier turns).
+              cache_control: { type: 'ephemeral' },
+              // On a safety decline, let the API retry on a suitable fallback model.
+              betas: ['server-side-fallback-2026-07-01'],
+              fallbacks: 'default',
+            },
+            { signal: request.signal },
+          );
+        } catch (error) {
+          throw mapSdkError(error);
+        }
+
+        inputTokens += (message.usage.input_tokens ?? 0)
           + (message.usage.cache_read_input_tokens ?? 0)
-          + (message.usage.cache_creation_input_tokens ?? 0),
-        outputTokens: message.usage.output_tokens ?? null,
-      };
+          + (message.usage.cache_creation_input_tokens ?? 0);
+        outputTokens += message.usage.output_tokens ?? 0;
 
-      if (message.stop_reason === 'refusal') {
-        return { content: MENTOR_REFUSAL_REPLY, model: message.model, ...usage, truncated: false };
+        const text = message.content
+          .filter((block): block is Anthropic.Beta.Messages.BetaTextBlock => block.type === 'text')
+          .map((block) => block.text)
+          .join('\n')
+          .trim();
+        if (text) texts.push(text);
+
+        const toolUses = message.content.filter(
+          (block): block is Anthropic.Beta.Messages.BetaToolUseBlock => block.type === 'tool_use',
+        );
+        if (message.stop_reason !== 'tool_use' || toolUses.length === 0 || round >= maxRounds || !request.onToolCall) {
+          break;
+        }
+
+        // Pass the assistant turn back unchanged (incl. thinking blocks), then the results.
+        messages.push({ role: 'assistant', content: message.content as Anthropic.Beta.Messages.BetaContentBlockParam[] });
+        const results: Anthropic.Beta.Messages.BetaToolResultBlockParam[] = [];
+        for (const toolUse of toolUses) {
+          const result = await request.onToolCall({ name: toolUse.name, input: toolUse.input });
+          results.push({
+            type: 'tool_result',
+            tool_use_id: toolUse.id,
+            content: result.content,
+            ...(result.isError ? { is_error: true } : {}),
+          });
+        }
+        messages.push({ role: 'user', content: results });
       }
 
-      if (!text) {
+      if (message?.stop_reason === 'refusal') {
+        return { content: MENTOR_REFUSAL_REPLY, model: message.model, inputTokens, outputTokens, truncated: false };
+      }
+
+      const content = texts.join('\n\n').trim();
+      if (!message || !content) {
         throw new MentorProviderError('invalid_response', 'Anthropic returned no text.');
       }
 
       return {
-        content: text,
+        content,
         model: message.model,
-        ...usage,
+        inputTokens,
+        outputTokens,
         truncated: message.stop_reason === 'max_tokens',
       };
     },

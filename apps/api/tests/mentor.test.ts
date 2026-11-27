@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
+import { AppError } from '../src/errors/appError.js';
 import { describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../src/app.js';
 import type { AuthTokenVerifier } from '../src/auth/types.js';
@@ -15,6 +17,12 @@ import { createMentorReplyEngine } from '../src/modules/mentor/mentorReplyEngine
 import { createMockMemoryExtractor, type MentorMemoryExtractor } from '../src/modules/mentor/memory/mentorMemoryExtractor.js';
 import type { MentorMemoryRecord, MentorMemoryRepository } from '../src/modules/mentor/memory/mentorMemoryRepository.js';
 import { createMentorMemoryService } from '../src/modules/mentor/memory/mentorMemoryService.js';
+import {
+  createMentorActionRegistry,
+  type MentorActionDefinition,
+} from '../src/modules/mentor/actions/mentorActionRegistry.js';
+import type { MentorActionRecord, MentorActionRepository } from '../src/modules/mentor/actions/mentorActionRepository.js';
+import { createMentorActionService } from '../src/modules/mentor/actions/mentorActionService.js';
 
 const userA = { id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', email: 'a@example.com', role: 'authenticated' };
 const userB = { id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', email: 'b@example.com', role: 'authenticated' };
@@ -48,6 +56,7 @@ function createInMemoryRepository() {
   const conversations: Conversation[] = [];
   const messages: Message[] = [];
   const usage = new Map<string, { count: number; input: number; output: number }>();
+  const actions: Array<MentorActionRecord & { user_id: string }> = [];
   let clock = Date.parse('2026-11-27T09:00:00Z');
   const tick = () => new Date((clock += 1000)).toISOString();
   const strip = <T extends { user_id: string }>({ user_id: _ignored, ...rest }: T) => rest;
@@ -163,15 +172,63 @@ function createInMemoryRepository() {
       };
       messages.push(userMessage, assistantMessage);
       conversation.last_message_at = assistantMessage.created_at;
+      const created = (input.proposedActions ?? []).map((proposal) => {
+        const record = {
+          id: randomUUID(),
+          user_id: input.userId,
+          message_id: assistantMessage.id,
+          type: proposal.type,
+          payload: proposal.payload,
+          summary: proposal.summary,
+          status: 'proposed' as const,
+          result_ref: null,
+          error_code: null,
+          decided_at: null,
+          created_at: new Date().toISOString(),
+        };
+        actions.push(record);
+        return record;
+      });
       return {
         conversation: strip(conversation),
         userMessage: strip(userMessage),
         assistantMessage: strip(assistantMessage),
+        actions: created.map(strip),
       };
     },
   };
 
-  return { repository, usage, messages };
+  const actionRepository: MentorActionRepository = {
+    async find(userId, id) {
+      const found = actions.find((a) => a.id === id && a.user_id === userId);
+      return found ? strip(found) : null;
+    },
+    async listForMessages(userId, ids) {
+      return actions.filter((a) => a.user_id === userId && a.message_id && ids.includes(a.message_id)).map(strip);
+    },
+    async claim(userId, id, maxAgeMs) {
+      const found = actions.find((a) => a.id === id && a.user_id === userId && a.status === 'proposed');
+      if (!found || Date.now() - Date.parse(String(found.created_at)) >= maxAgeMs) return null;
+      found.status = 'executing';
+      return strip(found);
+    },
+    async decide(userId, id, status) {
+      const found = actions.find((a) => a.id === id && a.user_id === userId && a.status === 'proposed');
+      if (!found) return null;
+      found.status = status;
+      return strip(found);
+    },
+    async finish(userId, id, outcome) {
+      const found = actions.find((a) => a.id === id && a.user_id === userId && a.status === 'executing');
+      if (!found) return null;
+      found.status = outcome.status;
+      if (outcome.status === 'executed') found.result_ref = outcome.resultRef;
+      else found.error_code = outcome.errorCode;
+      return strip(found);
+    },
+  };
+
+  return { repository, usage, messages, actions, actionRepository };
 }
 
 function createInMemoryMemoryRepository() {
@@ -235,6 +292,8 @@ function setup(options: {
   config?: Partial<typeof baseConfig>;
   mentorEnabled?: boolean;
   extractor?: MentorMemoryExtractor;
+  actionDefinitions?: MentorActionDefinition[];
+  actionMaxAgeMs?: number;
 } = {}) {
   const store = createInMemoryRepository();
   const memoryStore = createInMemoryMemoryRepository();
@@ -251,12 +310,18 @@ function setup(options: {
     timeZone: config.MENTOR_QUOTA_TIME_ZONE,
     timeoutMs: 1000,
   });
+  const actionService = createMentorActionService({
+    repository: store.actionRepository,
+    registry: createMentorActionRegistry(options.actionDefinitions ?? []),
+    maxAgeMs: options.actionMaxAgeMs,
+  });
   const mentorService = createMentorService({
     repository: store.repository,
     replyEngine,
     config,
     now: () => new Date('2026-11-27T10:00:00Z'),
     memoryService,
+    actionService,
     runInBackground: (task) => { background.push(task()); },
   });
   const flush = () => Promise.all(background.splice(0));
@@ -615,6 +680,198 @@ describe('mentor memory', () => {
     expect((await call('DELETE', `/v1/mentor/memories/${second.id}`, 'token-a')).statusCode).toBe(204);
     expect((await call('DELETE', '/v1/mentor/memories', 'token-a')).json()).toEqual({ deleted: 1 });
     expect((await call('GET', '/v1/mentor/memories', 'token-a')).json().memories).toEqual([]);
+    await app.close();
+  });
+});
+
+describe('mentor actions', () => {
+  function testDefinitions() {
+    const created: Array<{ userId: string; title: string }> = [];
+    const reads: string[] = [];
+    const definitions: MentorActionDefinition[] = [
+      {
+        type: 'test.create_note',
+        kind: 'write',
+        description: 'Create a note.',
+        inputSchema: z.object({ title: z.string().min(1).max(50) }).strict(),
+        jsonSchema: { type: 'object', properties: { title: { type: 'string' } }, required: ['title'] },
+        summarize: (input: { title: string }) => `Notiz „${input.title}“ anlegen`,
+        async execute(userId: string, input: { title: string }) {
+          if (input.title === 'fail') throw new AppError(409, 'HABIT_COLLECTION_CONFLICT', 'conflict');
+          created.push({ userId, title: input.title });
+          return { resultRef: { note_id: `note-${created.length}` } };
+        },
+      },
+      {
+        type: 'test.read_stats',
+        kind: 'read',
+        description: 'Read stats.',
+        inputSchema: z.object({}).strict(),
+        jsonSchema: { type: 'object', properties: {} },
+        summarize: () => 'Statistik lesen',
+        async execute(userId: string) {
+          reads.push(userId);
+          return { data: { streak: 5 } };
+        },
+      },
+    ];
+    return { definitions, created, reads };
+  }
+
+  /** Provider that performs scripted tool calls, then answers with the tool results. */
+  function scriptedEngine(calls: Array<{ name: string; input: unknown }>) {
+    const requests: Array<{ tools: string[]; history: string[] }> = [];
+    const results: string[] = [];
+    const engine = createMentorReplyEngine({
+      name: 'scripted',
+      async generateReply(request) {
+        requests.push({
+          tools: (request.tools ?? []).map((tool) => tool.name),
+          history: request.messages.map((message) => message.content),
+        });
+        for (const call of calls) {
+          const result = await request.onToolCall?.(call);
+          if (result) results.push(`${result.isError ? 'ERR' : 'OK'}: ${result.content}`);
+        }
+        return { content: 'Erledigt vorbereitet.', model: 'scripted', inputTokens: null, outputTokens: null, truncated: false };
+      },
+    }, baseConfig);
+    return { engine, requests, results };
+  }
+
+  it('stores write calls as proposals and executes only after confirmation', async () => {
+    const { definitions, created } = testDefinitions();
+    const { engine, requests } = scriptedEngine([{ name: 'test__create_note', input: { title: 'Lesen' } }]);
+    const { app, call, consent } = setup({ replyEngine: engine, actionDefinitions: definitions });
+    await consent('token-a');
+
+    const sent = await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Leg mir eine Notiz an' });
+    expect(sent.statusCode).toBe(201);
+    expect(requests[0].tools).toEqual(['test__create_note', 'test__read_stats']);
+    const [action] = sent.json().assistant_message.actions;
+    expect(action).toMatchObject({ type: 'test.create_note', summary: 'Notiz „Lesen“ anlegen', status: 'proposed' });
+    expect(created).toEqual([]);
+
+    const confirmed = await call('POST', `/v1/mentor/actions/${action.id}/confirm`, 'token-a');
+    expect(confirmed.statusCode).toBe(200);
+    expect(confirmed.json().action.status).toBe('executed');
+    expect(created).toEqual([{ userId: userA.id, title: 'Lesen' }]);
+
+    const again = await call('POST', `/v1/mentor/actions/${action.id}/confirm`, 'token-a');
+    expect(again.statusCode).toBe(409);
+    expect(again.json().error.code).toBe('MENTOR_ACTION_ALREADY_DECIDED');
+    expect(created).toHaveLength(1);
+
+    const history = await call('GET', `/v1/mentor/conversations/${sent.json().conversation.id}/messages`, 'token-a');
+    expect(history.json().messages[1].actions[0].status).toBe('executed');
+    await app.close();
+  });
+
+  it('tells the model about earlier proposals and their status', async () => {
+    const { definitions } = testDefinitions();
+    const first = scriptedEngine([{ name: 'test__create_note', input: { title: 'Lesen' } }]);
+    const { app, call, consent } = setup({ replyEngine: first.engine, actionDefinitions: definitions });
+    await consent('token-a');
+    const sent = await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Notiz bitte' });
+    await call('POST', `/v1/mentor/actions/${sent.json().assistant_message.actions[0].id}/reject`, 'token-a');
+    await call('POST', '/v1/mentor/messages', 'token-a', { conversation_id: sent.json().conversation.id, content: 'Und jetzt?' });
+    expect(first.requests[1].history.join('\n')).toContain('[Proposal: Notiz „Lesen“ anlegen – rejected by the user]');
+    await app.close();
+  });
+
+  it('rejects proposals and blocks confirming them later', async () => {
+    const { definitions, created } = testDefinitions();
+    const { engine } = scriptedEngine([{ name: 'test__create_note', input: { title: 'Lesen' } }]);
+    const { app, call, consent } = setup({ replyEngine: engine, actionDefinitions: definitions });
+    await consent('token-a');
+    const actionId = (await call('POST', '/v1/mentor/messages', 'token-a', { content: 'x' })).json().assistant_message.actions[0].id;
+
+    expect((await call('POST', `/v1/mentor/actions/${actionId}/reject`, 'token-a')).json().action.status).toBe('rejected');
+    expect((await call('POST', `/v1/mentor/actions/${actionId}/confirm`, 'token-a')).statusCode).toBe(409);
+    expect(created).toEqual([]);
+    await app.close();
+  });
+
+  it('never lets another user decide an action', async () => {
+    const { definitions, created } = testDefinitions();
+    const { engine } = scriptedEngine([{ name: 'test__create_note', input: { title: 'Lesen' } }]);
+    const { app, call, consent } = setup({ replyEngine: engine, actionDefinitions: definitions });
+    await consent('token-a');
+    const actionId = (await call('POST', '/v1/mentor/messages', 'token-a', { content: 'x' })).json().assistant_message.actions[0].id;
+
+    for (const response of [
+      await call('POST', `/v1/mentor/actions/${actionId}/confirm`, 'token-b'),
+      await call('POST', `/v1/mentor/actions/${actionId}/reject`, 'token-b'),
+      await call('POST', '/v1/mentor/actions/not-a-uuid/confirm', 'token-a'),
+    ]) {
+      expect(response.statusCode).toBe(404);
+      expect(response.json().error.code).toBe('MENTOR_ACTION_NOT_FOUND');
+    }
+    expect((await call('POST', `/v1/mentor/actions/${actionId}/confirm`)).statusCode).toBe(401);
+    expect(created).toEqual([]);
+    await app.close();
+  });
+
+  it('drops invalid or unknown tool calls and limits proposals per reply', async () => {
+    const { definitions } = testDefinitions();
+    const { engine, results } = scriptedEngine([
+      { name: 'test__create_note', input: { title: '' } },
+      { name: 'test__create_note', input: { title: 'ok', user_id: userB.id } },
+      { name: 'evil__drop_tables', input: {} },
+      ...Array.from({ length: 4 }, (_, index) => ({ name: 'test__create_note', input: { title: `N${index}` } })),
+    ]);
+    const { app, call, consent } = setup({ replyEngine: engine, actionDefinitions: definitions });
+    await consent('token-a');
+    const sent = await call('POST', '/v1/mentor/messages', 'token-a', { content: 'x' });
+
+    expect(sent.json().assistant_message.actions.map((a: { summary: string }) => a.summary))
+      .toEqual(['Notiz „N0“ anlegen', 'Notiz „N1“ anlegen', 'Notiz „N2“ anlegen']);
+    expect(results.slice(0, 3).every((result) => result.startsWith('ERR'))).toBe(true);
+    expect(results.at(-1)).toMatch(/^ERR: Proposal limit/);
+    await app.close();
+  });
+
+  it('runs read tools immediately for the current user without storing proposals', async () => {
+    const { definitions, reads } = testDefinitions();
+    const { engine, results } = scriptedEngine([{ name: 'test__read_stats', input: {} }]);
+    const { app, call, consent } = setup({ replyEngine: engine, actionDefinitions: definitions });
+    await consent('token-a');
+    const sent = await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Wie läuft es?' });
+    expect(sent.json().assistant_message.actions).toEqual([]);
+    expect(reads).toEqual([userA.id]);
+    expect(results).toEqual(['OK: {"streak":5}']);
+    await app.close();
+  });
+
+  it('marks failed executions and expired proposals', async () => {
+    const { definitions } = testDefinitions();
+    const failing = scriptedEngine([{ name: 'test__create_note', input: { title: 'fail' } }]);
+    const one = setup({ replyEngine: failing.engine, actionDefinitions: definitions });
+    await one.consent('token-a');
+    const failId = (await one.call('POST', '/v1/mentor/messages', 'token-a', { content: 'x' })).json().assistant_message.actions[0].id;
+    const failed = await one.call('POST', `/v1/mentor/actions/${failId}/confirm`, 'token-a');
+    expect(failed.statusCode).toBe(200);
+    expect(failed.json().action).toMatchObject({ status: 'failed', error_code: 'HABIT_COLLECTION_CONFLICT' });
+    await one.app.close();
+
+    const stale = scriptedEngine([{ name: 'test__create_note', input: { title: 'Alt' } }]);
+    const two = setup({ replyEngine: stale.engine, actionDefinitions: definitions, actionMaxAgeMs: 1 });
+    await two.consent('token-a');
+    const staleId = (await two.call('POST', '/v1/mentor/messages', 'token-a', { content: 'x' })).json().assistant_message.actions[0].id;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const expired = await two.call('POST', `/v1/mentor/actions/${staleId}/confirm`, 'token-a');
+    expect(expired.statusCode).toBe(409);
+    expect(expired.json().error.code).toBe('MENTOR_ACTION_EXPIRED');
+    expect(expired.json().error.details.action.status).toBe('expired');
+    await two.app.close();
+  });
+
+  it('offers no tools when no actions are registered', async () => {
+    const { engine, requests } = scriptedEngine([]);
+    const { app, call, consent } = setup({ replyEngine: engine });
+    await consent('token-a');
+    await call('POST', '/v1/mentor/messages', 'token-a', { content: 'Hallo' });
+    expect(requests[0].tools).toEqual([]);
     await app.close();
   });
 });

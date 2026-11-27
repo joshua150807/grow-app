@@ -248,3 +248,28 @@ describe('mock mentor provider', () => {
     expect(first.content).toBe(second.content);
   });
 });
+
+describe('mentor actions prompt and mock', () => {
+  it('describes confirmation-only actions when tools are available', () => {
+    const prompt = buildMentorSystemPrompt({ now: new Date(), actionsAvailable: true });
+    expect(prompt).toContain('Nothing happens until the user confirms');
+    expect(prompt).toContain('Never claim that something was created');
+    expect(buildMentorSystemPrompt({ now: new Date() })).not.toContain('Acting in Grow');
+  });
+
+  it('mock provider triggers a tool call with /aktion for local testing', async () => {
+    const provider = createMentorProvider({
+      MENTOR_PROVIDER: 'mock', ANTHROPIC_API_KEY: '', MENTOR_ANTHROPIC_MODEL: 'claude-sonnet-5-5', MENTOR_ANTHROPIC_EFFORT: 'low',
+    });
+    const onToolCall = vi.fn(async () => ({ content: 'ok' }));
+    const engine = createMentorReplyEngine(provider, engineConfig);
+    const reply = await engine.generateReply({
+      history: [],
+      userMessage: '/aktion habit__create {"name":"Lesen"}',
+      tools: [{ name: 'habit__create', description: 'x', inputSchema: {} }],
+      onToolCall,
+    });
+    expect(onToolCall).toHaveBeenCalledWith({ name: 'habit__create', input: { name: 'Lesen' } });
+    expect(reply.content).toContain('zur Bestätigung');
+  });
+});

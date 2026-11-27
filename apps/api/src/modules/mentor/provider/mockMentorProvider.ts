@@ -21,6 +21,28 @@ export function createMockMentorProvider(): MentorProvider {
         throw new MentorProviderError('invalid_response', 'Mentor provider needs a user message.');
       }
 
+      // Dev helper: "/aktion <tool_name> <json>" triggers one tool call, so the
+      // action flow can be tried locally without a real model.
+      const command = /^\/aktion\s+([a-zA-Z0-9_-]+)\s*([\s\S]*)$/.exec(lastUserMessage.content.trim());
+      if (command && request.onToolCall && (request.maxToolRounds ?? 0) > 0) {
+        let input: unknown = {};
+        try {
+          input = command[2] ? JSON.parse(command[2]) : {};
+        } catch {
+          input = {};
+        }
+        const result = await request.onToolCall({ name: command[1], input });
+        return {
+          content: result.isError
+            ? `Testmodus: Die Aktion konnte nicht vorbereitet werden (${result.content}).`
+            : 'Testmodus: Ich habe dir die Aktion zur Bestätigung vorbereitet.',
+          model: MOCK_MENTOR_MODEL,
+          inputTokens: null,
+          outputTokens: null,
+          truncated: false,
+        };
+      }
+
       const preview = lastUserMessage.content.trim().slice(0, 120);
       const content = [
         'Ich bin dein Grow Mentor (Testmodus).',

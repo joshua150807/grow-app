@@ -147,3 +147,78 @@ describe('anthropic mentor provider', () => {
     expect(createMentorProvider({ MENTOR_PROVIDER: 'anthropic', ...config }).name).toBe('anthropic');
   });
 });
+
+describe('anthropic mentor provider tool loop', () => {
+  it('passes tools, returns assistant content unchanged and sends tool results', async () => {
+    const first = {
+      model: 'claude-sonnet-5-5',
+      stop_reason: 'tool_use',
+      content: [
+        { type: 'thinking', thinking: '', signature: 'sig' },
+        { type: 'text', text: 'Ich bereite das vor.' },
+        { type: 'tool_use', id: 'tool-1', name: 'habit__create', input: { name: 'Lesen' } },
+      ],
+      usage: { input_tokens: 100, output_tokens: 20 },
+    };
+    const second = {
+      model: 'claude-sonnet-5-5',
+      stop_reason: 'end_turn',
+      content: [{ type: 'text', text: 'Bestätige die Karte.' }],
+      usage: { input_tokens: 150, output_tokens: 10 },
+    };
+    const create = vi.fn()
+      .mockResolvedValueOnce(first)
+      .mockResolvedValueOnce(second);
+    const client = { beta: { messages: { create } } } as unknown as AnthropicMessagesClient;
+    const onToolCall = vi.fn(async () => ({ content: 'Proposal created.' }));
+
+    const reply = await createAnthropicMentorProvider(config, client).generateReply({
+      ...request(),
+      tools: [{ name: 'habit__create', description: 'Create habit', inputSchema: { type: 'object' } }],
+      onToolCall,
+      maxToolRounds: 3,
+    });
+
+    expect(onToolCall).toHaveBeenCalledWith({ name: 'habit__create', input: { name: 'Lesen' } });
+    const firstParams = create.mock.calls[0][0] as Record<string, any>;
+    expect(firstParams.tools).toEqual([{ name: 'habit__create', description: 'Create habit', input_schema: { type: 'object' } }]);
+    const secondParams = create.mock.calls[1][0] as Record<string, any>;
+    expect(secondParams.messages.at(-2)).toEqual({ role: 'assistant', content: first.content });
+    expect(secondParams.messages.at(-1)).toEqual({
+      role: 'user',
+      content: [{ type: 'tool_result', tool_use_id: 'tool-1', content: 'Proposal created.' }],
+    });
+    expect(reply).toMatchObject({
+      content: 'Ich bereite das vor.\n\nBestätige die Karte.',
+      inputTokens: 250,
+      outputTokens: 30,
+    });
+  });
+
+  it('stops after the maximum number of tool rounds', async () => {
+    const toolTurn = {
+      model: 'claude-sonnet-5-5',
+      stop_reason: 'tool_use',
+      content: [{ type: 'text', text: 'Moment.' }, { type: 'tool_use', id: 't', name: 'x__y', input: {} }],
+      usage: { input_tokens: 1, output_tokens: 1 },
+    };
+    const create = vi.fn().mockResolvedValue(toolTurn);
+    const client = { beta: { messages: { create } } } as unknown as AnthropicMessagesClient;
+    await createAnthropicMentorProvider(config, client).generateReply({
+      ...request(),
+      tools: [{ name: 'x__y', description: 'x', inputSchema: { type: 'object' } }],
+      onToolCall: async () => ({ content: 'ok' }),
+      maxToolRounds: 2,
+    });
+    expect(create).toHaveBeenCalledTimes(3);
+  });
+
+  it('sends no tools when none are given', async () => {
+    const create = vi.fn().mockResolvedValue({
+      model: 'claude-sonnet-5-5', stop_reason: 'end_turn', content: [{ type: 'text', text: 'Hi' }], usage: { input_tokens: 1, output_tokens: 1 },
+    });
+    const client = { beta: { messages: { create } } } as unknown as AnthropicMessagesClient;
+    await createAnthropicMentorProvider(config, client).generateReply(request());
+    expect(create.mock.calls[0][0]).not.toHaveProperty('tools');
+  });
+});

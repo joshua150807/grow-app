@@ -25,6 +25,14 @@ import {
 } from './mentorSchemas.js';
 import { createMentorProvider } from './provider/createMentorProvider.js';
 import { createMemoryExtractor } from './memory/mentorMemoryExtractor.js';
+import { createDefaultMentorActionRegistry } from './actions/mentorActionRegistry.js';
+import { createMentorActionRepository, type MentorActionRecord } from './actions/mentorActionRepository.js';
+import {
+  createMentorActionService,
+  describeActionsForHistory,
+  mapAction,
+  type MentorActionService,
+} from './actions/mentorActionService.js';
 import { createMentorMemoryRepository } from './memory/mentorMemoryRepository.js';
 import { updateMentorSettingsRequestSchema } from './memory/mentorMemorySchemas.js';
 import {
@@ -55,6 +63,7 @@ export type MentorServiceDependencies = {
   now?: () => Date;
   logger?: MentorReplyLogger;
   memoryService?: MentorMemoryService;
+  actionService?: MentorActionService;
   /** Runs work after the response; tests inject a collector to await it. */
   runInBackground?: (task: () => Promise<void>) => void;
 };
@@ -79,13 +88,14 @@ function mapConversation(record: MentorConversationRecord) {
   };
 }
 
-function mapMessage(record: MentorMessageRecord) {
+function mapMessage(record: MentorMessageRecord, actions: MentorActionRecord[] = []) {
   return {
     id: record.id,
     conversation_id: record.conversation_id,
     role: record.role,
     content: record.content,
     created_at: toIso(record.created_at),
+    actions: actions.filter((action) => action.message_id === record.id).map(mapAction),
   };
 }
 
@@ -146,6 +156,11 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
   const now = dependencies.now ?? (() => new Date());
   const burstLimiter = createBurstLimiter(config.MENTOR_BURST_LIMIT_PER_MINUTE);
   const runInBackground = dependencies.runInBackground ?? ((task) => { void task(); });
+  const actionService = dependencies.actionService ?? createMentorActionService({
+    repository: createMentorActionRepository(),
+    registry: createDefaultMentorActionRegistry(),
+    logger: dependencies.logger,
+  });
   const memoryService = dependencies.memoryService ?? createMentorMemoryService({
     repository: createMentorMemoryRepository(),
     extractor: createMemoryExtractor(config),
@@ -214,6 +229,14 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
 
     memories: memoryService,
 
+    async confirmAction(user: AuthUser, actionId: unknown) {
+      return actionService.confirm(user, actionId);
+    },
+
+    async rejectAction(user: AuthUser, actionId: unknown) {
+      return actionService.reject(user, actionId);
+    },
+
     async getUsage(user: AuthUser) {
       const window = usageWindow(now());
       return usagePayload(await repository.getDailyUsage(user.id, window.usageDate), window.resetsAt);
@@ -238,10 +261,14 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
         throw new AppError(400, 'VALIDATION_ERROR', 'The message cursor is invalid.');
       }
       const page = records.slice(0, input.limit);
+      const actions = await actionService.listForMessages(
+        user.id,
+        page.filter((message) => message.role === 'assistant').map((message) => message.id),
+      );
       return {
         conversation: mapConversation(conversation),
         // Oldest first for direct rendering in the chat.
-        messages: page.reverse().map(mapMessage),
+        messages: page.reverse().map((message) => mapMessage(message, actions)),
         has_more: records.length > input.limit,
       };
     },
@@ -292,16 +319,28 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
           ? await repository.recentMessages(user.id, conversation.id, config.MENTOR_HISTORY_MESSAGES)
           : [];
 
+        const historyActions = await actionService.listForMessages(
+          user.id,
+          history.filter((message) => message.role === 'assistant').map((message) => message.id),
+        );
+        const toolSession = actionService.hasTools() ? actionService.createToolSession(user.id) : null;
+
         const memories = settings.memory_enabled
           ? await memoryService.forPrompt(user.id).catch(() => [])
           : [];
 
         const reply = await replyEngine.generateReply({
-          history: history.map((message) => ({ role: message.role, content: message.content })),
+          history: history.map((message) => {
+            const note = describeActionsForHistory(
+              historyActions.filter((action) => action.message_id === message.id),
+            );
+            return { role: message.role, content: note ? `${message.content}\n\n${note}` : message.content };
+          }),
           userMessage: input.content,
           now: receivedAt,
           timeZone: config.MENTOR_QUOTA_TIME_ZONE,
           memories,
+          ...(toolSession ? { tools: toolSession.tools, onToolCall: toolSession.onToolCall } : {}),
         });
 
         const saved = await repository.saveExchange({
@@ -319,6 +358,7 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
             outputTokens: reply.outputTokens,
           },
           usageDate: window.usageDate,
+          proposedActions: toolSession?.proposals ?? [],
         });
         if (!saved) throw conversationNotFound();
 
@@ -334,7 +374,7 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
         return {
           conversation: mapConversation(saved.conversation),
           user_message: mapMessage(saved.userMessage),
-          assistant_message: mapMessage(saved.assistantMessage),
+          assistant_message: mapMessage(saved.assistantMessage, saved.actions),
           safety: { crisis_resources_shown: reply.crisisSignal },
           usage: usagePayload(used, window.resetsAt),
         };
