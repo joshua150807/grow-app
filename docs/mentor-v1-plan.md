@@ -145,7 +145,7 @@ Hinweis: Die neuen Backend-Endpunkte werden additiv gebaut. Die App schreibt vor
 
 | Thema | Entscheidung |
 |---|---|
-| KI-Anbieter | Offen, Mock zuerst; Entscheidung vor M4 |
+| KI-Anbieter | **Anthropic: Claude Sonnet 5.5** (Hauptmodell) + **Claude Haiku 5.5** (Memory, Titel). Kosten: `docs/mentor-provider-costs.md` |
 | Chat-History | Wird gespeichert |
 | Streaming | Nicht in V1 |
 | Schreibaktionen | Immer mit Bestätigung in V1, kein Löschen |

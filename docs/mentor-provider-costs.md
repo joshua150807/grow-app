@@ -52,3 +52,41 @@ Anthropic-Cache-Writes kosten ca. 1,25× Input. OpenAI-Preise vor der Entscheidu
 - Empfehlung: **Hauptmodell Sonnet-Klasse**, Nebenaufgaben mit Haiku. Ein Top-Modell (Opus) nur, wenn eine Testgesprächs-Sammlung (u. a. „bleibt begründet bei seiner Position“, Aktionen korrekt ausgeführt) klar bessere Qualität zeigt.
 - Vor der Entscheidung: Auftragsverarbeitungsvertrag (AVV) und Serverstandort/Datenübermittlung beim Anbieter prüfen (Gesundheitsdaten, Art. 9 DSGVO).
 - Prompt-Caching ist in der Rechnung eingepreist. Ohne Caching wären die Input-Kosten etwa 3–4× höher.
+
+## Entscheidung (27.11.2026): Claude Sonnet 5.5 + Claude Haiku 5.5
+
+### Kosten pro Nachricht (gleiche Annahmen wie oben)
+
+| Posten | Tokens | Preis / 1 Mio. | Kosten |
+|---|---|---|---|
+| Sonnet: Input aus Cache (Read) | 11.700 | 0,10 $ | 0,12 Cent |
+| Sonnet: Input in Cache schreiben | 1.560 | 2,50 $ | 0,39 Cent |
+| Sonnet: Input ungecacht | 2.340 | 2,00 $ | 0,47 Cent |
+| Sonnet: Output (Antwort + Denken) | 1.300 | 10,00 $ | 1,30 Cent |
+| Haiku: Memory-Extraktion | 3.000 in / 200 out | 0,10 $ / 0,50 $ | 0,04 Cent |
+| **Summe pro Nachricht** | | | **ca. 2,3 Cent** |
+
+Output macht gut die Hälfte der Kosten aus → kürzere Antworten und niedrigere Effort-Stufe sind die wirksamsten Stellschrauben (in M4 messen).
+
+### Kosten pro aktivem Mentor-User und Monat
+
+| Nutzertyp | Nutzung | Nachrichten/Monat | Kosten/Monat |
+|---|---|---|---|
+| Gelegentlich | 1 pro Tag, an 15 Tagen | 15 | ca. 0,35 $ |
+| Leicht | 3 pro Tag, an 20 Tagen | 60 | ca. 1,40 $ |
+| Normal | 10 pro Tag, an 25 Tagen | 250 | ca. 5,80 $ |
+| Intensiv | 15 pro Tag, jeden Tag | 450 | ca. 10,40 $ |
+| Am Limit | 30 pro Tag, jeden Tag | 900 | ca. 20,90 $ |
+
+**Gemischter Durchschnitt** (Annahme: 50 % leicht, 35 % normal, 12 % intensiv, 3 % am Limit): **ca. 4,60 $ pro aktivem Mentor-User und Monat.** User, die den Mentor nicht nutzen, kosten nichts.
+
+Unsicherheit: ca. ±50 %, vor allem durch Antwortlänge und Häufigkeit von Tool-Aufrufen. Nach M4 mit echten Zahlen nachrechnen.
+
+### Maximalkosten je Tageslimit (Worst Case pro User/Monat)
+
+| Tageslimit | max. Nachrichten/Monat | max. Kosten/Monat |
+|---|---|---|
+| 10 | 300 | ca. 7 $ |
+| 15 | 450 | ca. 10,40 $ |
+| 20 | 600 | ca. 13,90 $ |
+| 30 (aktueller Default) | 900 | ca. 20,90 $ |
