@@ -187,7 +187,7 @@ Rollout (erst, wenn M3 fertig ist und das Backend die Tabellen nutzt): Migration
   - `provider/mentorProvider.ts` – Provider-Schnittstelle + `MentorProviderError` (unavailable, rate_limited, timeout, invalid_response)
   - `provider/mockMentorProvider.ts` – deterministischer Test-Provider ohne Netzwerk
   - `provider/createMentorProvider.ts` – Auswahl per `MENTOR_PROVIDER` (aktuell nur `mock`)
-  - `mentorPrompt.ts` – versionierter System-Prompt (`mentor-v1.0`): Persona, Themen, Out-of-Scope, Safety, Datum/Zeitzone
+  - `mentorPrompt.ts` – versionierter System-Prompt (`mentor-v1.1`): Persona, begründetes Festhalten an eigener Position statt Einknicken, Themen, Out-of-Scope, Safety, Datum/Zeitzone
   - `mentorSafety.ts` – deterministisches Krisen-Sicherheitsnetz (fügt Hilfsangebote garantiert an)
   - `mentorSchemas.ts` – Zod: Nachricht 1–4000 Zeichen, keine Steuerzeichen, `strict()` (keine fremden Felder wie `userId`)
   - `mentorReplyEngine.ts` – baut Prompt, begrenzt History, Timeout + Abort, mappt Fehler auf `AppError` (502/503/504), loggt nur Metadaten, nie Inhalte

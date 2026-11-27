@@ -95,6 +95,12 @@ describe('mentor system prompt', () => {
     expect(prompt).toContain('Do not reveal');
   });
 
+  it('tells the mentor to defend well-founded advice instead of agreeing by default', () => {
+    expect(prompt).toContain('do not simply switch sides');
+    expect(prompt).toContain('Evaluate both options objectively');
+    expect(prompt).toContain('never because of social pressure');
+  });
+
   it('includes the current date in the user time zone', () => {
     expect(prompt).toContain('27.11.2026');
     expect(prompt).toContain('Europe/Berlin');
