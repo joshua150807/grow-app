@@ -25,7 +25,7 @@ import {
 } from './mentorSchemas.js';
 import { createMentorProvider } from './provider/createMentorProvider.js';
 import { createMemoryExtractor } from './memory/mentorMemoryExtractor.js';
-import { createDefaultMentorActionRegistry } from './actions/mentorActionRegistry.js';
+import { createDefaultMentorActionRegistry } from './tools/defaultRegistry.js';
 import { createMentorActionRepository, type MentorActionRecord } from './actions/mentorActionRepository.js';
 import {
   createMentorActionService,
@@ -158,7 +158,7 @@ export function createMentorService(dependencies: MentorServiceDependencies = {}
   const runInBackground = dependencies.runInBackground ?? ((task) => { void task(); });
   const actionService = dependencies.actionService ?? createMentorActionService({
     repository: createMentorActionRepository(),
-    registry: createDefaultMentorActionRegistry(),
+    registry: createDefaultMentorActionRegistry({ timeZone: config.MENTOR_QUOTA_TIME_ZONE, now }),
     logger: dependencies.logger,
   });
   const memoryService = dependencies.memoryService ?? createMentorMemoryService({

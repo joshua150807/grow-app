@@ -19,8 +19,12 @@ export type MentorActionDefinition<TSchema extends z.ZodTypeAny = z.ZodTypeAny> 
   inputSchema: TSchema;
   /** JSON schema of the input, given to the model. */
   jsonSchema: Record<string, unknown>;
-  /** Short German text for the confirmation card (write actions). */
-  summarize(input: z.infer<TSchema>): string;
+  /**
+   * Short German text for the confirmation card (write actions). May look up
+   * the target for the authenticated user and throw an AppError if it does
+   * not exist; the error is returned to the model instead of a proposal.
+   */
+  summarize(input: z.infer<TSchema>, userId: string): string | Promise<string>;
   execute(userId: string, input: z.infer<TSchema>): Promise<MentorActionResult>;
 };
 
@@ -62,10 +66,8 @@ export function createMentorActionRegistry(definitions: MentorActionDefinition[]
   };
 }
 
-/**
- * Actions available in production. Tickets M8–M10 add the tool modules here
- * (habits, todos, training, goals, planner, deep work, journal, notes, ...).
- */
-export function createDefaultMentorActionRegistry(): MentorActionRegistry {
-  return createMentorActionRegistry([]);
-}
+export type MentorActionContext = {
+  /** IANA time zone used for "today" (user dates). */
+  timeZone: string;
+  now: () => Date;
+};

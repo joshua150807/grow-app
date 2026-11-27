@@ -136,7 +136,8 @@ Die 10 Phasen aus dem ChatGPT-Entwurf sind sinnvoll, aber für den Stand des Rep
 | M5 ✅ | Mobile Chat-UI (Chatliste + Chat) + Opt-in/Einwilligung | 1 |
 | M6 ✅ | Langzeit-Memory (Extraktion, Speicherung, Ansicht/Löschen) | 1 |
 | M7 ✅ | Aktions-Framework (`mentor_actions`, Bestätigungskarte, Ausführung, Protokoll) | 1 |
-| M8 | Welle A: Backend-Lese/Schreib-Endpunkte + Mentor-Tools für Habits, Todos, Training | 1 |
+| M8 ✅ | Welle A: Mentor-Tools für Habits und Todos (Training zurückgestellt) | 1 |
+| M8b | Training (Lesen + Schreiben) – wartet auf Erklärung des Trainingsplans durch Joshua | 1 |
 | M9 | Welle B: Ziele, Daily Planner, Deep Work | 1 |
 | M10 | Welle C: Journal, Notizen, Affirmationen, Leitfragen | 1 |
 | M11+ | Stufe 2/3 | 2–3 |
@@ -260,3 +261,14 @@ Scharf schalten (später): Anthropic-Konto + AVV → Key als Server-Secret im Ba
 - App: Vorschlagskarte unter der Mentor-Nachricht mit „Bestätigen“/„Ablehnen“ und Status (Erledigt, Abgelehnt, Hat nicht geklappt, Abgelaufen).
 - Testmodus: `/aktion <tool_name> <json>` löst lokal einen Tool-Aufruf aus.
 - Tests: Unit (Registry, Tool-Schleife, Vorschläge, Limits, Ownership, Doppel-Bestätigung, Ablauf, Fehler), Postgres (gleichzeitiges Bestätigen, Ownership, Ablauf, Constraints, Rechte, Cascade), App-Normalizer, iOS-Bundle, Ende-zu-Ende mit Demo-Aktion.
+
+### M8 – erledigt (Habits, Todos)
+
+- `modules/mentor/tools/` mit `habitActions.ts`, `todoActions.ts`, `defaultRegistry.ts` (in Production registriert).
+- Habits: `habits.list` (lesen: Tage, heute erledigt, Erledigungen der letzten 28 Tage), `habit.create`, `habit.update` (Name/Tage; Collections behalten ihre Tage), `habit.complete` (heute/gestern, doppelt abhaken unmöglich).
+- Todos: `todos.list` (offene zuerst), `todo.create` (optional Fälligkeit), `todo.update` (Titel/Fälligkeit, Fälligkeit entfernen), `todo.complete` (bestehender Completion-Trigger zählt weiter).
+- Kein Löschen durch den Mentor. Jede Abfrage ist an die User-ID aus dem Login gebunden; fremde IDs → „nicht gefunden“, schon beim Vorschlag.
+- Kartentexte mit echten Namen, Wochentagen und Datum in der Zeitzone `MENTOR_QUOTA_TIME_ZONE`; doppelte Gewohnheitsnamen werden abgelehnt.
+- Die App schreibt Habits/Todos weiterhin direkt; die Mentor-Wege sind zusätzlich (keine Änderung bestehender Mobile-Logik).
+- Tests: Postgres-Integration (`tests/mentorTools.integration.test.ts`: Ausführung, Ownership, Zeitzone, Validierung, Completion-Trigger), Ende-zu-Ende lokal.
+- **Training zurückgestellt:** Die Trainings-Tabellen sind nicht als Migration im Repo und Joshua erklärt den Trainingsplan noch. Danach folgt M8b.

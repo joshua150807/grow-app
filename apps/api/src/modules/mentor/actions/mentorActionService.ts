@@ -135,10 +135,20 @@ export function createMentorActionService(options: {
         if (proposals.length >= MENTOR_ACTION_MAX_PROPOSALS) {
           return { content: 'Proposal limit for this reply reached. Do not propose more changes now.', isError: true };
         }
+        let summary: string;
+        try {
+          summary = (await definition.summarize(parsed.data, userId)).trim().slice(0, 300);
+        } catch (error) {
+          if (error instanceof AppError && error.statusCode < 500) {
+            return { content: `Cannot propose this: ${error.message}`, isError: true };
+          }
+          options.logger?.warn({ type: definition.type, code: errorCodeOf(error) }, 'Mentor action summary failed');
+          return { content: 'Preparing this proposal failed. Tell the user briefly.', isError: true };
+        }
         proposals.push({
           type: definition.type,
           payload: parsed.data as Record<string, unknown>,
-          summary: definition.summarize(parsed.data).slice(0, 300),
+          summary,
         });
         return {
           content: 'Proposal created. The user now sees it as a card and decides. It is NOT executed yet.',
