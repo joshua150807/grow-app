@@ -138,7 +138,7 @@ Die 10 Phasen aus dem ChatGPT-Entwurf sind sinnvoll, aber für den Stand des Rep
 | M7 ✅ | Aktions-Framework (`mentor_actions`, Bestätigungskarte, Ausführung, Protokoll) | 1 |
 | M8 ✅ | Welle A: Mentor-Tools für Habits und Todos (Training zurückgestellt) | 1 |
 | M8b | Training (Lesen + Schreiben) – wartet auf Erklärung des Trainingsplans durch Joshua | 1 |
-| M9 | Welle B: Ziele, Daily Planner, Deep Work | 1 |
+| M9 ✅ | Welle B: Ziele, Daily Planner, Deep Work (nur lesen) | 1 |
 | M10 | Welle C: Journal, Notizen, Affirmationen, Leitfragen | 1 |
 | M11+ | Stufe 2/3 | 2–3 |
 
@@ -272,3 +272,12 @@ Scharf schalten (später): Anthropic-Konto + AVV → Key als Server-Secret im Ba
 - Die App schreibt Habits/Todos weiterhin direkt; die Mentor-Wege sind zusätzlich (keine Änderung bestehender Mobile-Logik).
 - Tests: Postgres-Integration (`tests/mentorTools.integration.test.ts`: Ausführung, Ownership, Zeitzone, Validierung, Completion-Trigger), Ende-zu-Ende lokal.
 - **Training zurückgestellt:** Die Trainings-Tabellen sind nicht als Migration im Repo und Joshua erklärt den Trainingsplan noch. Danach folgt M8b.
+
+### M9 – erledigt (Ziele, Daily Planner, Deep Work)
+
+- Ziele: `goals.list`, `goal.create` (Monats-/Jahres-/Lebensziel, Deadline im App-Format `TT.MM.JJJJ`), `goal.update` (Name/Deadline, Deadline entfernen), `goal.complete`.
+- Daily Planner: `planner.list` (Zeitraum, Standard heute + 6 Tage, mehrtägige Termine werden mitgefunden), `planner_event.create` (Uhrzeit oder ganztägig = 00:00–23:59 wie in der App, optional mehrtägig), `planner_event.update` (Titel, Datum – mehrtägige Termine behalten ihre Länge –, ganztägig, Uhrzeiten). Prüft Endzeit nach Startzeit, Enddatum nicht vor Startdatum und Datum innerhalb −1 bis +3 Jahre.
+- Deep Work: nur `deep_work.stats` (Summe, Ø pro Session, Minuten pro Tag). **Bewusst kein Schreiben**: Sessions werden nur vom Timer übers Backend angelegt, damit Fokus-Statistiken nicht gefälscht werden können.
+- Weiterhin kein Löschen, alles an die User-ID gebunden, fremde IDs → „nicht gefunden“.
+- Annahmen (nicht als Migration im Repo, aus App-Code abgeleitet): `goals.deadline` ist Text; `daily_planner_events.start_time/end_time` im Format `HH:MM`; Planner-Farbe Standard `#D4AF37`. Beim ersten Staging-Test prüfen.
+- Tests: `tests/mentorTools.integration.test.ts` (Ziele, Planner inkl. ganztägig/mehrtägig/Verschieben, Deep-Work-Statistik pro lokalem Tag, keine Deep-Work-Schreibaktion).
