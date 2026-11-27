@@ -32,13 +32,19 @@ Vor größeren Änderungen lesen:
 
 - Backend-Fundament
 - Profilsystem V1
-- KI Mentor V1
+- KI Mentor V1 fertig bauen (Aktivierung erst mit Cashflow, siehe unten)
 - Creator-System V1
 - Video-Upload V1
 - KI-Empfehlung + manuelle Video-Freigabe
 - Admin/CEO Dashboard für Moderation
 - Feed-Stabilität
 - App Store Pflichtkram
+
+## KI Mentor
+
+- Stand 27.11.2026 (Entscheidung Gründerteam, kann sich noch ändern): Der KI Mentor wird fertig gebaut, aber erst aktiviert, wenn Grow Cashflow hat. Er ist damit kein Muss für den ersten öffentlichen Release mehr. Details: docs/mentor-v1-plan.md
+- Mentor bleibt hinter `MENTOR_ENABLED` (Backend) und `EXPO_PUBLIC_MENTOR_API_ENABLED` (App) aus.
+- Keine Anthropic-Keys hinterlegen, keine Mentor-Migrationen in Production anwenden und keine Schalter aktivieren ohne Freigabe.
 
 ## Nicht blind machen
 

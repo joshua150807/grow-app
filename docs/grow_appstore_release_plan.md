@@ -14,7 +14,7 @@ Deshalb gilt:
 - Stabilität vor unnötiger Feature-Masse
 - Sicherheit vor schneller Umsetzung
 - Backend-Logik nicht mehr blind im Client verteilen
-- KI Mentor ist Pflichtfeature für Release
+- KI Mentor wird fertig gebaut, aber erst mit Cashflow aktiviert (Stand 27.11.2026, kann sich ändern)
 - Creator Upload kommt kontrolliert, nicht offen für alle
 - Werbung/Affiliate wird vorbereitet, aber erst nach öffentlichem Release aktiviert
 - Community/Chats sind Wunschfeatures und werden geschnitten, falls der Aufwand zu groß wird
@@ -28,7 +28,7 @@ Deshalb gilt:
 - Backend-Fundament
 - Supabase/Database Security Check
 - Profilsystem V1
-- KI Mentor V1
+- KI Mentor V1 fertig bauen (Aktivierung erst mit Cashflow)
 - Creator-System V1
 - Video-Upload V1
 - KI-Empfehlung + manuelle Video-Freigabe
@@ -197,7 +197,9 @@ Ziel: jeder User hat ein echtes Profil und eigene Einstellungen.
 
 ## 7. KI Mentor V1
 
-Ziel: KI Mentor ist das zentrale Release-Pflichtfeature.
+> Stand 27.11.2026 (Entscheidung Gründerteam, kann sich noch ändern): Der KI Mentor wird fertig gebaut, aber erst aktiviert, wenn Grow Cashflow hat. Er ist damit kein Muss für den ersten öffentlichen Release mehr. Details: docs/mentor-v1-plan.md
+
+Ziel: KI Mentor ist fertig gebaut und kann jederzeit aktiviert werden.
 
 ### Funktionen
 
@@ -566,6 +568,6 @@ Wenn diese Datei in einen neuen Chat geschickt wird, gilt:
 ## Merksatz
 
 Grow 1.0 soll nicht alles können, sondern öffentlich stabil, sicher und stark genug sein.
-KI Mentor ist Pflicht.
+KI Mentor wird fertig gebaut und mit Cashflow aktiviert.
 Creator Upload kommt kontrolliert.
 Community und Monetarisierung werden vorbereitet, aber notfalls nach Release größer gemacht.

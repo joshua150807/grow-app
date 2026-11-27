@@ -292,9 +292,11 @@ Docs: Points, ranking, and anti-abuse docs.
 
 ## Product Slice 7 - KI Mentor
 
-Status: ⬜ Not Started
+Status: 🟡 In Progress (M1–M6 of M1–M10 built behind feature flags, see docs/mentor-v1-plan.md)
 
-Goal: KI Mentor V1 is useful, bounded, safe, and observable for the public release.
+Decision 2026-11-27 (founders, may change): build the mentor until it is release-ready, but activate it only once Grow has cashflow. It is no longer a hard requirement for the first public release. `MENTOR_ENABLED` and `EXPO_PUBLIC_MENTOR_API_ENABLED` stay off, no provider account is connected, and mentor migrations are not applied in production until then.
+
+Goal: KI Mentor V1 is useful, bounded, safe, and observable, and can be activated quickly once funded.
 
 Scope:
 
