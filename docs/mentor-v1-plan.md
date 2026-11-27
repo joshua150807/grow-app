@@ -1,7 +1,7 @@
 # KI Mentor – Konzept & Plan
 
 Stand: 27.11.2026
-Status: Planung (noch kein Code). Nicht verbindlich, bis Joshua die offenen Entscheidungen bestätigt.
+Status: Planung (noch kein Code). Kernentscheidungen am 27.11.2026 von Joshua bestätigt (siehe Abschnitt 9).
 
 Bezug: `docs/grow_appstore_release_plan.md` (Abschnitt 7), `docs/roadmap/app-store-release-plan.md` (Product Slice 7).
 
@@ -90,18 +90,20 @@ Alle Tabellen bekommen RLS, FK auf `auth.users` mit `on delete cascade` und Chec
 
 Annahme: 1 Entwickler mit KI-Unterstützung, Vollzeit-nah. Die Werte sind grob, Risiko eher nach oben.
 
-### Stufe 1 – Mentor V1 (Release-Muss), ca. 6–9 Wochen
-- Chat + gespeicherter Verlauf, Lade-/Fehler-/Quota-States
+### Stufe 1 – Mentor V1 (Release-Muss), ca. 10–14 Wochen
+- Mehrere Chats (Chatliste, automatische Titel, umbenennen/löschen); Memory gilt chatübergreifend pro User
 - Persona + Themenbegrenzung + Safety
 - Langzeit-Memory mit Ansicht „Was der Mentor über mich weiß“
-- Lese-Zugriff auf Ziele, Habits, Todos, Training (Zusammenfassungen + Abfragen)
-- Schreib-Aktionen mit Bestätigung für **Habit, Todo, Trainingseinheit** (inkl. der dafür nötigen Backend-Endpunkte)
+- Generisches Aktions-Framework (Vorschlag → Bestätigungskarte → Backend-Ausführung → Protokoll)
+- Lese- **und** Schreibzugriff (mit Bestätigung, ohne Löschen) auf **alle Tools**, in Wellen:
+  - Welle A: Habits, Todos, Training
+  - Welle B: Ziele, Daily Planner, Deep Work
+  - Welle C: Journal, Notizen, Affirmationen, Leitfragen
 - Rate Limits, Tageskontingent, Kostendeckel
-- Einwilligung/Opt-in, Datenschutztexte
+- Einwilligung/Opt-in (Journal/Notizen als eigener Datenzugriffs-Schalter), Datenschutztexte
 - Tests (Ownership, Validation, Quota, Aktionen) + interne Beta
 
 ### Stufe 2 – Nach Release, ca. 4–6 Wochen
-- Weitere Tools lesen/schreiben (Journal, Planner, Goals bearbeiten, Deep Work, Leitfragen)
 - Fortschrittsanalyse: wöchentliche Auswertung der echten Daten
 - Persona-Wahl (fordernd / unterstützend / analytisch)
 - Feedback 👍/👎 + Auswertung, Admin-Diagnose
@@ -127,19 +129,28 @@ Die 10 Phasen aus dem ChatGPT-Entwurf sind sinnvoll, aber für den Stand des Rep
 |---|---|---|
 | M1 | Datenmodell + Migration + RLS (Conversations, Messages, Usage, Settings) | 1 |
 | M2 | Mentor-Modul + Provider-Schicht (Mock) + Prompt-Versionierung + Safety | 1 |
-| M3 | Chat-API (`/v1/mentor/...`) + Limits + Tests | 1 |
+| M3 | Chat-API (`/v1/mentor/...`, mehrere Chats) + Limits + Tests | 1 |
 | M4 | Provider-Entscheidung + echte Anbindung + Kostenrechnung | 1 |
-| M5 | Mobile Chat-UI + Opt-in/Einwilligung | 1 |
+| M5 | Mobile Chat-UI (Chatliste + Chat) + Opt-in/Einwilligung | 1 |
 | M6 | Langzeit-Memory (Extraktion, Speicherung, Ansicht/Löschen) | 1 |
-| M7 | Lese-Tools (Ziele, Habits, Todos, Training) | 1 |
-| M8 | Backend-Schreibendpunkte + Aktionen mit Bestätigung (Habit, Todo, Training) | 1 |
-| M9+ | Stufe 2/3 | 2–3 |
+| M7 | Aktions-Framework (`mentor_actions`, Bestätigungskarte, Ausführung, Protokoll) | 1 |
+| M8 | Welle A: Backend-Lese/Schreib-Endpunkte + Mentor-Tools für Habits, Todos, Training | 1 |
+| M9 | Welle B: Ziele, Daily Planner, Deep Work | 1 |
+| M10 | Welle C: Journal, Notizen, Affirmationen, Leitfragen | 1 |
+| M11+ | Stufe 2/3 | 2–3 |
 
-## 9. Offene Entscheidungen
+Hinweis: Die neuen Backend-Endpunkte werden additiv gebaut. Die App schreibt vorerst weiter direkt (keine unnötigen Mobile-Umbauten, alte EAS-Builds bleiben funktionsfähig). Später kann die App schrittweise auf dieselben Endpunkte umgestellt werden.
 
-- Bestätigung jeder Schreibaktion in V1 → empfohlen: **ja**
-- Welche 3 Tools zuerst beschreibbar → Vorschlag: Habits, Todos, Training
-- Persona in V1 fix oder wählbar → Vorschlag: fix, Wahl in Stufe 2
-- Ein Chat oder mehrere → Vorschlag: ein fortlaufender Coach-Chat (das Memory trägt den Kontext)
-- Tageslimit
-- KI-Anbieter (spätestens vor M4)
+## 9. Entscheidungen
+
+| Thema | Entscheidung |
+|---|---|
+| KI-Anbieter | Offen, Mock zuerst; Entscheidung vor M4 |
+| Chat-History | Wird gespeichert |
+| Streaming | Nicht in V1 |
+| Schreibaktionen | Immer mit Bestätigung in V1, kein Löschen |
+| Schreibbare Tools | **Alle Tools in V1**, Start mit Habits/Todos/Training |
+| Chats | **Mehrere Chats**, Memory chatübergreifend |
+| Zeitrahmen | Qualität vor Tempo, ca. 10–14 Wochen akzeptiert |
+| Tageslimit | Offen (Env-konfigurierbar) |
+| Persona | Vorschlag: fix in V1, Wahl in Stufe 2 – offen |
