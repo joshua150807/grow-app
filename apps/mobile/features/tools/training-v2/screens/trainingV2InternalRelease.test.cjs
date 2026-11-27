@@ -39,14 +39,10 @@ test('new internal profile preserves beta, app identity and isolates both OTA ch
   assert.equal(profile.channel, 'training-v2-internal');
   assert.equal(app.ios.bundleIdentifier, 'app.joingrow.grow');
   assert.equal(app.extra.eas.projectId, '8c1e8833-6b65-4b94-9720-956f8564da1d');
-  const configure = require('../../../../app.config.js');
-  const previous = process.env.EAS_BUILD_PROFILE;
-  try {
-    process.env.EAS_BUILD_PROFILE = 'beta';
-    assert.deepEqual(configure({ config: app }), app);
-    process.env.EAS_BUILD_PROFILE = 'training-v2-internal';
-    const internal = configure({ config: app });
-    assert.equal(internal.runtimeVersion, 'training-v2-internal-1.0.8');
-    assert.equal(internal.ios.bundleIdentifier, app.ios.bundleIdentifier);
-  } finally { if (previous === undefined) delete process.env.EAS_BUILD_PROFILE; else process.env.EAS_BUILD_PROFILE = previous; }
+  // Runtime follows the app version (policy appVersion): the internal build ships
+  // a newer version than Build 42 (1.0.8), so OTA runtimes never overlap. No
+  // dynamic app.config.js: it made local and EAS runtime calculation diverge.
+  assert.deepEqual(app.runtimeVersion, { policy: 'appVersion' });
+  assert.notEqual(app.version, '1.0.8');
+  assert.equal(fs.existsSync(path.resolve(__dirname, '../../../../app.config.js')), false);
 });

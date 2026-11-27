@@ -109,7 +109,9 @@ Do not create test accounts or write into another user's data. Production accoun
 `training-v2-internal` extends the existing store beta profile and production EAS environment.
 It keeps EAS `@dev_grow/Grow`, project `8c1e8833-6b65-4b94-9720-956f8564da1d`, bundle
 `app.joingrow.grow` and auto-increment. It enables V2, uses channel `training-v2-internal` and
-runtime `training-v2-internal-1.0.8`. All other profiles retain their original runtime and channel.
+app version `1.0.9`, so its runtime (policy `appVersion`) is `1.0.9`. Build 42 keeps version and
+runtime `1.0.8` on channel `beta`. A dynamic `app.config.js` was removed because EAS calculated a
+different runtime locally and on the build server.
 The existing beta channel has not been updated, remapped or published to.
 
 The production EAS environment currently points to the old API, whose V2 routes are not ready.
