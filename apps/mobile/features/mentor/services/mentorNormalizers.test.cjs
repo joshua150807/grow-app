@@ -87,3 +87,28 @@ test('error messages are German and cover limit reset time', () => {
   assert.match(n.getMentorErrorMessage('MENTOR_PROVIDER_TIMEOUT'), /zu lange/);
   assert.match(n.getMentorErrorMessage('SOMETHING_NEW'), /schiefgelaufen/);
 });
+
+test('memories normalize category, status and drop empty entries', () => {
+  const list = n.normalizeMentorMemoryList({
+    memories: [
+      { id: '1', category: 'health', content: ' Knie ', status: 'resolved' },
+      { id: '2', category: 'hacker', content: 'x', status: 'weird' },
+      { id: '3', category: 'goals', content: '   ' },
+      null,
+    ],
+  });
+  assert.deepEqual(list.map((m) => [m.id, m.category, m.content, m.status]), [
+    ['1', 'health', 'Knie', 'resolved'],
+    ['2', 'other', 'x', 'active'],
+  ]);
+});
+
+test('memories group by category in fixed order with active first', () => {
+  const groups = n.groupMentorMemories([
+    { id: 'a', category: 'other', status: 'active' },
+    { id: 'b', category: 'goals', status: 'resolved' },
+    { id: 'c', category: 'goals', status: 'active' },
+  ]);
+  assert.deepEqual(groups.map((g) => g.title), ['Ziele', 'Sonstiges']);
+  assert.deepEqual(groups[0].data.map((m) => m.id), ['c', 'b']);
+});

@@ -267,7 +267,21 @@ function MentorHome() {
 
   return (
     <ScreenContainer style={styles.screen}>
-      <MentorHeader backLabel="Tools" onBack={handleBack} />
+      <MentorHeader
+        backLabel="Tools"
+        onBack={handleBack}
+        right={status === 'ready' ? (
+          <Pressable
+            onPress={() => router.push('/tools/mentor-memory')}
+            hitSlop={10}
+            style={styles.iconButton}
+            accessibilityRole="button"
+            accessibilityLabel="Was der Mentor über mich weiß"
+          >
+            <Ionicons name="bulb-outline" size={s(22)} color={COLORS.softGold} />
+          </Pressable>
+        ) : null}
+      />
       {renderBody()}
       <MentorRenameModal
         visible={Boolean(renameTarget)}

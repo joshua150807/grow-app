@@ -3,6 +3,8 @@ import {
   getMentorErrorMessage,
   normalizeMentorConversation,
   normalizeMentorConversationList,
+  normalizeMentorMemory,
+  normalizeMentorMemoryList,
   normalizeMentorMessagePage,
   normalizeMentorSendResult,
   normalizeMentorSettings,
@@ -119,4 +121,39 @@ export function deleteMentorConversation(conversationId) {
     { method: 'DELETE' },
     () => null,
   );
+}
+
+export function updateMentorSettings({ memoryEnabled }) {
+  return requestMentor(
+    '/v1/mentor/settings',
+    jsonRequest('PATCH', { memory_enabled: memoryEnabled }),
+    normalizeMentorSettings,
+  );
+}
+
+export function listMentorMemories() {
+  return requestMentor('/v1/mentor/memories', { method: 'GET' }, normalizeMentorMemoryList);
+}
+
+export function updateMentorMemory(memoryId, { content, status } = {}) {
+  const body = {};
+  if (content !== undefined) body.content = content;
+  if (status !== undefined) body.status = status;
+  return requestMentor(
+    `/v1/mentor/memories/${encodeURIComponent(memoryId)}`,
+    jsonRequest('PATCH', body),
+    (payload) => normalizeMentorMemory(payload?.memory),
+  );
+}
+
+export function deleteMentorMemory(memoryId) {
+  return requestMentor(
+    `/v1/mentor/memories/${encodeURIComponent(memoryId)}`,
+    { method: 'DELETE' },
+    () => null,
+  );
+}
+
+export function deleteAllMentorMemories() {
+  return requestMentor('/v1/mentor/memories', { method: 'DELETE' }, () => null);
 }

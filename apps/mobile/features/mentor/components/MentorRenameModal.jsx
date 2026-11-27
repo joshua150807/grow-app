@@ -7,7 +7,17 @@ import { mentorStyles as styles } from '../styles/mentorStyles';
 
 const TITLE_MAX_LENGTH = 80;
 
-export default function MentorRenameModal({ visible, initialTitle, saving, onCancel, onSave }) {
+export default function MentorRenameModal({
+  visible,
+  initialTitle,
+  saving,
+  onCancel,
+  onSave,
+  heading = 'Chat umbenennen',
+  placeholder = 'Titel',
+  maxLength = TITLE_MAX_LENGTH,
+  multiline = false,
+}) {
   const [title, setTitle] = useState(initialTitle ?? '');
 
   useEffect(() => {
@@ -23,17 +33,19 @@ export default function MentorRenameModal({ visible, initialTitle, saving, onCan
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>Chat umbenennen</Text>
+          <Text style={styles.modalTitle}>{heading}</Text>
           <TextInput
             style={styles.modalInput}
             value={title}
             onChangeText={setTitle}
-            maxLength={TITLE_MAX_LENGTH}
+            maxLength={maxLength}
             autoFocus
+            multiline={multiline}
             selectionColor={COLORS.gold}
-            placeholder="Titel"
+            placeholder={placeholder}
             placeholderTextColor={COLORS.textFaint}
             returnKeyType="done"
+            blurOnSubmit
             onSubmitEditing={() => trimmed && onSave(trimmed)}
           />
           <View style={styles.modalActions}>

@@ -341,6 +341,92 @@ export const mentorStyles = StyleSheet.create({
     marginTop: sv(6),
   },
 
+  // Memory screen
+  memoryIntro: {
+    color: COLORS.textMuted,
+    fontSize: sf(14),
+    lineHeight: sf(20),
+    marginBottom: sv(14),
+  },
+  memoryToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: s(16),
+    borderWidth: 1,
+    borderColor: COLORS.toolsCardBorder,
+    backgroundColor: COLORS.toolsCard,
+    paddingHorizontal: s(14),
+    paddingVertical: sv(12),
+    marginBottom: sv(18),
+  },
+  memoryToggleTextWrap: {
+    flex: 1,
+    marginRight: s(12),
+  },
+  memoryToggleTitle: {
+    color: COLORS.toolsText,
+    fontSize: sf(15),
+    fontWeight: '600',
+  },
+  memoryToggleHint: {
+    color: COLORS.toolsTextDim,
+    fontSize: sf(12),
+    marginTop: sv(2),
+  },
+  memorySectionHeader: {
+    color: COLORS.textDim,
+    fontSize: sf(12),
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginTop: sv(10),
+    marginBottom: sv(8),
+  },
+  memoryRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderRadius: s(14),
+    borderWidth: 1,
+    borderColor: COLORS.toolsCardBorder,
+    backgroundColor: COLORS.toolsCard,
+    paddingVertical: sv(12),
+    paddingHorizontal: s(14),
+    marginBottom: sv(8),
+  },
+  memoryRowResolved: {
+    opacity: 0.6,
+  },
+  memoryTextWrap: {
+    flex: 1,
+    marginRight: s(8),
+  },
+  memoryText: {
+    color: COLORS.toolsText,
+    fontSize: sf(14),
+    lineHeight: sf(20),
+  },
+  memoryBadge: {
+    alignSelf: 'flex-start',
+    color: COLORS.toolsTextMuted,
+    fontSize: sf(11),
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginTop: sv(4),
+  },
+  deleteAllButton: {
+    alignSelf: 'center',
+    paddingVertical: sv(10),
+    paddingHorizontal: s(16),
+    marginTop: sv(12),
+  },
+  deleteAllText: {
+    color: COLORS.errorLight,
+    fontSize: sf(14),
+    fontWeight: '600',
+  },
+
   // Rename modal
   modalBackdrop: {
     flex: 1,

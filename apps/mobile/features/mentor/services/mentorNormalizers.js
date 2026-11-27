@@ -56,6 +56,53 @@ export function normalizeMentorMessage(payload) {
   };
 }
 
+export const MENTOR_MEMORY_CATEGORY_LABELS = {
+  goals: 'Ziele',
+  health: 'Gesundheit',
+  training: 'Training',
+  habits: 'Gewohnheiten',
+  business: 'Business & Karriere',
+  learning: 'Lernen',
+  preferences: 'Vorlieben',
+  personal: 'Persönliches',
+  challenges: 'Herausforderungen',
+  other: 'Sonstiges',
+};
+
+export function normalizeMentorMemory(payload) {
+  if (!payload || typeof payload !== 'object' || !payload.id) return null;
+  const content = toText(payload.content).trim();
+  if (!content) return null;
+  const category = Object.prototype.hasOwnProperty.call(MENTOR_MEMORY_CATEGORY_LABELS, payload.category)
+    ? payload.category
+    : 'other';
+  return {
+    id: payload.id,
+    category,
+    content,
+    status: payload.status === 'resolved' ? 'resolved' : 'active',
+    updatedAt: payload.updated_at ?? null,
+  };
+}
+
+export function normalizeMentorMemoryList(payload) {
+  const memories = Array.isArray(payload?.memories) ? payload.memories : [];
+  return memories.map(normalizeMentorMemory).filter(Boolean);
+}
+
+/** Groups memories by category in a fixed order; active before resolved. */
+export function groupMentorMemories(memories) {
+  return Object.keys(MENTOR_MEMORY_CATEGORY_LABELS)
+    .map((category) => ({
+      category,
+      title: MENTOR_MEMORY_CATEGORY_LABELS[category],
+      data: memories
+        .filter((memory) => memory.category === category)
+        .sort((a, b) => (a.status === b.status ? 0 : a.status === 'active' ? -1 : 1)),
+    }))
+    .filter((section) => section.data.length > 0);
+}
+
 export function normalizeMentorConversationList(payload) {
   const conversations = Array.isArray(payload?.conversations) ? payload.conversations : [];
   return {
@@ -120,6 +167,8 @@ export function getMentorErrorMessage(code, { resetsAt = null } = {}) {
       return 'Der Mentor ist gerade nicht erreichbar. Versuch es später noch einmal.';
     case 'MENTOR_CONVERSATION_NOT_FOUND':
       return 'Dieser Chat existiert nicht mehr.';
+    case 'MENTOR_MEMORY_NOT_FOUND':
+      return 'Dieser Eintrag existiert nicht mehr.';
     case 'MENTOR_CONSENT_REQUIRED':
       return 'Bitte stimme zuerst den Hinweisen zum KI Mentor zu.';
     case 'VALIDATION_ERROR':

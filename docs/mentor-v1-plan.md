@@ -132,7 +132,7 @@ Die 10 Phasen aus dem ChatGPT-Entwurf sind sinnvoll, aber für den Stand des Rep
 | M3 ✅ | Chat-API (`/v1/mentor/...`, mehrere Chats) + Limits + Tests | 1 |
 | M4 ✅ | Provider-Entscheidung + echte Anbindung + Kostenrechnung | 1 |
 | M5 ✅ | Mobile Chat-UI (Chatliste + Chat) + Opt-in/Einwilligung | 1 |
-| M6 | Langzeit-Memory (Extraktion, Speicherung, Ansicht/Löschen) | 1 |
+| M6 ✅ | Langzeit-Memory (Extraktion, Speicherung, Ansicht/Löschen) | 1 |
 | M7 | Aktions-Framework (`mentor_actions`, Bestätigungskarte, Ausführung, Protokoll) | 1 |
 | M8 | Welle A: Backend-Lese/Schreib-Endpunkte + Mentor-Tools für Habits, Todos, Training | 1 |
 | M9 | Welle B: Ziele, Daily Planner, Deep Work | 1 |
@@ -234,3 +234,15 @@ Lokal testen: Backend mit `MENTOR_ENABLED=true` + `DATABASE_URL` (Migration ange
 - **Nicht** gegen die echte API getestet (kein Konto/Guthaben). Erster echter Test = erster Eval-Lauf nach Freigabe.
 
 Scharf schalten (später): Anthropic-Konto + AVV → Key als Server-Secret im Backend hinterlegen → Eval-Lauf auf Staging bewerten → `MENTOR_PROVIDER=anthropic` + `MENTOR_ENABLED=true` auf Staging → danach Production.
+
+### M6 – erledigt
+
+- Migration `supabase/migrations/20261127130000_mentor_memories.sql`: `mentor_memories` (Kategorie, Inhalt ≤ 300 Zeichen, Status `active`/`resolved`, Quelle), RLS ohne Client-Zugriff, Cascade bei Account-Löschung. Additiv, nicht angewendet.
+- Extraktion nach jeder Antwort im Hintergrund (verzögert die Antwort nicht): Claude Haiku 5.5 mit strukturierter JSON-Ausgabe; im Mock-Modus nur Nachrichten, die mit „Merke dir:“ beginnen. Ausgabe wird einzeln geprüft (fremde IDs, ungültige Kategorien, zu lang → verworfen), max. 3 Änderungen pro Nachricht, max. 100 aktive Einträge (`MENTOR_MEMORY_MAX_ACTIVE`). Fehler brechen den Chat nie.
+- Keine Speicherung aus Krisen-Nachrichten; keine Passwörter, Bank-/Adressdaten oder Daten über Dritte (Extraktions-Prompt).
+- „Vergangen“-Einträge bleiben erhalten (z. B. verheilte Verletzung), damit der Mentor später Zusammenhänge erkennt.
+- Prompt `mentor-v1.2`: bis zu 80 Einträge als Daten (nicht Anweisungen) im System-Prompt; Anweisung, Zusammenhänge aktiv herzustellen.
+- API: `PATCH /v1/mentor/settings` (Gedächtnis an/aus), `GET/PATCH/DELETE /v1/mentor/memories[/:id]`.
+- App: Screen „Was der Mentor weiß“ (Glühbirne oben rechts in der Chatliste): nach Kategorie gruppiert, Bearbeiten, als vergangen/aktuell markieren, Löschen, „Alles vergessen“, Schalter Gedächtnis an/aus.
+- Tests: Backend-Unit (Extraktion, Bereinigung, Prompt, Routen, Ownership, Limit, Krise, Fehler), Postgres-Integration (Ownership, Constraints, Rechte, Cascade, Quelle `set null`), App-Normalizer, iOS-Bundle, Ende-zu-Ende lokal.
+- **Noch offen:** Qualität der echten Extraktion (erst mit Anthropic-Key prüfbar) und Darstellung auf echten Geräten.
