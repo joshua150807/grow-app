@@ -21,11 +21,14 @@ import MentorComposer from '../components/MentorComposer';
 import MentorHeader from '../components/MentorHeader';
 import MentorMessageBubble from '../components/MentorMessageBubble';
 import {
+  confirmMentorAction,
   isMentorApiEnabled,
   listMentorMessages,
   MentorApiError,
+  rejectMentorAction,
   sendMentorMessage,
 } from '../services/mentorApi';
+import { normalizeMentorAction, replaceMentorAction } from '../services/mentorNormalizers';
 import { mentorStyles as styles } from '../styles/mentorStyles';
 
 const STARTER_PROMPTS = [
@@ -73,6 +76,7 @@ export default function MentorChatScreen() {
   const [banner, setBanner] = useState(null); // { text, action? }
   const [blocked, setBlocked] = useState(false);
   const [usage, setUsage] = useState(null);
+  const [actionState, setActionState] = useState({}); // { [actionId]: { pending, error } }
   const mountedRef = useRef(true);
   const keyboardVisible = useKeyboardVisible();
 
@@ -174,6 +178,30 @@ export default function MentorChatScreen() {
     }
   }, [blocked, conversationId, handleBack, router, sending]);
 
+  const decideAction = useCallback(async (action, decision) => {
+    setActionState((current) => ({ ...current, [action.id]: { pending: true, error: null } }));
+    try {
+      const updated = decision === 'confirm'
+        ? await confirmMentorAction(action.id)
+        : await rejectMentorAction(action.id);
+      if (!mountedRef.current) return;
+      setMessages((current) => replaceMentorAction(current, updated));
+      setActionState((current) => ({ ...current, [action.id]: { pending: false, error: null } }));
+    } catch (error) {
+      if (!mountedRef.current) return;
+      // 409 responses carry the current state of the action.
+      const latest = normalizeMentorAction(error?.details?.action);
+      if (latest) setMessages((current) => replaceMentorAction(current, latest));
+      setActionState((current) => ({
+        ...current,
+        [action.id]: { pending: false, error: latest ? null : userMessageFor(error) },
+      }));
+    }
+  }, []);
+
+  const handleConfirmAction = useCallback((action) => decideAction(action, 'confirm'), [decideAction]);
+  const handleRejectAction = useCallback((action) => decideAction(action, 'reject'), [decideAction]);
+
   // Inverted list: newest message first.
   const listData = useMemo(() => [...messages].reverse(), [messages]);
   const showStarters = !initialConversationId && messages.length === 0 && !sending;
@@ -218,7 +246,15 @@ export default function MentorChatScreen() {
         data={listData}
         inverted
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <MentorMessageBubble message={item} />}
+        renderItem={({ item }) => (
+          <MentorMessageBubble
+            message={item}
+            actionState={actionState}
+            onConfirmAction={handleConfirmAction}
+            onRejectAction={handleRejectAction}
+          />
+        )}
+        extraData={actionState}
         contentContainerStyle={styles.messagesContent}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}

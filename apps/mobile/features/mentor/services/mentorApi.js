@@ -2,6 +2,7 @@ import { ProfileApiError, requestProfileV1 } from '../../profile/services/profil
 import {
   getMentorErrorMessage,
   normalizeMentorConversation,
+  normalizeMentorAction,
   normalizeMentorConversationList,
   normalizeMentorMemory,
   normalizeMentorMemoryList,
@@ -156,4 +157,20 @@ export function deleteMentorMemory(memoryId) {
 
 export function deleteAllMentorMemories() {
   return requestMentor('/v1/mentor/memories', { method: 'DELETE' }, () => null);
+}
+
+export function confirmMentorAction(actionId) {
+  return requestMentor(
+    `/v1/mentor/actions/${encodeURIComponent(actionId)}/confirm`,
+    { method: 'POST' },
+    (payload) => normalizeMentorAction(payload?.action),
+  );
+}
+
+export function rejectMentorAction(actionId) {
+  return requestMentor(
+    `/v1/mentor/actions/${encodeURIComponent(actionId)}/reject`,
+    { method: 'POST' },
+    (payload) => normalizeMentorAction(payload?.action),
+  );
 }

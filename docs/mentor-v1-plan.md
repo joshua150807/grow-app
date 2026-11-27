@@ -135,7 +135,7 @@ Die 10 Phasen aus dem ChatGPT-Entwurf sind sinnvoll, aber für den Stand des Rep
 | M4 ✅ | Provider-Entscheidung + echte Anbindung + Kostenrechnung | 1 |
 | M5 ✅ | Mobile Chat-UI (Chatliste + Chat) + Opt-in/Einwilligung | 1 |
 | M6 ✅ | Langzeit-Memory (Extraktion, Speicherung, Ansicht/Löschen) | 1 |
-| M7 | Aktions-Framework (`mentor_actions`, Bestätigungskarte, Ausführung, Protokoll) | 1 |
+| M7 ✅ | Aktions-Framework (`mentor_actions`, Bestätigungskarte, Ausführung, Protokoll) | 1 |
 | M8 | Welle A: Backend-Lese/Schreib-Endpunkte + Mentor-Tools für Habits, Todos, Training | 1 |
 | M9 | Welle B: Ziele, Daily Planner, Deep Work | 1 |
 | M10 | Welle C: Journal, Notizen, Affirmationen, Leitfragen | 1 |
@@ -249,3 +249,14 @@ Scharf schalten (später): Anthropic-Konto + AVV → Key als Server-Secret im Ba
 - App: Screen „Was der Mentor weiß“ (Glühbirne oben rechts in der Chatliste): nach Kategorie gruppiert, Bearbeiten, als vergangen/aktuell markieren, Löschen, „Alles vergessen“, Schalter Gedächtnis an/aus.
 - Tests: Backend-Unit (Extraktion, Bereinigung, Prompt, Routen, Ownership, Limit, Krise, Fehler), Postgres-Integration (Ownership, Constraints, Rechte, Cascade, Quelle `set null`), App-Normalizer, iOS-Bundle, Ende-zu-Ende lokal.
 - **Noch offen:** Qualität der echten Extraktion (erst mit Anthropic-Key prüfbar) und Darstellung auf echten Geräten.
+
+### M7 – erledigt
+
+- Migration `supabase/migrations/20261127140000_mentor_actions.sql`: `mentor_actions` als Vorschlags- und Protokoll-Tabelle (Status `proposed` → `executing` → `executed`/`failed`, oder `rejected`/`expired`), RLS ohne Client-Zugriff, Cascade bei Account-Löschung, Protokoll bleibt beim Löschen eines Chats erhalten. Additiv, nicht angewendet.
+- Registry (`modules/mentor/actions/mentorActionRegistry.ts`): jedes Tool meldet `read`- oder `write`-Aktionen mit Zod-Schema, JSON-Schema für die KI, deutschem Kartentext und `execute(userId, input)` an. **In Production noch leer** – M8–M10 docken hier an.
+- KI ruft Aktionen als Tools auf (Tool-Schleife im Provider, max. 3 Runden; Denk-Blöcke werden unverändert zurückgegeben). `read` läuft sofort für den eingeloggten User, `write` wird **nur** als Vorschlag gespeichert (max. 3 pro Antwort). Ungültige oder unbekannte Aufrufe werden verworfen.
+- Bestätigen/Ablehnen: `POST /v1/mentor/actions/:id/confirm|reject`. Ausführung genau einmal (auch bei gleichzeitigem Tippen), Eingabe wird vor Ausführung erneut geprüft, Vorschläge laufen nach 7 Tagen ab, Fehler werden als `failed` mit Code protokolliert.
+- Der Mentor sieht im Verlauf, was aus seinen Vorschlägen wurde (Prompt `mentor-v1.3`: nie behaupten, etwas sei erledigt).
+- App: Vorschlagskarte unter der Mentor-Nachricht mit „Bestätigen“/„Ablehnen“ und Status (Erledigt, Abgelehnt, Hat nicht geklappt, Abgelaufen).
+- Testmodus: `/aktion <tool_name> <json>` löst lokal einen Tool-Aufruf aus.
+- Tests: Unit (Registry, Tool-Schleife, Vorschläge, Limits, Ownership, Doppel-Bestätigung, Ablauf, Fehler), Postgres (gleichzeitiges Bestätigen, Ownership, Ablauf, Constraints, Rechte, Cascade), App-Normalizer, iOS-Bundle, Ende-zu-Ende mit Demo-Aktion.

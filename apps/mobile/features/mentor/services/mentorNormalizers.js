@@ -44,6 +44,21 @@ export function normalizeMentorConversation(payload) {
   };
 }
 
+const ACTION_STATUSES = ['proposed', 'executing', 'executed', 'rejected', 'failed', 'expired'];
+
+export function normalizeMentorAction(payload) {
+  if (!payload || typeof payload !== 'object' || !payload.id) return null;
+  const summary = toText(payload.summary).trim();
+  if (!summary) return null;
+  return {
+    id: payload.id,
+    type: toText(payload.type),
+    summary,
+    status: ACTION_STATUSES.includes(payload.status) ? payload.status : 'failed',
+    errorCode: payload.error_code ?? null,
+  };
+}
+
 export function normalizeMentorMessage(payload) {
   if (!payload || typeof payload !== 'object' || !payload.id) return null;
   if (payload.role !== 'user' && payload.role !== 'assistant') return null;
@@ -53,7 +68,18 @@ export function normalizeMentorMessage(payload) {
     role: payload.role,
     content: toText(payload.content),
     createdAt: payload.created_at ?? null,
+    actions: Array.isArray(payload.actions) ? payload.actions.map(normalizeMentorAction).filter(Boolean) : [],
   };
+}
+
+/** Replaces one action inside a message list (immutable). */
+export function replaceMentorAction(messages, updatedAction) {
+  if (!updatedAction) return messages;
+  return messages.map((message) => (
+    Array.isArray(message.actions) && message.actions.some((action) => action.id === updatedAction.id)
+      ? { ...message, actions: message.actions.map((action) => (action.id === updatedAction.id ? updatedAction : action)) }
+      : message
+  ));
 }
 
 export const MENTOR_MEMORY_CATEGORY_LABELS = {
@@ -167,6 +193,12 @@ export function getMentorErrorMessage(code, { resetsAt = null } = {}) {
       return 'Der Mentor ist gerade nicht erreichbar. Versuch es später noch einmal.';
     case 'MENTOR_CONVERSATION_NOT_FOUND':
       return 'Dieser Chat existiert nicht mehr.';
+    case 'MENTOR_ACTION_NOT_FOUND':
+      return 'Diesen Vorschlag gibt es nicht mehr.';
+    case 'MENTOR_ACTION_ALREADY_DECIDED':
+      return 'Über diesen Vorschlag wurde schon entschieden.';
+    case 'MENTOR_ACTION_EXPIRED':
+      return 'Dieser Vorschlag ist abgelaufen. Bitte deinen Mentor um einen neuen.';
     case 'MENTOR_MEMORY_NOT_FOUND':
       return 'Dieser Eintrag existiert nicht mehr.';
     case 'MENTOR_CONSENT_REQUIRED':

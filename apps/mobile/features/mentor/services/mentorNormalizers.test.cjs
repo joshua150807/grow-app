@@ -112,3 +112,27 @@ test('memories group by category in fixed order with active first', () => {
   assert.deepEqual(groups.map((g) => g.title), ['Ziele', 'Sonstiges']);
   assert.deepEqual(groups[0].data.map((m) => m.id), ['c', 'b']);
 });
+
+test('messages carry valid actions only', () => {
+  const message = n.normalizeMentorMessage({
+    id: 'm', role: 'assistant', content: 'x',
+    actions: [
+      { id: 'a1', type: 'habit.create', summary: 'Gewohnheit anlegen', status: 'proposed' },
+      { id: 'a2', summary: '  ', status: 'proposed' },
+      { id: 'a3', summary: 'Komisch', status: 'hacked' },
+    ],
+  });
+  assert.deepEqual(message.actions.map((a) => [a.id, a.status]), [['a1', 'proposed'], ['a3', 'failed']]);
+  assert.deepEqual(n.normalizeMentorMessage({ id: 'u', role: 'user', content: 'y' }).actions, []);
+});
+
+test('replaceMentorAction updates only the matching action', () => {
+  const messages = [
+    { id: 'm1', actions: [{ id: 'a1', status: 'proposed' }] },
+    { id: 'm2', actions: [] },
+  ];
+  const next = n.replaceMentorAction(messages, { id: 'a1', status: 'executed' });
+  assert.equal(next[0].actions[0].status, 'executed');
+  assert.equal(next[1], messages[1]);
+  assert.equal(messages[0].actions[0].status, 'proposed');
+});
