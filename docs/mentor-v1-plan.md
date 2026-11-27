@@ -1,7 +1,9 @@
 # KI Mentor – Konzept & Plan
 
 Stand: 27.11.2026
-Status: Planung (noch kein Code). Kernentscheidungen am 27.11.2026 von Joshua bestätigt (siehe Abschnitt 9).
+Status: In Umsetzung. Kernentscheidungen am 27.11.2026 von Joshua bestätigt (siehe Abschnitt 9).
+
+> **Entscheidung Gründerteam (27.11.2026):** Der KI Mentor wird fertig gebaut, bis er theoretisch live gehen kann, aber **erst aktiviert, wenn Grow Cashflow hat**. Er ist damit kein Muss für den ersten öffentlichen Release mehr. Bis dahin bleiben `MENTOR_ENABLED` (Backend) und `EXPO_PUBLIC_MENTOR_API_ENABLED` (App) aus, es ist kein Anthropic-Konto hinterlegt und die Migrationen werden nicht in Production angewendet.
 
 Bezug: `docs/grow_appstore_release_plan.md` (Abschnitt 7), `docs/roadmap/app-store-release-plan.md` (Product Slice 7).
 
@@ -152,6 +154,7 @@ Hinweis: Die neuen Backend-Endpunkte werden additiv gebaut. Die App schreibt vor
 | Schreibbare Tools | **Alle Tools in V1**, Start mit Habits/Todos/Training |
 | Chats | **Mehrere Chats**, Memory chatübergreifend |
 | Zeitrahmen | Qualität vor Tempo, ca. 10–14 Wochen akzeptiert |
+| Aktivierung | Erst wenn Grow Cashflow hat; bis dahin fertig bauen, Schalter aus |
 | Tageslimit | Env-konfigurierbar, Startwert folgt |
 | Persona | Fix in V1 (motivierend, ehrlich, darf fordern), Wahl in Stufe 2 |
 
