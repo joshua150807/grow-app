@@ -139,7 +139,7 @@ Die 10 Phasen aus dem ChatGPT-Entwurf sind sinnvoll, aber für den Stand des Rep
 | M8 ✅ | Welle A: Mentor-Tools für Habits und Todos (Training zurückgestellt) | 1 |
 | M8b | Training (Lesen + Schreiben) – wartet auf Erklärung des Trainingsplans durch Joshua | 1 |
 | M9 ✅ | Welle B: Ziele, Daily Planner, Deep Work (nur lesen) | 1 |
-| M10 | Welle C: Journal, Notizen, Affirmationen, Leitfragen | 1 |
+| M10 ✅ | Welle C: Journal, Notizen, Affirmationen, Leitfragen | 1 |
 | M11+ | Stufe 2/3 | 2–3 |
 
 Hinweis: Die neuen Backend-Endpunkte werden additiv gebaut. Die App schreibt vorerst weiter direkt (keine unnötigen Mobile-Umbauten, alte EAS-Builds bleiben funktionsfähig). Später kann die App schrittweise auf dieselben Endpunkte umgestellt werden.
@@ -281,3 +281,26 @@ Scharf schalten (später): Anthropic-Konto + AVV → Key als Server-Secret im Ba
 - Weiterhin kein Löschen, alles an die User-ID gebunden, fremde IDs → „nicht gefunden“.
 - Annahmen (nicht als Migration im Repo, aus App-Code abgeleitet): `goals.deadline` ist Text; `daily_planner_events.start_time/end_time` im Format `HH:MM`; Planner-Farbe Standard `#D4AF37`. Beim ersten Staging-Test prüfen.
 - Tests: `tests/mentorTools.integration.test.ts` (Ziele, Planner inkl. ganztägig/mehrtägig/Verschieben, Deep-Work-Statistik pro lokalem Tag, keine Deep-Work-Schreibaktion).
+
+### M10 – erledigt (Journal, Notizen, Affirmationen, Leitfragen)
+
+- Journal: `journal.list` (letzte 14 Tage, max. 60), `journal_entry.create` (heute/gestern, nur wenn es für den Tag noch keinen Eintrag gibt, Worte des Users statt erfundener Gefühle). Kein Bearbeiten/Löschen bestehender Einträge.
+- Notizen: `notes.list`, `note.create`, `note.append` (hängt an, bestehender Text bleibt), `note.pin`. Kein Umschreiben/Löschen.
+- **Journal und Notizen nur mit Schalter** („Journal lesen“ / „Notizen lesen“, Standard aus): ohne Schalter bekommt die KI diese Tools gar nicht, Aufrufe werden blockiert, und offene Vorschläge schlagen beim Bestätigen mit `ACCESS_DISABLED` fehl, wenn der Schalter inzwischen aus ist.
+- Affirmationen: `affirmations.list`, `affirmation.create`, `affirmation.update` (Kategorien und 160-Zeichen-Limit wie in der App).
+- Leitfragen: `leitfragen.list` (alle 9 Fragen mit Antworten), `leitfrage.answer` (Kartentext warnt, wenn eine bestehende Antwort ersetzt wird).
+- Einstellungen: `PATCH /v1/mentor/settings` nimmt jetzt `memory_enabled`, `journal_access_enabled`, `notes_access_enabled`.
+- App: Screen „Was der Mentor weiß“ hat jetzt den Bereich „Datenzugriff“ mit beiden Schaltern; Einwilligungstext erklärt den Datenzugriff (liest Tools, ändert nur nach Bestätigung, Journal/Notizen nur mit Erlaubnis).
+- Tests: Unit (Schalter verstecken/blockieren Tools, Prüfung beim Bestätigen), Postgres-Integration für alle vier Tools, App-Tests, iOS-Bundle, Ende-zu-Ende lokal.
+
+## 11. Gesamtstand
+
+V1 ist bis auf **M8b (Training)** gebaut. Alles liegt hinter `MENTOR_ENABLED` / `EXPO_PUBLIC_MENTOR_API_ENABLED` (aus), kein Anthropic-Konto, keine Migration in Production.
+
+Offen vor einer Aktivierung:
+1. M8b Training (wartet auf Erklärung des Trainingsplans).
+2. Anthropic-Konto + AVV, Datenschutzerklärung um den KI Mentor ergänzen.
+3. Migrationen (`20261127120000`, `…130000`, `…140000`) auf Staging anwenden und die angenommenen Tabellenstrukturen (habits, todos, goals, daily_planner_events, journal_entries, notes, affirmations, leitfragen_answers) prüfen.
+4. Eval-Lauf (`npm run eval:mentor`) mit echtem Modell auf Staging bewerten, Prompt nachschärfen.
+5. Test auf echten Geräten (Chat, Tastatur, Karten, Gedächtnis-Screen).
+6. Interne Beta → kleine Gruppe → alle.

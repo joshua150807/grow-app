@@ -17,6 +17,10 @@ const POINTS = [
     text: 'Deine Nachrichten werden zur Beantwortung an einen KI-Anbieter übermittelt und in deinem Account gespeichert, damit der Mentor dich besser begleiten kann.',
   },
   {
+    icon: 'apps-outline',
+    text: 'Der Mentor kann deine Gewohnheiten, To-dos, Ziele, Termine, Affirmationen und Leitfragen lesen. Änderungen schlägt er nur vor, sie passieren erst, wenn du bestätigst. Journal und Notizen sieht er nur, wenn du es extra erlaubst.',
+  },
+  {
     icon: 'trash-outline',
     text: 'Du kannst einzelne Chats jederzeit löschen. Wenn du deinen Account löschst, werden alle Mentor-Daten mitgelöscht.',
   },

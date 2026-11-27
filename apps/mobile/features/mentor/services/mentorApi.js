@@ -124,12 +124,12 @@ export function deleteMentorConversation(conversationId) {
   );
 }
 
-export function updateMentorSettings({ memoryEnabled }) {
-  return requestMentor(
-    '/v1/mentor/settings',
-    jsonRequest('PATCH', { memory_enabled: memoryEnabled }),
-    normalizeMentorSettings,
-  );
+export function updateMentorSettings({ memoryEnabled, journalAccessEnabled, notesAccessEnabled } = {}) {
+  const body = {};
+  if (typeof memoryEnabled === 'boolean') body.memory_enabled = memoryEnabled;
+  if (typeof journalAccessEnabled === 'boolean') body.journal_access_enabled = journalAccessEnabled;
+  if (typeof notesAccessEnabled === 'boolean') body.notes_access_enabled = notesAccessEnabled;
+  return requestMentor('/v1/mentor/settings', jsonRequest('PATCH', body), normalizeMentorSettings);
 }
 
 export function listMentorMemories() {

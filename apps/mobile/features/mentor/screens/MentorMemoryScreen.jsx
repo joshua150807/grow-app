@@ -25,6 +25,40 @@ import { mentorStyles as styles } from '../styles/mentorStyles';
 
 const MEMORY_MAX_LENGTH = 300;
 
+const ACCESS_TOGGLES = [
+  {
+    key: 'journalAccessEnabled',
+    title: 'Journal lesen',
+    on: 'Der Mentor darf dein Journal lesen und Einträge vorschlagen.',
+    off: 'Aus: Der Mentor sieht dein Journal nicht.',
+  },
+  {
+    key: 'notesAccessEnabled',
+    title: 'Notizen lesen',
+    on: 'Der Mentor darf deine Notizen lesen und Notizen vorschlagen.',
+    off: 'Aus: Der Mentor sieht deine Notizen nicht.',
+  },
+];
+
+function MentorToggleRow({ title, hint, value, disabled, onChange }) {
+  return (
+    <View style={styles.memoryToggleRow}>
+      <View style={styles.memoryToggleTextWrap}>
+        <Text style={styles.memoryToggleTitle}>{title}</Text>
+        <Text style={styles.memoryToggleHint}>{hint}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        disabled={disabled}
+        trackColor={{ true: COLORS.mutedGold, false: COLORS.borderMid }}
+        thumbColor={value ? COLORS.gold : COLORS.textDim}
+        accessibilityLabel={title}
+      />
+    </View>
+  );
+}
+
 function userMessageFor(error) {
   return error instanceof MentorApiError
     ? error.userMessage
@@ -36,8 +70,13 @@ export default function MentorMemoryScreen() {
   const [status, setStatus] = useState('loading'); // loading | error | ready
   const [errorText, setErrorText] = useState('');
   const [memories, setMemories] = useState([]);
-  const [memoryEnabled, setMemoryEnabled] = useState(true);
+  const [settings, setSettings] = useState({
+    memoryEnabled: true,
+    journalAccessEnabled: false,
+    notesAccessEnabled: false,
+  });
   const [togglePending, setTogglePending] = useState(false);
+  const memoryEnabled = settings.memoryEnabled;
   const [editTarget, setEditTarget] = useState(null);
   const [editSaving, setEditSaving] = useState(false);
   const mountedRef = useRef(true);
@@ -59,9 +98,13 @@ export default function MentorMemoryScreen() {
     }
     setStatus('loading');
     try {
-      const [settings, list] = await Promise.all([getMentorSettings(), listMentorMemories()]);
+      const [loadedSettings, list] = await Promise.all([getMentorSettings(), listMentorMemories()]);
       if (!mountedRef.current) return;
-      setMemoryEnabled(settings.memoryEnabled);
+      setSettings({
+        memoryEnabled: loadedSettings.memoryEnabled,
+        journalAccessEnabled: loadedSettings.journalAccessEnabled,
+        notesAccessEnabled: loadedSettings.notesAccessEnabled,
+      });
       setMemories(list);
       setStatus('ready');
     } catch (error) {
@@ -83,14 +126,21 @@ export default function MentorMemoryScreen() {
     setMemories((current) => current.map((item) => (item.id === updated.id ? updated : item)));
   };
 
-  const handleToggle = async (value) => {
+  const handleToggle = async (key, value) => {
+    const previous = settings;
     setTogglePending(true);
-    setMemoryEnabled(value);
+    setSettings((current) => ({ ...current, [key]: value }));
     try {
-      const settings = await updateMentorSettings({ memoryEnabled: value });
-      if (mountedRef.current) setMemoryEnabled(settings.memoryEnabled);
+      const saved = await updateMentorSettings({ [key]: value });
+      if (mountedRef.current) {
+        setSettings({
+          memoryEnabled: saved.memoryEnabled,
+          journalAccessEnabled: saved.journalAccessEnabled,
+          notesAccessEnabled: saved.notesAccessEnabled,
+        });
+      }
     } catch (error) {
-      if (mountedRef.current) setMemoryEnabled(!value);
+      if (mountedRef.current) setSettings(previous);
       Alert.alert('Einstellung nicht gespeichert', userMessageFor(error));
     } finally {
       if (mountedRef.current) setTogglePending(false);
@@ -200,22 +250,25 @@ export default function MentorMemoryScreen() {
               Damit dein Mentor dich wirklich kennt, merkt er sich wichtige Dinge aus euren Chats,
               zum Beispiel Ziele oder Verletzungen. Du kannst alles bearbeiten oder löschen.
             </Text>
-            <View style={styles.memoryToggleRow}>
-              <View style={styles.memoryToggleTextWrap}>
-                <Text style={styles.memoryToggleTitle}>Gedächtnis</Text>
-                <Text style={styles.memoryToggleHint}>
-                  {memoryEnabled ? 'Der Mentor merkt sich Neues und nutzt diese Einträge.' : 'Aus: nichts Neues wird gemerkt oder genutzt.'}
-                </Text>
-              </View>
-              <Switch
-                value={memoryEnabled}
-                onValueChange={handleToggle}
+            <MentorToggleRow
+              title="Gedächtnis"
+              hint={memoryEnabled ? 'Der Mentor merkt sich Neues und nutzt diese Einträge.' : 'Aus: nichts Neues wird gemerkt oder genutzt.'}
+              value={memoryEnabled}
+              disabled={togglePending}
+              onChange={(value) => handleToggle('memoryEnabled', value)}
+            />
+            <Text style={styles.memorySectionHeader}>Datenzugriff</Text>
+            {ACCESS_TOGGLES.map((toggle) => (
+              <MentorToggleRow
+                key={toggle.key}
+                title={toggle.title}
+                hint={settings[toggle.key] ? toggle.on : toggle.off}
+                value={settings[toggle.key]}
                 disabled={togglePending}
-                trackColor={{ true: COLORS.mutedGold, false: COLORS.borderMid }}
-                thumbColor={memoryEnabled ? COLORS.gold : COLORS.textDim}
-                accessibilityLabel="Gedächtnis des Mentors"
+                onChange={(value) => handleToggle(toggle.key, value)}
               />
-            </View>
+            ))}
+            {memories.length > 0 ? <Text style={styles.memorySectionHeader}>Gemerkte Einträge</Text> : null}
           </View>
         )}
         renderSectionHeader={({ section }) => (
