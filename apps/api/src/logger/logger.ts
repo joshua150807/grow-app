@@ -13,6 +13,7 @@ export function createLoggerOptions(config: AppConfig): FastifyServerOptions['lo
         'req.headers.authorization',
         'SUPABASE_SERVICE_ROLE_KEY',
         'SUPABASE_JWT_SECRET',
+        'ANTHROPIC_API_KEY',
       ],
       remove: true,
     },

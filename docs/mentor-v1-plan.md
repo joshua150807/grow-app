@@ -130,7 +130,7 @@ Die 10 Phasen aus dem ChatGPT-Entwurf sind sinnvoll, aber für den Stand des Rep
 | M1 ✅ | Datenmodell + Migration + RLS (Conversations, Messages, Usage, Settings) | 1 |
 | M2 ✅ | Mentor-Modul + Provider-Schicht (Mock) + Prompt-Versionierung + Safety | 1 |
 | M3 ✅ | Chat-API (`/v1/mentor/...`, mehrere Chats) + Limits + Tests | 1 |
-| M4 | Provider-Entscheidung + echte Anbindung + Kostenrechnung | 1 |
+| M4 ✅ | Provider-Entscheidung + echte Anbindung + Kostenrechnung | 1 |
 | M5 ✅ | Mobile Chat-UI (Chatliste + Chat) + Opt-in/Einwilligung | 1 |
 | M6 | Langzeit-Memory (Extraktion, Speicherung, Ansicht/Löschen) | 1 |
 | M7 | Aktions-Framework (`mentor_actions`, Bestätigungskarte, Ausführung, Protokoll) | 1 |
@@ -223,3 +223,14 @@ Lokal testen: Backend mit `MENTOR_ENABLED=true` + `DATABASE_URL` (Migration ange
 ### Gefunden, separates Ticket (nicht Mentor)
 
 - `apps/api/src/errors/errorHandler.ts` mappt alle Fastify-Clientfehler (z. B. leerer JSON-Body, ungültiges JSON) auf `500 INTERNAL_ERROR` statt `400`. Betrifft alle Routen. Vorschlag: `FastifyError` mit `statusCode` 4xx als `400 BAD_REQUEST` zurückgeben.
+
+### M4 – erledigt (Code fertig, **nicht scharf geschaltet**)
+
+- `provider/anthropicMentorProvider.ts`: offizielles SDK `@anthropic-ai/sdk`, Modell `claude-sonnet-5-5`, Effort `low` (per Env änderbar), Prompt-Caching, serverseitiger Fallback bei Ablehnungen (`fallbacks: "default"`), Abbruch per Timeout-Signal, Fehler-Mapping (Rate Limit, Timeout, kein Guthaben/Key ungültig → „nicht erreichbar“), höfliche Antwort bei Ablehnung.
+- Aktivierung nur mit `MENTOR_PROVIDER=anthropic` **und** `ANTHROPIC_API_KEY`; ohne Key startet das Backend in diesem Modus gar nicht. Default bleibt `mock`.
+- Key wird in Logs geschwärzt und existiert nur im Backend.
+- Testgespräche: `apps/api/evals/mentor/cases.json` (12 Fälle: Position halten, bessere Argumente annehmen, Off-Topic, Allgemeinwissen, Verletzung, Krise, Business, Bücher, Prompt-Injection, Anlageberatung, Englisch, Motivation) + `npm run eval:mentor` → Markdown-Bericht zur manuellen Bewertung.
+- Tests: `apps/api/tests/anthropicMentorProvider.test.ts` (Parameter, Text-Extraktion, Tokens, Ablehnung, Fehler-Mapping, kein Durchsickern von Anbieter-Details).
+- **Nicht** gegen die echte API getestet (kein Konto/Guthaben). Erster echter Test = erster Eval-Lauf nach Freigabe.
+
+Scharf schalten (später): Anthropic-Konto + AVV → Key als Server-Secret im Backend hinterlegen → Eval-Lauf auf Staging bewerten → `MENTOR_PROVIDER=anthropic` + `MENTOR_ENABLED=true` auf Staging → danach Production.

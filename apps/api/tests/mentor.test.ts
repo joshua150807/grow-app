@@ -24,6 +24,9 @@ const verifier: AuthTokenVerifier = async (token) => {
 
 const baseConfig = {
   MENTOR_PROVIDER: 'mock' as const,
+  ANTHROPIC_API_KEY: '',
+  MENTOR_ANTHROPIC_MODEL: 'claude-sonnet-5-5',
+  MENTOR_ANTHROPIC_EFFORT: 'low' as const,
   MENTOR_PROVIDER_TIMEOUT_MS: 1000,
   MENTOR_MAX_OUTPUT_TOKENS: 256,
   MENTOR_HISTORY_MESSAGES: 6,

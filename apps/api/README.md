@@ -167,6 +167,8 @@ Mentor routes are registered **only** when `MENTOR_ENABLED=true`. They require t
 - `PATCH /v1/mentor/conversations/:id` with `{ "title": "..." }` renames. `DELETE /v1/mentor/conversations/:id` deletes the conversation and its messages (`204`).
 - `POST /v1/mentor/messages` with `{ "content": "...", "conversation_id"?: "<uuid>" }` sends a message. Without `conversation_id` a new conversation is created after a successful reply. Returns `201` with `conversation`, `user_message`, `assistant_message`, `safety` and `usage`.
 
+Provider: `MENTOR_PROVIDER=mock` (default, no network, no costs) or `MENTOR_PROVIDER=anthropic` (requires server-only `ANTHROPIC_API_KEY`; startup fails without it). Model `MENTOR_ANTHROPIC_MODEL` (default `claude-sonnet-5-5`), effort `MENTOR_ANTHROPIC_EFFORT` (default `low`). Requests use prompt caching and the server-side refusal fallback (`fallbacks: "default"`). Test conversations: `npm run eval:mentor` (paid provider requires `MENTOR_EVAL_CONFIRM=yes`, about 0.30 USD per run; reports go to the git-ignored `evals/mentor/reports/`).
+
 Errors: `403 MENTOR_CONSENT_REQUIRED`, `404 MENTOR_CONVERSATION_NOT_FOUND` (also for other users' conversations), `429 MENTOR_DAILY_LIMIT_REACHED`, `429 MENTOR_RATE_LIMITED`, `502 MENTOR_PROVIDER_UNAVAILABLE`, `503 MENTOR_PROVIDER_RATE_LIMITED`, `504 MENTOR_PROVIDER_TIMEOUT`. A failed reply refunds the daily quota and stores nothing. Message content is never logged.
 
 ## PostgreSQL Integration Test

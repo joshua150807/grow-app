@@ -28,6 +28,9 @@ import { createMentorProvider } from './provider/createMentorProvider.js';
 export type MentorServiceConfig = Pick<
   AppConfig,
   | 'MENTOR_PROVIDER'
+  | 'ANTHROPIC_API_KEY'
+  | 'MENTOR_ANTHROPIC_MODEL'
+  | 'MENTOR_ANTHROPIC_EFFORT'
   | 'MENTOR_PROVIDER_TIMEOUT_MS'
   | 'MENTOR_MAX_OUTPUT_TOKENS'
   | 'MENTOR_HISTORY_MESSAGES'

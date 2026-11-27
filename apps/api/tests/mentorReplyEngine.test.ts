@@ -48,13 +48,17 @@ describe('mentor config', () => {
     const config = loadConfig({});
     expect(config.MENTOR_PROVIDER).toBe('mock');
     expect(config.MENTOR_PROVIDER_TIMEOUT_MS).toBe(30000);
-    expect(config.MENTOR_MAX_OUTPUT_TOKENS).toBe(1024);
+    expect(config.MENTOR_MAX_OUTPUT_TOKENS).toBe(4096);
+    expect(config.MENTOR_ANTHROPIC_MODEL).toBe('claude-sonnet-5-5');
+    expect(config.MENTOR_ANTHROPIC_EFFORT).toBe('low');
     expect(config.MENTOR_HISTORY_MESSAGES).toBe(20);
   });
 
   it('rejects unknown providers and out-of-range limits', () => {
     expect(() => loadConfig({ MENTOR_PROVIDER: 'random' })).toThrow();
     expect(() => loadConfig({ MENTOR_MAX_OUTPUT_TOKENS: '999999' })).toThrow();
+    expect(() => loadConfig({ MENTOR_PROVIDER: 'anthropic' })).toThrow(/ANTHROPIC_API_KEY/);
+    expect(loadConfig({ MENTOR_PROVIDER: 'anthropic', ANTHROPIC_API_KEY: 'test-key' }).MENTOR_PROVIDER).toBe('anthropic');
     expect(() => loadConfig({ MENTOR_PROVIDER_TIMEOUT_MS: '10' })).toThrow();
   });
 });
@@ -228,7 +232,12 @@ describe('mentor reply engine', () => {
 
 describe('mock mentor provider', () => {
   it('answers deterministically without network access', async () => {
-    const provider = createMentorProvider({ MENTOR_PROVIDER: 'mock' });
+    const provider = createMentorProvider({
+      MENTOR_PROVIDER: 'mock',
+      ANTHROPIC_API_KEY: '',
+      MENTOR_ANTHROPIC_MODEL: 'claude-sonnet-5-5',
+      MENTOR_ANTHROPIC_EFFORT: 'low',
+    });
     const engine = createMentorReplyEngine(provider, engineConfig);
     const first = await engine.generateReply({ history: [], userMessage: 'Ich will früher aufstehen' });
     const second = await engine.generateReply({ history: [], userMessage: 'Ich will früher aufstehen' });
