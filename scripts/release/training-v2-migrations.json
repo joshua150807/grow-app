@@ -1,0 +1,63 @@
+{
+  "sourceCommit": "cf3a5931bef63986be1f5d031d5df5ecd7ac90a2",
+  "projectRef": "wuilllpzdnnalavqkopx",
+  "excludedMigration": "20260802120000_add_daily_planner_event_end_date.sql",
+  "migrations": [
+    {
+      "file": "20260726180000_training_v2_plan_core.sql",
+      "sha256": "06882ef5976a67b289965988c649f40888a6e52016e8424f2c74f1eead317790"
+    },
+    {
+      "file": "20260726190000_training_v2_exercise_catalog_foundation.sql",
+      "sha256": "d2982efab3382d89b1576257c8ffd29af5dd8d2b760b8cfc7364c41cc45f06f2"
+    },
+    {
+      "file": "20260726200000_training_v2_system_exercise_catalog.sql",
+      "sha256": "32b739eac75b7ba8daf7784916485119f03e16cfc5739b71527af730fb7c68e3"
+    },
+    {
+      "file": "20260726210000_training_v2_activation_start_date.sql",
+      "sha256": "58f42d9d211e234269e6bfebdf3ec9d667ad81e780a750b66c76284110845281"
+    },
+    {
+      "file": "20260728210635_training_v2_template_provenance.sql",
+      "sha256": "7f4cbb89197d8ee994735b35626f63f8bcb7a5d049416e29dec32da6ba6e1672"
+    },
+    {
+      "file": "20260729060000_training_v2_private_exercise_name_uniqueness.sql",
+      "sha256": "57b7c590f1a943ea4884022a1dd1da7d86d783dd991fc95e2bb87a155135460b"
+    },
+    {
+      "file": "20260730120000_training_v2_grow_template_library.sql",
+      "sha256": "6a4ebd34afaa60973c12dc22a5da7a157fb51fc4289a95cb77fc52e9305bafa9"
+    },
+    {
+      "file": "20260731090000_training_v2_session_core.sql",
+      "sha256": "91fe633fc10857fb4a80fca04c52c4ca32dc3b8afee9df0a0020a8eb60877982"
+    },
+    {
+      "file": "20260731130000_training_v2_plan_tombstones.sql",
+      "sha256": "65083085ac6cb9adadc27e06bf9302f0bc12a190a133db685af99ab3469f000a"
+    },
+    {
+      "file": "20260809100000_training_v2_session_timing.sql",
+      "sha256": "41ef7c7256db4837cac811a97d5ea3d7d21443ecd134f0c3287a16f29e0d81f9"
+    },
+    {
+      "file": "20261123180000_training_v2_plan_create_replay.sql",
+      "sha256": "5067c89a6010aa9052489f3cb5e708924eefe82552168dca4d85a551c149c834"
+    },
+    {
+      "file": "20261126110000_training_v2_value_bounds.sql",
+      "sha256": "fb5be4c2d38eae10e8ca6bd10426193f229a144ade6feca93765cbe02810ab99"
+    },
+    {
+      "file": "20261126120000_training_v2_cycle_last_completed_session.sql",
+      "sha256": "8943b4f4103de3f934db464cd1f19f22295a9e6c2da6040a34ccae18a63d249d"
+    },
+    {
+      "file": "20261126130000_training_v2_session_read_indexes.sql",
+      "sha256": "8ab68a6d4f23ad8f1215f39c843e521cbd5b70831f41abb02e2166a1c49b5d5b"
+    }
+  ]
+}

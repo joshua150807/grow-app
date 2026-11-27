@@ -11,6 +11,11 @@ export function createLoggerOptions(config: AppConfig): FastifyServerOptions['lo
     redact: {
       paths: [
         'req.headers.authorization',
+        'req.body.password',
+        'body.password',
+        'password',
+        'access_token',
+        'refresh_token',
         'SUPABASE_SERVICE_ROLE_KEY',
         'SUPABASE_JWT_SECRET',
       ],

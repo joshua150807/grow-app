@@ -1,3 +1,5 @@
+import { usernameLoginRoutes } from './routes/v1/usernameLogin.js';
+import type { UsernameLoginService } from './modules/usernameLogin/usernameLoginService.js';
 import type { TrainingAnalyticsService } from './modules/trainingSessions/trainingAnalyticsService.js';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
@@ -22,6 +24,8 @@ import type { TrainingTemplateService } from './modules/trainingTemplates/traini
 import type { TrainingSessionService } from './modules/trainingSessions/trainingSessionService.js';
 
 export type BuildAppOptions = {
+  usernameLoginEnabled?: boolean;
+  usernameLoginService?: UsernameLoginService;
   authTokenVerifier?: AuthTokenVerifier;
   betaRegistrationCompletionService?: BetaRegistrationCompletionService;
   creatorService?: CreatorService;
@@ -47,6 +51,11 @@ export function buildApp(options: BuildAppOptions = {}): FastifyInstance {
 
   app.register(authPlugin, {
     verifyToken: options.authTokenVerifier,
+  });
+  app.register(usernameLoginRoutes, {
+    prefix: '/v1',
+    enabled: options.usernameLoginEnabled ?? config.USERNAME_LOGIN_V1_ENABLED === 'true',
+    service: options.usernameLoginService,
   });
   app.register(v1Routes, {
     prefix: '/v1',

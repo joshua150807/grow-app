@@ -44,6 +44,17 @@
         "disabled": true
       },
       "channel": "production"
+    },
+    "training-v2-internal": {
+      "extends": "beta",
+      "distribution": "store",
+      "environment": "production",
+      "channel": "training-v2-internal",
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_TRAINING_V2_ENABLED": "true",
+        "EXPO_PUBLIC_USERNAME_LOGIN_API_ENABLED": "true"
+      }
     }
   },
   "submit": {

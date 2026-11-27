@@ -11,6 +11,7 @@ const envSchema = z.object({
   SUPABASE_URL: z.string().url().optional().or(z.literal('')),
   SUPABASE_ANON_KEY: z.string().min(1).optional().or(z.literal('')),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional().or(z.literal('')),
+  USERNAME_LOGIN_V1_ENABLED: z.enum(['true', 'false']).optional(),
   SUPABASE_JWT_SECRET: z.string().min(1).optional().or(z.literal('')),
 });
 

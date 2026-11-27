@@ -21,11 +21,10 @@ export default function TrainingV2HubScreen() {
   // to show, so an error is never silently dropped.
   if (initialLoading) {
     return (
-      <TrainingV2StateView
-        loading={initialLoading}
-        error={hasPlans ? null : error}
-        onRetry={retry}
-      />
+      <View style={[styles.screen, styles.content]}>
+        <TrainingV2StateView loading={initialLoading} error={hasPlans ? null : error} onRetry={retry} />
+        <LegacyTrainingLink />
+      </View>
     );
   }
 
@@ -71,6 +70,7 @@ export default function TrainingV2HubScreen() {
         description="Finde Übungen, lerne die richtige Ausführung und verstehe deine Muskeln besser."
         onPress={openLibrary}
       />
+      <LegacyTrainingLink />
     </ScrollView>
   );
 }
@@ -86,6 +86,16 @@ function HubCard({ icon, title, description, onPress }) {
         <Text style={styles.hubCardDescription}>{description}</Text>
       </View>
       <Text style={styles.hubCardChevron}>›</Text>
+    </Pressable>
+  );
+}
+
+// V1 has no per-set completion/load-type data. Keep its original owner-scoped
+// plans/history usable, without copying data or inventing V2 record values.
+function LegacyTrainingLink() {
+  return (
+    <Pressable accessibilityRole="button" onPress={() => router.push('/tools/training-legacy')} style={styles.retryButton}>
+      <Text style={styles.retryText}>Bisheriger Trainingsplan & Verlauf</Text>
     </Pressable>
   );
 }

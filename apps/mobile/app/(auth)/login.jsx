@@ -16,7 +16,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { supabase } from '../../services/supabaseClient';
+import { signInWithUsername } from '../../services/usernameLogin';
 import { COLORS } from '../../constants/colors';
 import { s, sv, sf } from '../../constants/layout';
 
@@ -35,18 +35,6 @@ export default function LoginScreen() {
     };
   }, []);
 
-  async function getLoginEmail(cleanUsername) {
-    const { data, error } = await supabase.rpc('get_auth_email_for_username', {
-      input_username: cleanUsername,
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    return data;
-  }
-
   async function handleLogin() {
     if (isSubmittingRef.current) return;
 
@@ -64,13 +52,7 @@ export default function LoginScreen() {
       isSubmittingRef.current = true;
       setLoading(true);
 
-      const resolvedEmail = await getLoginEmail(cleanUsername);
-      const email = resolvedEmail || `${cleanUsername}@growapp.com`;
-
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      const { error } = await signInWithUsername(cleanUsername, password);
 
       if (error) {
         if (isMountedRef.current) {

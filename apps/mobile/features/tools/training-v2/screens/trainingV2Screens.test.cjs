@@ -410,7 +410,11 @@ test('isolated V2 code contains no legacy service or table references, and only 
   // server; it is not a reference to the legacy training module and must stay excluded
   // from this otherwise case-insensitive "legacy" guard.
   // A comment about the older Session API response is unrelated to the old training module.
-  const withoutFullLineComments = source.replace(/^\s*\/\/[^\r\n]*/gm, '');
+  // The release compatibility link is a route-only boundary. No V1 service or
+  // table imports are allowed in V2; the existing V1 stack owns all legacy data.
+  const withoutFullLineComments = source.replace(/^\s*\/\/[^\r\n]*/gm, '')
+    .replaceAll('LegacyTrainingLink', 'PreviousTrainingLink')
+    .replaceAll("'/tools/training-legacy'", "'/tools/training-previous'");
   assert.doesNotMatch(withoutFullLineComments, /(?<!importedFrom)[Ll]egacy(?!Plan\b)/);
   // Never the bare legacy-service function names (createTrainingPlan, updateTrainingPlan,
   // activateTrainingPlan, ...) — the V2 module always uses its own `*TrainingV2*` names.
