@@ -9,6 +9,7 @@ import {
   listTrainingPlansResponseSchema,
   listTrainingSessionHistoryResponseSchema,
   listTrainingTemplatesResponseSchema,
+  lookupTrainingExercisesResponseSchema,
   planVersionInputSchema,
   scheduleTrainingPlanInputSchema,
   templateUserPlanResponseSchema,
@@ -421,9 +422,36 @@ export async function activateTrainingV2Template(templateId) {
   )).userPlan;
 }
 
+// Up to this many ids are resolved per batch request (mirrors the API's own limit).
+const EXERCISE_LOOKUP_CHUNK_SIZE = 100;
+// Flips to false once the API answers the batch route as unknown (an API deployed before
+// /training/exercises/lookup existed matches it as /training/exercises/:exerciseId and
+// rejects "lookup" as an invalid id, or answers 404). Every later resolve then goes
+// straight to the per-exercise requests instead of retrying the batch route.
+let exerciseLookupAvailable = true;
+
+async function lookupTrainingV2Exercises(exerciseIds) {
+  const found = new Map();
+  for (let start = 0; start < exerciseIds.length; start += EXERCISE_LOOKUP_CHUNK_SIZE) {
+    const chunk = exerciseIds.slice(start, start + EXERCISE_LOOKUP_CHUNK_SIZE);
+    const { exercises } = await requestTrainingV2(
+      `/v1/training/exercises/lookup?ids=${chunk.map(encodeURIComponent).join(',')}`,
+      lookupTrainingExercisesResponseSchema,
+    );
+    exercises.forEach((exercise) => found.set(exercise.id, exercise));
+  }
+  return found;
+}
+
+function batchRouteUnavailable(error) {
+  return error instanceof TrainingV2NotFoundError || error instanceof TrainingV2ValidationError;
+}
+
 // Resolves each exercise id referenced by a plan to its full { name, mainMuscle } — the
 // editor needs mainMuscle too (to show the correct muscle-group chip for an already-bound
 // exercise), while the read-only detail view only ever needed the name.
+// All ids not yet in the cache are resolved with one batch request; ids the caller cannot
+// see resolve to null, exactly like a 404 from the per-exercise route.
 export async function resolveTrainingV2ExerciseDetails(plan, cache = new Map()) {
   const exerciseIds = [
     ...new Set(plan.revision.units.flatMap((unit) => (
@@ -431,16 +459,31 @@ export async function resolveTrainingV2ExerciseDetails(plan, cache = new Map()) 
     ))),
   ];
 
-  await Promise.all(exerciseIds.map(async (exerciseId) => {
-    if (!cache.has(exerciseId)) {
-      cache.set(exerciseId, getTrainingV2Exercise(exerciseId).catch((error) => {
-        if (error instanceof TrainingV2NotFoundError) return null;
-        cache.delete(exerciseId);
-        throw error;
-      }));
-    }
-    await cache.get(exerciseId);
-  }));
+  const fetchSingle = (exerciseId) => getTrainingV2Exercise(exerciseId).catch((error) => {
+    if (error instanceof TrainingV2NotFoundError) return null;
+    cache.delete(exerciseId);
+    throw error;
+  });
+
+  const missing = exerciseIds.filter((exerciseId) => !cache.has(exerciseId));
+  if (missing.length > 0 && exerciseLookupAvailable) {
+    const batch = lookupTrainingV2Exercises(missing);
+    missing.forEach((exerciseId) => {
+      cache.set(exerciseId, batch.then(
+        (found) => found.get(exerciseId) ?? null,
+        (error) => {
+          if (batchRouteUnavailable(error)) {
+            exerciseLookupAvailable = false;
+            return fetchSingle(exerciseId);
+          }
+          cache.delete(exerciseId);
+          throw error;
+        },
+      ));
+    });
+  } else {
+    missing.forEach((exerciseId) => cache.set(exerciseId, fetchSingle(exerciseId)));
+  }
 
   return Object.fromEntries(await Promise.all(exerciseIds.map(async (exerciseId) => {
     const exercise = await cache.get(exerciseId);

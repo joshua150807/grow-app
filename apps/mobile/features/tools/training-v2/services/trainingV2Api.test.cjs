@@ -35,6 +35,8 @@ const templateDetailSchema = schema((value) => (
 ));
 const templateUserPlanSchema = schema((value) => value?.userPlan !== undefined);
 const exerciseSchema = schema((value) => typeof value?.exercise?.name === 'string');
+const lookupExercisesSchema = schema((value) => Array.isArray(value?.exercises)
+  && value.exercises.every((exercise) => typeof exercise?.id === 'string' && typeof exercise?.name === 'string'));
 const lastExerciseNoteSchema = schema((value) => value !== null && typeof value === 'object' && 'note' in value && 'completedAt' in value);
 const listExercisesSchema = schema((value) => Array.isArray(value?.exercises));
 const listSessionsSchema = schema((value) => Array.isArray(value?.sessions) && value.pagination !== undefined);
@@ -72,6 +74,7 @@ function loadApi() {
       trainingTemplateDetailResponseSchema: templateDetailSchema,
       templateUserPlanResponseSchema: templateUserPlanSchema,
       trainingExerciseDetailResponseSchema: exerciseSchema,
+      lookupTrainingExercisesResponseSchema: lookupExercisesSchema,
       lastExerciseNoteResponseSchema: lastExerciseNoteSchema,
       listTrainingExercisesResponseSchema: listExercisesSchema,
       listTrainingSessionHistoryResponseSchema: listSessionsSchema,
@@ -94,6 +97,17 @@ function loadApi() {
       },
     },
   });
+}
+
+// An API deployed before the batch route existed matches /exercises/lookup as
+// /exercises/:exerciseId and rejects "lookup" as an invalid id.
+function withoutBatchRoute(handler) {
+  return async (url, ...rest) => {
+    if (String(url).includes('/v1/training/exercises/lookup')) {
+      return response(400, { error: { code: 'TRAINING_EXERCISE_VALIDATION_ERROR' } });
+    }
+    return handler(url, ...rest);
+  };
 }
 
 function response(status, payload) {
@@ -163,11 +177,11 @@ test('deduplicates exercise-name requests within and across detail reloads using
     global.fetch = previousFetch;
   });
   const calls = [];
-  global.fetch = async (url) => {
+  global.fetch = withoutBatchRoute(async (url) => {
     calls.push(url);
     const id = decodeURIComponent(url.split('/').at(-1));
     return response(200, { exercise: { id, name: `Name ${id}` } });
-  };
+  });
   const api = loadApi();
   const plan = {
     revision: {
@@ -196,11 +210,11 @@ test('resolveTrainingV2ExerciseDetails resolves { name, mainMuscle } per exercis
     global.fetch = previousFetch;
   });
   const calls = [];
-  global.fetch = async (url) => {
+  global.fetch = withoutBatchRoute(async (url) => {
     calls.push(url);
     const id = decodeURIComponent(url.split('/').at(-1));
     return response(200, { exercise: { id, name: `Name ${id}`, mainMuscle: 'chest' } });
-  };
+  });
   const api = loadApi();
   const plan = {
     revision: {
@@ -215,6 +229,70 @@ test('resolveTrainingV2ExerciseDetails resolves { name, mainMuscle } per exercis
   // resolveTrainingV2ExerciseNames sharing the same cache must not re-fetch.
   assert.deepEqual(await api.resolveTrainingV2ExerciseNames(plan, cache), { 'exercise-1': 'Name exercise-1' });
   assert.equal(calls.length, 1);
+});
+
+test('resolves all uncached exercises of a plan with one batch request and reuses the cache', async (context) => {
+  const previousUrl = process.env.EXPO_PUBLIC_API_URL;
+  const previousFetch = global.fetch;
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.test';
+  context.after(() => {
+    process.env.EXPO_PUBLIC_API_URL = previousUrl;
+    global.fetch = previousFetch;
+  });
+  const calls = [];
+  global.fetch = async (url) => {
+    calls.push(url);
+    return response(200, { exercises: [
+      { id: 'a', name: 'Name a', mainMuscle: 'chest' },
+      { id: 'b', name: 'Name b', mainMuscle: 'back' },
+    ] });
+  };
+  const api = loadApi();
+  const plan = {
+    revision: {
+      units: [
+        { exercises: [{ exerciseId: 'a' }, { exerciseId: 'b' }] },
+        { exercises: [{ exerciseId: 'a' }, { exerciseId: 'hidden' }] },
+      ],
+    },
+  };
+  const cache = new Map();
+
+  assert.deepEqual(await api.resolveTrainingV2ExerciseDetails(plan, cache), {
+    a: { name: 'Name a', mainMuscle: 'chest' },
+    b: { name: 'Name b', mainMuscle: 'back' },
+    hidden: null,
+  });
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0], 'https://api.example.test/v1/training/exercises/lookup?ids=a,b,hidden');
+  await api.resolveTrainingV2ExerciseNames(plan, cache);
+  assert.equal(calls.length, 1);
+});
+
+test('falls back to per-exercise requests once when the API has no batch route yet', async (context) => {
+  const previousUrl = process.env.EXPO_PUBLIC_API_URL;
+  const previousFetch = global.fetch;
+  process.env.EXPO_PUBLIC_API_URL = 'https://api.example.test';
+  context.after(() => {
+    process.env.EXPO_PUBLIC_API_URL = previousUrl;
+    global.fetch = previousFetch;
+  });
+  const calls = [];
+  global.fetch = async (url) => {
+    calls.push(url);
+    if (url.includes('/exercises/lookup')) return response(400, { error: { code: 'TRAINING_EXERCISE_VALIDATION_ERROR' } });
+    const id = decodeURIComponent(url.split('/').at(-1));
+    return response(200, { exercise: { id, name: `Name ${id}` } });
+  };
+  const api = loadApi();
+  const plan = { revision: { units: [{ exercises: [{ exerciseId: 'a' }, { exerciseId: 'b' }] }] } };
+
+  assert.deepEqual(await api.resolveTrainingV2ExerciseNames(plan, new Map()), { a: 'Name a', b: 'Name b' });
+  assert.equal(calls.filter((url) => url.includes('/exercises/lookup')).length, 1);
+  assert.deepEqual(await api.resolveTrainingV2ExerciseNames(plan, new Map()), { a: 'Name a', b: 'Name b' });
+  // The batch route is not retried after it was found missing.
+  assert.equal(calls.filter((url) => url.includes('/exercises/lookup')).length, 1);
+  assert.equal(calls.length, 5);
 });
 
 test('getTrainingV2LastExerciseNote GETs the last-note endpoint by exercise id and returns note/completedAt', async (context) => {
@@ -246,13 +324,13 @@ test('keeps successful exercise names when one exercise returns 404', async (con
     process.env.EXPO_PUBLIC_API_URL = previousUrl;
     global.fetch = previousFetch;
   });
-  global.fetch = async (url) => {
+  global.fetch = withoutBatchRoute(async (url) => {
     const id = decodeURIComponent(url.split('/').at(-1));
     if (id === 'missing-id') {
       return response(404, { error: { code: 'TRAINING_EXERCISE_NOT_FOUND' } });
     }
     return response(200, { exercise: { id, name: `Name ${id}` } });
-  };
+  });
   const api = loadApi();
   const plan = {
     revision: {
@@ -277,10 +355,10 @@ test('caches multiple Exercise 404 fallbacks without repeating requests', async 
     global.fetch = previousFetch;
   });
   let calls = 0;
-  global.fetch = async () => {
+  global.fetch = withoutBatchRoute(async () => {
     calls += 1;
     return response(404, { error: { code: 'TRAINING_EXERCISE_NOT_FOUND' } });
-  };
+  });
   const api = loadApi();
   const plan = {
     revision: {

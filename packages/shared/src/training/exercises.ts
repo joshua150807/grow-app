@@ -88,6 +88,23 @@ export const listTrainingExercisesResponseSchema = z.object({
 }).strict();
 export type ListTrainingExercisesResponse = z.infer<typeof listTrainingExercisesResponseSchema>;
 
+// Batch lookup by id, used by plan views to resolve every referenced exercise in one
+// request instead of one GET per exercise. Ids the caller cannot see (inactive, foreign
+// private exercises, unknown ids) are simply absent from the response.
+export const TRAINING_EXERCISE_LOOKUP_MAX_IDS = 100;
+export const lookupTrainingExercisesQuerySchema = z.object({
+  ids: z.preprocess(
+    (value) => (typeof value === 'string' ? value.split(',').filter((id) => id.length > 0) : value),
+    z.array(exerciseIdSchema).min(1).max(TRAINING_EXERCISE_LOOKUP_MAX_IDS),
+  ),
+}).strict();
+export type LookupTrainingExercisesQuery = z.infer<typeof lookupTrainingExercisesQuerySchema>;
+
+export const lookupTrainingExercisesResponseSchema = z.object({
+  exercises: z.array(trainingExerciseSchema),
+}).strict();
+export type LookupTrainingExercisesResponse = z.infer<typeof lookupTrainingExercisesResponseSchema>;
+
 export const trainingExerciseDetailResponseSchema = z.object({
   exercise: trainingExerciseSchema,
 }).strict();

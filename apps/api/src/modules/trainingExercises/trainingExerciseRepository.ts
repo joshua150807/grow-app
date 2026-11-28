@@ -43,6 +43,7 @@ export type TrainingExerciseRepository = {
     query: ListTrainingExercisesQuery,
   ): Promise<{ exercises: TrainingExercise[]; hasMore: boolean }>;
   findVisible(userId: string, exerciseId: string): Promise<TrainingExercise | null>;
+  findVisibleMany(userId: string, exerciseIds: string[]): Promise<TrainingExercise[]>;
   create(userId: string, input: CreateTrainingExerciseInput): Promise<CreateTrainingExerciseResult>;
 };
 
@@ -173,6 +174,17 @@ export function createTrainingExerciseRepository(
         limit 1
       `, [userId, exerciseId]);
       return result.rows[0] ? mapTrainingExerciseRow(result.rows[0]) : null;
+    },
+
+    async findVisibleMany(userId, exerciseIds) {
+      if (exerciseIds.length === 0) return [];
+      const result = await db.query<TrainingExerciseRow>(`
+        ${exerciseSelect}
+        where ${trainingExerciseVisibilitySql}
+          and exercise.id = any($2::uuid[])
+        order by exercise.id asc
+      `, [userId, exerciseIds]);
+      return result.rows.map(mapTrainingExerciseRow);
     },
 
     async create(userId, input) {
