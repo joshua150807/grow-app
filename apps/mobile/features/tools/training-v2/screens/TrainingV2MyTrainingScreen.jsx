@@ -120,7 +120,7 @@ export default function TrainingV2MyTrainingScreen() {
         const resumable = await findTrainingV2SessionDraftForPlan(ownerId);
         if (!cancelled) {
           setResumableDraft(resumable);
-          setResumableUnitId(resumable?.planId === activePlan?.id ? resumable.unitId : null);
+          setResumableUnitId(resumable && activePlan && resumable.planId === activePlan.id ? resumable.unitId : null);
           setResumeError(null);
         }
       } catch (nextError) {

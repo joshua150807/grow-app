@@ -1,5 +1,6 @@
 import fp from 'fastify-plugin';
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { createCachedTokenVerifier } from '../auth/cachedTokenVerifier.js';
 import { verifySupabaseAccessToken } from '../auth/supabaseAuth.js';
 import type { AuthTokenVerifier, AuthUser } from '../auth/types.js';
 import { AppError } from '../errors/appError.js';
@@ -40,7 +41,7 @@ async function decorateAuth(request: FastifyRequest) {
 }
 
 export const authPlugin = fp<AuthPluginOptions>(async (app, options) => {
-  const verifyToken = options.verifyToken ?? verifySupabaseAccessToken;
+  const verifyToken = options.verifyToken ?? createCachedTokenVerifier(verifySupabaseAccessToken);
 
   app.addHook('onRequest', decorateAuth);
 

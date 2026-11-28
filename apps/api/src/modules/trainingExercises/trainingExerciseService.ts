@@ -2,6 +2,8 @@ import {
   createTrainingExerciseInputSchema,
   listTrainingExercisesQuerySchema,
   listTrainingExercisesResponseSchema,
+  lookupTrainingExercisesQuerySchema,
+  lookupTrainingExercisesResponseSchema,
   trainingExerciseDetailResponseSchema,
   trainingExerciseIdParamsSchema,
 } from '@grow/shared';
@@ -59,6 +61,14 @@ export function createTrainingExerciseService(
           hasMore: result.hasMore,
         },
       }));
+    },
+
+    async lookup(user: AuthUser, queryValue: unknown) {
+      const { ids } = parseClientInput(() => lookupTrainingExercisesQuerySchema.parse(queryValue));
+      const exercises = await validateInternalContract(
+        () => repository.findVisibleMany(user.id, [...new Set(ids)]),
+      );
+      return validateInternalContract(() => lookupTrainingExercisesResponseSchema.parse({ exercises }));
     },
 
     async get(user: AuthUser, paramsValue: unknown) {

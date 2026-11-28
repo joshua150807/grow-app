@@ -7,6 +7,7 @@ import {
   trainingPlanSummarySchema,
 } from '@grow/shared';
 import { resolveUiMuscleGroup } from '@grow/shared';
+import { randomUUID } from 'node:crypto';
 import type pg from 'pg';
 import { getPgPool } from '../../db/client.js';
 import { createTrainingExerciseRepository } from '../trainingExercises/trainingExerciseRepository.js';
@@ -262,15 +263,25 @@ export async function insertTree(
     insert into public.training_plan_revisions_v2(plan_id,user_id,revision_number,source_template_revision_id)
     values ($1,$2,$3,$4) returning id`, [planId, userId, revisionNumber, sourceTemplateRevisionId]);
   const revisionId = String(revision.rows[0].id);
-  const units: Array<{ id: string; logicalKey: string; orderIndex: number }> = [];
+  // The tree is written with one multi-row insert per level (units, exercises, target sets)
+  // instead of one statement per row: every statement is a full API→DB round trip, and a
+  // typical plan has well over a hundred rows. Ids are generated here so child rows can
+  // reference their parents without depending on RETURNING order.
+  const unitRows: Array<{ id: string; logicalKey: string; name: string; unitType: string; orderIndex: number }> = [];
+  const exerciseRows: Array<{
+    id: string; unitId: string; exerciseId: string; scope: 'system' | 'user'; ownerUserId: string | null;
+    logicalKey: string; orderIndex: number; note: string | null;
+  }> = [];
+  const setRows: Array<{
+    targetExerciseId: string; unitId: string; logicalKey: string; orderIndex: number; setType: string;
+    targetWeightKg: number | null; repsMin: number | null; repsMax: number | null; targetRir: number | null;
+    plannedRestSeconds: number; importedFromLegacyPlan: boolean;
+  }> = [];
   for (const unit of [...input.units].sort((a, b) => a.orderIndex - b.orderIndex)) {
-    const insertedUnit = await client.query<{ id: string }>(`
-      insert into public.training_plan_units_v2
-        (revision_id,plan_id,user_id,logical_unit_key,name,unit_type,order_index)
-      values ($1,$2,$3,$4,$5,$6,$7) returning id
-    `, [revisionId, planId, userId, unit.logicalUnitKey, unit.name, unit.unitType, unit.orderIndex]);
-    const unitId = String(insertedUnit.rows[0].id);
-    units.push({ id: unitId, logicalKey: unit.logicalUnitKey, orderIndex: unit.orderIndex });
+    const unitId = randomUUID();
+    unitRows.push({
+      id: unitId, logicalKey: unit.logicalUnitKey, name: unit.name, unitType: unit.unitType, orderIndex: unit.orderIndex,
+    });
     for (const exercise of [...unit.exercises].sort((a, b) => a.orderIndex - b.orderIndex)) {
       let exerciseId: string;
       let source: { scope: 'system' | 'user'; owner_user_id: string | null };
@@ -282,28 +293,71 @@ export async function insertTree(
         exerciseId = exercise.exerciseId!;
         source = exercises.get(exercise.exerciseId!)!;
       }
-      const insertedExercise = await client.query<{ id: string }>(`
-        insert into public.training_plan_exercises_v2
-          (unit_id,revision_id,plan_id,user_id,exercise_id,exercise_scope,exercise_owner_user_id,
-           logical_target_exercise_key,order_index,note)
-        values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) returning id
-      `, [unitId, revisionId, planId, userId, exerciseId, source.scope,
-        source.owner_user_id, exercise.logicalTargetExerciseKey, exercise.orderIndex, exercise.note]);
-      const targetExerciseId = String(insertedExercise.rows[0].id);
+      const targetExerciseId = randomUUID();
+      exerciseRows.push({
+        id: targetExerciseId, unitId, exerciseId, scope: source.scope, ownerUserId: source.owner_user_id,
+        logicalKey: exercise.logicalTargetExerciseKey, orderIndex: exercise.orderIndex, note: exercise.note,
+      });
       for (const set of [...exercise.targetSets].sort((a, b) => a.orderIndex - b.orderIndex)) {
-        await client.query(`
-          insert into public.training_plan_target_sets_v2
-            (target_exercise_id,unit_id,revision_id,plan_id,user_id,logical_target_set_key,
-             order_index,set_type,target_weight_kg,target_reps_min,target_reps_max,target_rir,
-             planned_rest_seconds,imported_from_legacy_plan)
-          values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-        `, [targetExerciseId, unitId, revisionId, planId, userId, set.logicalTargetSetKey,
-          set.orderIndex, set.setType, set.targetWeightKg, set.targetReps?.minimum ?? null,
-          set.targetReps?.maximum ?? null, set.targetRir, set.plannedRestSeconds,
-          set.importedFromLegacyPlan]);
+        setRows.push({
+          targetExerciseId, unitId, logicalKey: set.logicalTargetSetKey, orderIndex: set.orderIndex,
+          setType: set.setType, targetWeightKg: set.targetWeightKg,
+          repsMin: set.targetReps?.minimum ?? null, repsMax: set.targetReps?.maximum ?? null,
+          targetRir: set.targetRir, plannedRestSeconds: set.plannedRestSeconds,
+          importedFromLegacyPlan: set.importedFromLegacyPlan,
+        });
       }
     }
   }
+
+  if (unitRows.length > 0) {
+    await client.query(`
+      insert into public.training_plan_units_v2
+        (id,revision_id,plan_id,user_id,logical_unit_key,name,unit_type,order_index)
+      select row.id,$1,$2,$3,row.logical_unit_key,row.name,row.unit_type,row.order_index
+      from unnest($4::uuid[],$5::uuid[],$6::text[],$7::text[],$8::integer[])
+        as row(id,logical_unit_key,name,unit_type,order_index)
+    `, [revisionId, planId, userId,
+      unitRows.map((row) => row.id), unitRows.map((row) => row.logicalKey), unitRows.map((row) => row.name),
+      unitRows.map((row) => row.unitType), unitRows.map((row) => row.orderIndex)]);
+  }
+  if (exerciseRows.length > 0) {
+    await client.query(`
+      insert into public.training_plan_exercises_v2
+        (id,unit_id,revision_id,plan_id,user_id,exercise_id,exercise_scope,exercise_owner_user_id,
+         logical_target_exercise_key,order_index,note)
+      select row.id,row.unit_id,$1,$2,$3,row.exercise_id,row.exercise_scope,row.exercise_owner_user_id,
+        row.logical_target_exercise_key,row.order_index,row.note
+      from unnest($4::uuid[],$5::uuid[],$6::uuid[],$7::text[],$8::uuid[],$9::uuid[],$10::integer[],$11::text[])
+        as row(id,unit_id,exercise_id,exercise_scope,exercise_owner_user_id,logical_target_exercise_key,order_index,note)
+    `, [revisionId, planId, userId,
+      exerciseRows.map((row) => row.id), exerciseRows.map((row) => row.unitId),
+      exerciseRows.map((row) => row.exerciseId), exerciseRows.map((row) => row.scope),
+      exerciseRows.map((row) => row.ownerUserId), exerciseRows.map((row) => row.logicalKey),
+      exerciseRows.map((row) => row.orderIndex), exerciseRows.map((row) => row.note)]);
+  }
+  if (setRows.length > 0) {
+    await client.query(`
+      insert into public.training_plan_target_sets_v2
+        (target_exercise_id,unit_id,revision_id,plan_id,user_id,logical_target_set_key,
+         order_index,set_type,target_weight_kg,target_reps_min,target_reps_max,target_rir,
+         planned_rest_seconds,imported_from_legacy_plan)
+      select row.target_exercise_id,row.unit_id,$1,$2,$3,row.logical_target_set_key,
+        row.order_index,row.set_type,row.target_weight_kg,row.target_reps_min,row.target_reps_max,row.target_rir,
+        row.planned_rest_seconds,row.imported_from_legacy_plan
+      from unnest($4::uuid[],$5::uuid[],$6::uuid[],$7::integer[],$8::text[],$9::numeric[],
+        $10::integer[],$11::integer[],$12::integer[],$13::integer[],$14::boolean[])
+        as row(target_exercise_id,unit_id,logical_target_set_key,order_index,set_type,target_weight_kg,
+          target_reps_min,target_reps_max,target_rir,planned_rest_seconds,imported_from_legacy_plan)
+    `, [revisionId, planId, userId,
+      setRows.map((row) => row.targetExerciseId), setRows.map((row) => row.unitId),
+      setRows.map((row) => row.logicalKey), setRows.map((row) => row.orderIndex),
+      setRows.map((row) => row.setType), setRows.map((row) => row.targetWeightKg),
+      setRows.map((row) => row.repsMin), setRows.map((row) => row.repsMax),
+      setRows.map((row) => row.targetRir), setRows.map((row) => row.plannedRestSeconds),
+      setRows.map((row) => row.importedFromLegacyPlan)]);
+  }
+  const units = unitRows.map((row) => ({ id: row.id, logicalKey: row.logicalKey, orderIndex: row.orderIndex }));
   return { revisionId, units };
 }
 
@@ -363,44 +417,49 @@ async function resetCycle(
   `, [planId, userId, revisionId, first.rows[0].id, first.rows[0].order_index, trigger]);
 }
 
-async function loadPlan(db: Pick<pg.Pool | Client, 'query'>, userId: string, planId: string): Promise<TrainingPlan | null> {
+async function loadPlan(db: Pick<pg.Pool, 'query'>, userId: string, planId: string): Promise<TrainingPlan | null> {
   const plans = await db.query<PlanRow>(`${planSummarySelect}
     where plan.user_id=$1 and plan.id=$2 and plan.deleted_at is null
       and plan.current_revision_id is not null`, [userId, planId]);
   const plan = plans.rows[0];
   if (!plan?.current_revision_id) return null;
-  const revisions = await db.query<{
-    id: string; revision_number: number; created_at: Date | string;
-    source_template_revision_id: string | null;
-  }>(`
-    select id,revision_number,created_at,source_template_revision_id from public.training_plan_revisions_v2
-    where id=$1 and plan_id=$2 and user_id=$3
-  `, [plan.current_revision_id, planId, userId]);
+  // The four tree reads only depend on the plan's current revision id, so they run
+  // concurrently on the pool instead of one round trip after another.
+  const revisionId = plan.current_revision_id;
+  const [revisions, units, targetExercises, targetSets] = await Promise.all([
+    db.query<{
+      id: string; revision_number: number; created_at: Date | string;
+      source_template_revision_id: string | null;
+    }>(`
+      select id,revision_number,created_at,source_template_revision_id from public.training_plan_revisions_v2
+      where id=$1 and plan_id=$2 and user_id=$3
+    `, [revisionId, planId, userId]),
+    db.query<{
+      id: string; logical_unit_key: string; name: string;
+      unit_type: TrainingPlan['revision']['units'][number]['unitType']; order_index: number;
+    }>(`select id,logical_unit_key,name,unit_type,order_index from public.training_plan_units_v2
+        where revision_id=$1 and plan_id=$2 and user_id=$3 order by order_index`,
+    [revisionId, planId, userId]),
+    db.query<{
+      id: string; unit_id: string; logical_target_exercise_key: string;
+      exercise_id: string; order_index: number; note: string | null;
+    }>(`select id,unit_id,logical_target_exercise_key,exercise_id,order_index,note
+        from public.training_plan_exercises_v2
+        where revision_id=$1 and plan_id=$2 and user_id=$3 order by unit_id,order_index`,
+    [revisionId, planId, userId]),
+    db.query<{
+      id: string; target_exercise_id: string; logical_target_set_key: string; order_index: number;
+      set_type: 'warmup' | 'work' | 'drop'; target_weight_kg: string | number | null;
+      target_reps_min: number | null; target_reps_max: number | null; target_rir: number | null;
+      planned_rest_seconds: number; imported_from_legacy_plan: boolean;
+    }>(`select id,target_exercise_id,logical_target_set_key,order_index,set_type,target_weight_kg,
+          target_reps_min,target_reps_max,target_rir,planned_rest_seconds,imported_from_legacy_plan
+        from public.training_plan_target_sets_v2
+        where revision_id=$1 and plan_id=$2 and user_id=$3 order by target_exercise_id,order_index`,
+    [revisionId, planId, userId]),
+  ]);
   const revision = revisions.rows[0];
   if (!revision) return null;
-  const units = await db.query<{
-    id: string; logical_unit_key: string; name: string;
-    unit_type: TrainingPlan['revision']['units'][number]['unitType']; order_index: number;
-  }>(`select id,logical_unit_key,name,unit_type,order_index from public.training_plan_units_v2
-      where revision_id=$1 and plan_id=$2 and user_id=$3 order by order_index`,
-  [revision.id, planId, userId]);
-  const targetExercises = await db.query<{
-    id: string; unit_id: string; logical_target_exercise_key: string;
-    exercise_id: string; order_index: number; note: string | null;
-  }>(`select id,unit_id,logical_target_exercise_key,exercise_id,order_index,note
-      from public.training_plan_exercises_v2
-      where revision_id=$1 and plan_id=$2 and user_id=$3 order by unit_id,order_index`,
-  [revision.id, planId, userId]);
-  const targetSets = await db.query<{
-    id: string; target_exercise_id: string; logical_target_set_key: string; order_index: number;
-    set_type: 'warmup' | 'work' | 'drop'; target_weight_kg: string | number | null;
-    target_reps_min: number | null; target_reps_max: number | null; target_rir: number | null;
-    planned_rest_seconds: number; imported_from_legacy_plan: boolean;
-  }>(`select id,target_exercise_id,logical_target_set_key,order_index,set_type,target_weight_kg,
-        target_reps_min,target_reps_max,target_rir,planned_rest_seconds,imported_from_legacy_plan
-      from public.training_plan_target_sets_v2
-      where revision_id=$1 and plan_id=$2 and user_id=$3 order by target_exercise_id,order_index`,
-  [revision.id, planId, userId]);
   const parsed = trainingPlanSchema.safeParse({
     ...mapTrainingPlanSummary(plan),
     revision: {

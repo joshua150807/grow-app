@@ -36,7 +36,7 @@ export function TodoItem({ todo, onToggle, onDelete, onEdit }) {
             style={styles.checkboxTapArea}
             activeScale={0.92}
             activeOpacity={0.86}
-            onPressIn={handleToggle}
+            onPress={handleToggle}
             hitSlop={{ top: s(8), bottom: s(8), left: s(8), right: s(8) }}
             pressRetentionOffset={{ top: s(24), bottom: s(24), left: s(24), right: s(24) }}
             accessibilityRole="checkbox"

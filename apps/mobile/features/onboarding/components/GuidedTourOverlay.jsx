@@ -43,7 +43,10 @@ function getHighlightLayout(targetRect, dimensions) {
   };
 }
 
-function getBubbleLayout(targetRect, dimensions, insets) {
+// bubbleHeight is the measured height of the rendered bubble (falls back to an estimate
+// before the first layout). Placing it with a fixed estimate pushed bubbles with longer
+// explanations partly off-screen, cutting off the text and buttons.
+function getBubbleLayout(targetRect, dimensions, insets, bubbleHeight = ESTIMATED_BUBBLE_HEIGHT) {
   const safeTop = Math.max(insets.top + sv(10), sv(34));
   const safeBottom = Math.max(insets.bottom + sv(18), sv(28));
   const availableWidth = Math.max(dimensions.width - BUBBLE_MARGIN * 2, s(260));
@@ -57,7 +60,7 @@ function getBubbleLayout(targetRect, dimensions, insets) {
         top: clamp(
           dimensions.height * 0.54,
           safeTop,
-          dimensions.height - ESTIMATED_BUBBLE_HEIGHT - safeBottom
+          dimensions.height - bubbleHeight - safeBottom
         ),
       },
       arrowStyle: null,
@@ -68,7 +71,7 @@ function getBubbleLayout(targetRect, dimensions, insets) {
   const targetCenterX = targetRect.x + targetRect.width / 2;
   const spaceAbove = targetRect.y - safeTop;
   const spaceBelow = dimensions.height - (targetRect.y + targetRect.height) - safeBottom;
-  const shouldShowBelow = spaceBelow >= ESTIMATED_BUBBLE_HEIGHT || spaceBelow >= spaceAbove;
+  const shouldShowBelow = spaceBelow >= bubbleHeight || spaceBelow >= spaceAbove;
 
   const bubbleLeft = clamp(
     targetCenterX - bubbleWidth / 2,
@@ -78,12 +81,12 @@ function getBubbleLayout(targetRect, dimensions, insets) {
 
   const preferredTop = shouldShowBelow
     ? targetRect.y + targetRect.height + TARGET_GAP
-    : targetRect.y - ESTIMATED_BUBBLE_HEIGHT - TARGET_GAP;
+    : targetRect.y - bubbleHeight - TARGET_GAP;
 
   const bubbleTop = clamp(
     preferredTop,
     safeTop,
-    dimensions.height - ESTIMATED_BUBBLE_HEIGHT - safeBottom
+    dimensions.height - bubbleHeight - safeBottom
   );
 
   const arrowLeft = clamp(
@@ -211,9 +214,16 @@ export default function GuidedTourOverlay() {
     [dimensions, targetRect]
   );
 
+  const [bubbleHeight, setBubbleHeight] = useState(ESTIMATED_BUBBLE_HEIGHT);
+  const handleBubbleLayout = (event) => {
+    const nextHeight = event?.nativeEvent?.layout?.height;
+    if (!Number.isFinite(nextHeight) || nextHeight <= 0) return;
+    setBubbleHeight((current) => (Math.abs(current - nextHeight) < 1 ? current : nextHeight));
+  };
+
   const { bubbleStyle, arrowStyle, arrowDirection } = useMemo(
-    () => getBubbleLayout(targetRect, dimensions, insets),
-    [dimensions, insets, targetRect]
+    () => getBubbleLayout(targetRect, dimensions, insets, bubbleHeight),
+    [bubbleHeight, dimensions, insets, targetRect]
   );
 
   const progressLabel = visibleStep ? `${visibleStepIndex + 1} von ${steps.length}` : '';
@@ -237,7 +247,7 @@ export default function GuidedTourOverlay() {
         />
       )}
 
-      <View style={[styles.bubble, bubbleStyle]}>
+      <View style={[styles.bubble, bubbleStyle]} onLayout={handleBubbleLayout}>
         {arrowDirection && (
           <View
             pointerEvents="none"

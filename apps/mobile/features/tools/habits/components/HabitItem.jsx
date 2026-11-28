@@ -54,7 +54,7 @@ export function HabitItem({
             style={styles.checkboxTapArea}
             activeScale={0.92}
             activeOpacity={0.86}
-            onPressIn={handleToggle}
+            onPress={handleToggle}
             hitSlop={{ top: s(10), bottom: s(10), left: s(10), right: s(10) }}
             pressRetentionOffset={{ top: s(24), bottom: s(24), left: s(24), right: s(24) }}
             accessibilityRole="checkbox"

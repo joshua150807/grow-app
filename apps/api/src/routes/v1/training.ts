@@ -45,6 +45,10 @@ export const trainingRoutes: FastifyPluginAsync<TrainingRoutesOptions> = async (
   app.get('/training/exercises', { preHandler: [app.requireAuth] }, async (request) => (
     exerciseService().list(request.auth.user!, request.query)
   ));
+  // Static segment, so Fastify matches it before the :exerciseId route below.
+  app.get('/training/exercises/lookup', { preHandler: [app.requireAuth] }, async (request) => (
+    exerciseService().lookup(request.auth.user!, request.query)
+  ));
   app.get('/training/exercises/:exerciseId', { preHandler: [app.requireAuth] }, async (request) => (
     exerciseService().get(request.auth.user!, request.params)
   ));

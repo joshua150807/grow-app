@@ -47,7 +47,7 @@ test('collection retains one navigation press target, chevron and progress', () 
 });
 
 test('normal Habit interactions remain unchanged', () => {
-  assert.match(habitSource, /onPressIn=\{handleToggle\}/);
+  assert.match(habitSource, /PressableScale[\s\S]*?onPress=\{handleToggle\}/);
   assert.match(habitSource, /style=\{StyleSheet\.absoluteFill\}[\s\S]*?onPress=\{handleToggle\}/);
   assert.match(habitSource, /onEdit\?\.\(habit\)/);
   assert.match(habitSource, /onDelete\(habit\.id\)/);

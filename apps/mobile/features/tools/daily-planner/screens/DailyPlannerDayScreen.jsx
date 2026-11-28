@@ -7,6 +7,7 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -131,12 +132,10 @@ export default function DailyPlannerDayScreen() {
     setModalVisible(true);
   }, [resetModalBaseState]);
 
-  const openEditModal = useCallback((event) => {
+  const presentEditModal = useCallback((event) => {
     const startMinutes = timeToMinutes(event.start_time);
     const endMinutes = timeToMinutes(event.end_time);
     const durationMinutes = Math.max(1, endMinutes - startMinutes);
-
-    setDeleteTarget(null);
 
     setEditingEventId(event.id);
     setModalFromPlus(true);
@@ -157,6 +156,40 @@ export default function DailyPlannerDayScreen() {
     previousModalTimeRef.current = null;
 
     setModalVisible(true);
+  }, []);
+
+  // "Termin bearbeiten" is tapped inside the event action sheet (its own Modal). Presenting
+  // the edit sheet in the same render as that sheet is dismissing is unreliable on iOS (two
+  // modal presentations overlap), which showed up as a broken edit sheet that created new
+  // events instead of updating. The edit sheet is opened only after the action sheet is gone.
+  const pendingEditRef = useRef(null);
+  const pendingEditTimerRef = useRef(null);
+
+  const flushPendingEdit = useCallback(() => {
+    const event = pendingEditRef.current;
+    pendingEditRef.current = null;
+    if (pendingEditTimerRef.current) {
+      clearTimeout(pendingEditTimerRef.current);
+      pendingEditTimerRef.current = null;
+    }
+    if (event) presentEditModal(event);
+  }, [presentEditModal]);
+
+  const openEditModal = useCallback((event) => {
+    if (Platform.OS !== 'ios') {
+      setDeleteTarget(null);
+      presentEditModal(event);
+      return;
+    }
+
+    pendingEditRef.current = event;
+    setDeleteTarget(null);
+    // Fallback in case onDismiss does not fire.
+    pendingEditTimerRef.current = setTimeout(flushPendingEdit, 600);
+  }, [flushPendingEdit, presentEditModal]);
+
+  useEffect(() => () => {
+    if (pendingEditTimerRef.current) clearTimeout(pendingEditTimerRef.current);
   }, []);
 
   const openAddModalFromPlus = useCallback(() => {
@@ -361,6 +394,7 @@ export default function DailyPlannerDayScreen() {
             onClose={() => setDeleteTarget(null)}
             onDelete={handleDelete}
             onEdit={openEditModal}
+            onDismiss={flushPendingEdit}
           />
         </View>
       </ImageBackground>

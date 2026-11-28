@@ -55,6 +55,7 @@ function repository(overrides: Partial<TrainingExerciseRepository> = {}): Traini
   return {
     list: vi.fn(async () => ({ exercises: [exercise], hasMore: false })),
     findVisible: vi.fn(async () => exercise),
+    findVisibleMany: vi.fn(async () => [exercise]),
     create: vi.fn(async () => ({ outcome: 'created' as const, exercise: privateExercise })),
     ...overrides,
   };
@@ -318,6 +319,49 @@ describe('training exercise create API', () => {
   });
 });
 
+describe('training exercise batch lookup API', () => {
+  it('requires authentication', async () => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({ method: 'GET', url: `/v1/training/exercises/lookup?ids=${exerciseId}` });
+    expect(response.statusCode).toBe(401);
+    expect(value.findVisibleMany).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it('resolves comma-separated ids in one repository call and is not shadowed by the detail route', async () => {
+    const value = repository({ findVisibleMany: vi.fn(async () => [exercise, privateExercise]) });
+    const server = app(value);
+    const response = await server.inject({
+      method: 'GET',
+      url: `/v1/training/exercises/lookup?ids=${exerciseId},${privateExercise.id},${exerciseId}`,
+      headers,
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ exercises: [exercise, privateExercise] });
+    expect(value.findVisibleMany).toHaveBeenCalledOnce();
+    expect(value.findVisibleMany).toHaveBeenCalledWith(user.id, [exerciseId, privateExercise.id]);
+    expect(value.findVisible).not.toHaveBeenCalled();
+    await server.close();
+  });
+
+  it.each([
+    '/v1/training/exercises/lookup',
+    '/v1/training/exercises/lookup?ids=',
+    '/v1/training/exercises/lookup?ids=not-a-uuid',
+    `/v1/training/exercises/lookup?ids=${exerciseId}&extra=1`,
+    `/v1/training/exercises/lookup?ids=${Array.from({ length: 101 }, () => exerciseId).join(',')}`,
+  ])('rejects invalid lookup query %s', async (url) => {
+    const value = repository();
+    const server = app(value);
+    const response = await server.inject({ method: 'GET', url, headers });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe('TRAINING_EXERCISE_VALIDATION_ERROR');
+    expect(value.findVisibleMany).not.toHaveBeenCalled();
+    await server.close();
+  });
+});
+
 describe('training exercise repository', () => {
   const row: TrainingExerciseRow = {
     id: exerciseId,
@@ -389,6 +433,18 @@ describe('training exercise repository', () => {
     expect(parameters).toEqual([user.id, exerciseId]);
     expect(sql).not.toMatch(/\b(insert|update|delete)\b/i);
     expect(sql).not.toContain('public.exercises ');
+  });
+
+  it('uses the owner-safe visibility predicate for batch lookups', async () => {
+    const query = vi.fn(async () => ({ rows: [] }));
+    const value = createTrainingExerciseRepository({ query } as never);
+    expect(await value.findVisibleMany(user.id, [exerciseId])).toEqual([]);
+    const [sql, parameters] = query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(sql).toContain("exercise.scope = 'user' and exercise.owner_user_id = $1");
+    expect(sql).toContain('exercise.id = any($2::uuid[])');
+    expect(parameters).toEqual([user.id, [exerciseId]]);
+    expect(await value.findVisibleMany(user.id, [])).toEqual([]);
+    expect(query).toHaveBeenCalledOnce();
   });
 
   it('inserts a scope=user row with the given category and an on-conflict target matching the partial unique index', async () => {
