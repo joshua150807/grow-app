@@ -26,3 +26,19 @@ export async function loadAdminVideoAnalytics(limit = 100) {
     score: Number(item.score ?? 0),
   }));
 }
+// Fallback for the CEO dashboard preview when the analytics RPC row carries no video_url.
+export async function resolveAdminVideoUrl(videoId) {
+  if (!videoId) return null;
+
+  const { data, error } = await supabase
+    .from('videos')
+    .select('video_url')
+    .eq('id', videoId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data?.video_url ?? null;
+}

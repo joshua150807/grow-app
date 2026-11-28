@@ -18,6 +18,7 @@ import { s, sv, sf } from '../../../constants/layout';
 import { loadAdminVideoAnalytics } from '../services/adminVideoAnalytics';
 
 import AdminVideoAnalyticsCard from '../components/AdminVideoAnalyticsCard';
+import AdminVideoPlayerModal from '../components/AdminVideoPlayerModal';
 import AdminLoadingState from '../components/AdminLoadingState';
 import AdminEmptyState from '../components/AdminEmptyState';
 import AdminSummaryBox from '../components/AdminSummaryBox';
@@ -198,8 +199,11 @@ export default function AdminVideoAnalyticsScreen() {
     </>
   ), [changeSortMode, errorText, loadVideos, sortMode, summary.ratings, summary.saves, summary.views, videos.length]);
 
+  const [playingVideo, setPlayingVideo] = useState(null);
+  const closePlayer = useCallback(() => setPlayingVideo(null), []);
+
   const renderVideo = useCallback(({ item }) => (
-    <AdminVideoAnalyticsCard video={item} />
+    <AdminVideoAnalyticsCard video={item} onPlay={setPlayingVideo} />
   ), []);
 
   const keyExtractor = useCallback((item, index) => {
@@ -244,6 +248,7 @@ export default function AdminVideoAnalyticsScreen() {
           />
         }
       />
+      <AdminVideoPlayerModal video={playingVideo} onClose={closePlayer} />
     </View>
   );
 }

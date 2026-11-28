@@ -1,14 +1,20 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
 
 import { COLORS } from '../../../constants/colors';
 import { s, sv, sf } from '../../../constants/layout';
 
-export default function AdminVideoAnalyticsCard({ video }) {
+export default function AdminVideoAnalyticsCard({ video, onPlay }) {
   return (
     <View style={styles.card}>
       <View style={styles.topRow}>
-        <View style={styles.thumbnailBox}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Video ${video.title} ansehen`}
+          disabled={!onPlay}
+          onPress={() => onPlay?.(video)}
+          style={({ pressed }) => [styles.thumbnailBox, pressed && styles.thumbnailPressed]}
+        >
           {video.thumbnailUrl ? (
             <Image
               source={{ uri: video.thumbnailUrl }}
@@ -18,7 +24,12 @@ export default function AdminVideoAnalyticsCard({ video }) {
           ) : (
             <Ionicons name="videocam-outline" size={s(28)} color={COLORS.softGold} />
           )}
-        </View>
+          {onPlay ? (
+            <View pointerEvents="none" style={styles.playBadge}>
+              <Ionicons name="play" size={s(16)} color={COLORS.black} />
+            </View>
+          ) : null}
+        </Pressable>
 
         <View style={styles.videoInfo}>
           <Text style={styles.title} numberOfLines={2}>
@@ -28,6 +39,18 @@ export default function AdminVideoAnalyticsCard({ video }) {
           <Text style={styles.scoreText}>
             Score: {video.score > 0 ? video.score.toFixed(1) : '—'} / 5
           </Text>
+
+          {onPlay ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => onPlay(video)}
+              hitSlop={s(6)}
+              style={({ pressed }) => [styles.watchButton, pressed && styles.thumbnailPressed]}
+            >
+              <Ionicons name="play-circle-outline" size={s(15)} color={COLORS.gold} />
+              <Text style={styles.watchButtonText}>Video ansehen</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
 
@@ -102,6 +125,35 @@ const styles = StyleSheet.create({
   thumbnail: {
     width: '100%',
     height: '100%',
+  },
+  thumbnailPressed: {
+    opacity: 0.75,
+  },
+  playBadge: {
+    position: 'absolute',
+    width: s(30),
+    height: s(30),
+    borderRadius: s(15),
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(231,201,138,0.92)',
+  },
+  watchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: s(5),
+    marginTop: sv(8),
+    paddingVertical: sv(5),
+    paddingHorizontal: s(10),
+    borderRadius: s(999),
+    borderWidth: 1,
+    borderColor: COLORS.goldBorder,
+  },
+  watchButtonText: {
+    color: COLORS.gold,
+    fontSize: sf(12),
+    fontWeight: '700',
   },
   videoInfo: {
     flex: 1,
