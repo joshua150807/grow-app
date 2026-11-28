@@ -7,9 +7,11 @@ const source = fs.readFileSync(path.resolve(__dirname, './HabitItem.jsx'), 'utf8
 const checkboxControl = source.match(/<PressableScale[\s\S]*?accessibilityState=\{\{ checked: !!done \}\}[\s\S]*?>/)?.[0] ?? '';
 const cardControl = source.match(/<Pressable\s+style=\{StyleSheet\.absoluteFill\}[\s\S]*?\/>/)?.[0] ?? '';
 
-test('check control toggles on finger contact through onPressIn', () => {
-  assert.match(checkboxControl, /onPressIn=\{handleToggle\}/);
-  assert.doesNotMatch(checkboxControl, /\bonPress=/);
+// Toggling on finger contact (onPressIn) also fired when a scroll gesture started on the
+// checkbox. onPress only fires for a real tap and is cancelled once the list scrolls.
+test('check control toggles through onPress so scrolling over it does not toggle', () => {
+  assert.match(checkboxControl, /onPress=\{handleToggle\}/);
+  assert.doesNotMatch(checkboxControl, /\bonPressIn=/);
   assert.doesNotMatch(checkboxControl, /\bonPressOut=/);
 });
 
@@ -74,7 +76,7 @@ test('one card press and one check press each call the shared handler once', () 
   const handler = source.match(/const handleToggle = \(\) => \{[\s\S]*?\n  \};/)?.[0] ?? '';
   assert.equal((handler.match(/onToggle\(habit\.id\)/g) ?? []).length, 1);
   assert.equal((cardControl.match(/onPress=\{handleToggle\}/g) ?? []).length, 1);
-  assert.equal((checkboxControl.match(/onPressIn=\{handleToggle\}/g) ?? []).length, 1);
+  assert.equal((checkboxControl.match(/onPress=\{handleToggle\}/g) ?? []).length, 1);
 });
 
 test('touch component contains no disabled, debounce or timeout behavior', () => {

@@ -157,17 +157,32 @@ export default function LeitfragenQuestionDetailScreen({ initialQuestionKey = nu
     scrollQuestionToTop(false);
   }, [initialQuestionKey, pageTurn, scrollQuestionToTop]);
 
-  useEffect(() => {
-    if (!questionPage) {
-      setAnswer('');
-      setFormError(null);
-      return;
-    }
+  // Load the stored answer only when the page changes. Stored answers keep changing in the
+  // background (cache read, remote load, pending sync, save response) — re-applying them on
+  // every change replaced what the user was typing with an older/shorter text, so lines
+  // vanished mid-typing (and replacing a focused multiline input's text under the cursor
+  // can crash iOS). Background updates are only applied while the user has not edited.
+  const editedRef = useRef(false);
+  const questionKey = questionPage?.key ?? null;
+  const storedAnswer = questionKey ? (answersByKey[questionKey]?.answer || '') : '';
 
-    setAnswer(answersByKey[questionPage.key]?.answer || '');
+  useEffect(() => {
+    editedRef.current = false;
+    setAnswer(storedAnswer);
     setFormError(null);
     scrollQuestionToTop(false);
-  }, [questionPage, scrollQuestionToTop, answersByKey]);
+    // Only on page change; storedAnswer is applied by the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [questionKey, scrollQuestionToTop]);
+
+  useEffect(() => {
+    if (!editedRef.current) setAnswer(storedAnswer);
+  }, [storedAnswer]);
+
+  const handleChangeAnswer = useCallback((nextAnswer) => {
+    editedRef.current = true;
+    setAnswer(nextAnswer);
+  }, []);
 
   const resetPageState = useCallback(() => {
     setFormError(null);
@@ -398,6 +413,14 @@ export default function LeitfragenQuestionDetailScreen({ initialQuestionKey = nu
 
     try {
       await saveAnswer({ questionKey: questionPage.key, answer: trimmedAnswer });
+      // Saved text is now the stored answer again, unless the user kept typing meanwhile.
+      setAnswer((current) => {
+        if (current.trim() === trimmedAnswer) {
+          editedRef.current = false;
+          return trimmedAnswer;
+        }
+        return current;
+      });
     } catch (e) {
       setFormError('Leitfrage konnte nicht gespeichert werden. Bitte versuche es erneut.');
     } finally {
@@ -486,7 +509,7 @@ export default function LeitfragenQuestionDetailScreen({ initialQuestionKey = nu
                     <LeitfragenQuestionPage
                       questionPage={questionPage}
                       answer={answer}
-                      onChangeAnswer={setAnswer}
+                      onChangeAnswer={handleChangeAnswer}
                       inputGestureProps={inputGestureProps}
                       onTextInputTouchEnd={handleTextInputTouchEnd}
                       formError={formError}

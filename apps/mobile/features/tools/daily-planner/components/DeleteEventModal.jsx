@@ -4,13 +4,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../../../constants/colors';
 import { s, sv, sf } from '../../../../constants/layout';
 
-export function DeleteEventModal({ event, onClose, onDelete, onEdit }) {
+export function DeleteEventModal({ event, onClose, onDelete, onEdit, onDismiss }) {
   return (
     <Modal
       visible={!!event}
       transparent
       animationType="fade"
       onRequestClose={onClose}
+      onDismiss={onDismiss}
     >
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable style={styles.sheet} onPress={() => {}}>
